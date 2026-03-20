@@ -79,7 +79,11 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
   const domain = getDomain(article.link);
 
   return (
-    <div ref={ref} className="relative w-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
+    <motion.div 
+      ref={ref} 
+      style={{ background }}
+      className="relative w-full overflow-hidden border-b border-gray-200 dark:border-gray-800"
+    >
       {/* Background Actions */}
       <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
         <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
@@ -143,6 +147,6 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
           )}
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

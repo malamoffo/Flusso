@@ -3,7 +3,6 @@ import { ArrowLeft, ExternalLink, Share2, FileText, AlignLeft, Sparkles, X } fro
 import { Article, FullArticleContent } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
-import { FastAverageColor } from 'fast-average-color';
 import DOMPurify from 'dompurify';
 import { GoogleGenAI } from "@google/genai";
 import { CapacitorHttp } from '@capacitor/core';
@@ -17,12 +16,10 @@ interface ArticleReaderProps {
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [themeColor, setThemeColor] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'full' | 'snippet'>('full');
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { settings } = useRss();
-  const imgRef = useRef<HTMLImageElement>(null);
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -133,23 +130,6 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     fetchFullContent();
   }, [article.link]);
 
-  useEffect(() => {
-    if (article.imageUrl) {
-      const fac = new FastAverageColor();
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.src = article.imageUrl;
-      img.onload = () => {
-        try {
-          const color = fac.getColor(img);
-          setThemeColor(color.hex);
-        } catch (e) {
-          console.error("Failed to get image color", e);
-        }
-      };
-    }
-  }, [article.imageUrl]);
-
   const sanitizedContent = fullContent?.content ? DOMPurify.sanitize(fullContent.content, {
     ADD_ATTR: ['style'],
     ADD_TAGS: ['video', 'audio', 'source'],
@@ -165,20 +145,10 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words"
-      style={themeColor ? { 
-        backgroundColor: themeColor,
-      } : {}}
     >
-      <div 
-        className="absolute inset-0 z-0 pointer-events-none"
-        style={themeColor ? { 
-          background: `radial-gradient(circle at 50% -20%, ${themeColor}40, transparent 70%), linear-gradient(to bottom, ${themeColor}10, transparent)`
-        } : {}}
-      />
       {/* Top App Bar */}
       <div 
         className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between transition-colors"
-        style={themeColor ? { backgroundColor: `${themeColor}20`, borderBottomColor: `${themeColor}40` } : {}}
       >
         <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
