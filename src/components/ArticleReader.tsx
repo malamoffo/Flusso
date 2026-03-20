@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ExternalLink, Share2 } from 'lucide-react';
 import { Article, FullArticleContent } from '../types';
 import { motion } from 'framer-motion';
+import { useRss } from '../context/RssContext';
 
 interface ArticleReaderProps {
   article: Article;
@@ -11,6 +12,27 @@ interface ArticleReaderProps {
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { settings } = useRss();
+
+  const getProseSize = () => {
+    switch (settings.fontSize) {
+      case 'small': return 'prose-sm';
+      case 'medium': return 'prose-base';
+      case 'large': return 'prose-lg';
+      case 'xlarge': return 'prose-xl';
+      default: return 'prose-base';
+    }
+  };
+
+  const getTitleSize = () => {
+    switch (settings.fontSize) {
+      case 'small': return 'text-xl';
+      case 'medium': return 'text-2xl';
+      case 'large': return 'text-3xl';
+      case 'xlarge': return 'text-4xl';
+      default: return 'text-2xl';
+    }
+  };
 
   useEffect(() => {
     const fetchFullContent = async () => {
@@ -37,21 +59,21 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-50 bg-white overflow-y-auto flex flex-col"
+      className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto flex flex-col transition-colors"
     >
       {/* Top App Bar */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100">
-          <ArrowLeft className="w-6 h-6 text-gray-800" />
+      <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between transition-colors">
+        <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+          <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
         <div className="flex items-center gap-2">
           <a 
             href={article.link} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-2 rounded-full hover:bg-gray-100"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
           >
-            <ExternalLink className="w-5 h-5 text-gray-800" />
+            <ExternalLink className="w-5 h-5 text-gray-800 dark:text-gray-200" />
           </a>
           <button 
             onClick={() => {
@@ -59,16 +81,16 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
                 navigator.share({ title: article.title, url: article.link });
               }
             }}
-            className="p-2 rounded-full hover:bg-gray-100"
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
           >
-            <Share2 className="w-5 h-5 text-gray-800" />
+            <Share2 className="w-5 h-5 text-gray-800 dark:text-gray-200" />
           </button>
         </div>
       </div>
 
       {/* Article Content */}
       <div className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+        <h1 className={`${getTitleSize()} font-bold text-gray-900 dark:text-white mb-4 leading-tight`}>
           {article.title}
         </h1>
         
@@ -83,22 +105,22 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
 
         {isLoading ? (
           <div className="space-y-4 animate-pulse mt-8">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-40 bg-gray-200 rounded w-full mt-6"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-5/6"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+            <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded w-full mt-6"></div>
           </div>
         ) : fullContent?.content ? (
           <div 
-            className="prose prose-lg prose-indigo max-w-none 
+            className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-none 
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover
-              prose-a:text-indigo-600 prose-headings:font-bold"
+              prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-headings:font-bold`}
             dangerouslySetInnerHTML={{ __html: fullContent.content }}
           />
         ) : (
           <div 
-            className="prose prose-lg prose-indigo max-w-none"
+            className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-none`}
             dangerouslySetInnerHTML={{ __html: article.content || article.contentSnippet || 'No content available.' }}
           />
         )}

@@ -1,3 +1,16 @@
+export type SwipeAction = 'toggleRead' | 'toggleFavorite' | 'none';
+export type ImageDisplay = 'none' | 'small' | 'large';
+export type Theme = 'light' | 'dark' | 'system';
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';
+
+export interface Settings {
+  theme: Theme;
+  swipeLeftAction: SwipeAction;
+  swipeRightAction: SwipeAction;
+  imageDisplay: ImageDisplay;
+  fontSize: FontSize;
+}
+
 export interface Feed {
   id: string;
   title: string;

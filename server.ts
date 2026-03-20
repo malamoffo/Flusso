@@ -30,11 +30,25 @@ async function startServer() {
       if (!feedUrl) {
         return res.status(400).json({ error: "Missing feed URL" });
       }
-      const feed = await parser.parseURL(feedUrl);
+      
+      const response = await fetch(feedUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "Accept": "application/rss+xml, application/xml, text/xml, */*"
+        },
+        signal: AbortSignal.timeout(15000)
+      });
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: `Source returned ${response.status}` });
+      }
+      
+      const xml = await response.text();
+      const feed = await parser.parseString(xml);
       res.json(feed);
     } catch (error) {
-      console.error("Error parsing feed:", error);
-      res.status(500).json({ error: "Failed to parse feed" });
+      console.error(`Error parsing feed ${req.query.url}:`, error);
+      res.status(500).json({ error: "Failed to parse feed", details: error instanceof Error ? error.message : String(error) });
     }
   });
 

@@ -13,7 +13,7 @@ interface SwipeableArticleProps {
 }
 
 export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticleProps) {
-  const { toggleRead, toggleFavorite } = useRss();
+  const { toggleRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
   // Background colors based on swipe direction
@@ -26,24 +26,58 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 80;
     if (info.offset.x > threshold) {
-      // Swiped right - Toggle Read
-      toggleRead(article.id);
+      // Swiped right
+      if (settings.swipeRightAction === 'toggleRead') toggleRead(article.id);
+      else if (settings.swipeRightAction === 'toggleFavorite') toggleFavorite(article.id);
     } else if (info.offset.x < -threshold) {
-      // Swiped left - Toggle Favorite
-      toggleFavorite(article.id);
+      // Swiped left
+      if (settings.swipeLeftAction === 'toggleRead') toggleRead(article.id);
+      else if (settings.swipeLeftAction === 'toggleFavorite') toggleFavorite(article.id);
     }
   };
 
+  const getTitleSize = () => {
+    switch (settings.fontSize) {
+      case 'small': return 'text-sm';
+      case 'large': return 'text-lg';
+      case 'xlarge': return 'text-xl';
+      case 'medium':
+      default: return 'text-base';
+    }
+  };
+
+  const getSnippetSize = () => {
+    switch (settings.fontSize) {
+      case 'small': return 'text-xs';
+      case 'large': return 'text-base';
+      case 'xlarge': return 'text-lg';
+      case 'medium':
+      default: return 'text-sm';
+    }
+  };
+
+  const getDomain = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const domain = getDomain(article.link);
+
   return (
-    <div className="relative w-full overflow-hidden bg-gray-100 border-b border-gray-200">
+    <div className="relative w-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
       {/* Background Actions */}
       <div className="absolute inset-0 flex items-center justify-between px-6">
-        <div className="flex items-center text-blue-600 font-medium">
+        <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
           <Check className="w-6 h-6 mr-2" />
-          {article.isRead ? 'Mark Unread' : 'Mark Read'}
+          {settings.swipeRightAction === 'toggleRead' ? (article.isRead ? 'Mark Unread' : 'Mark Read') : 
+           settings.swipeRightAction === 'toggleFavorite' ? (article.isFavorite ? 'Unfavorite' : 'Favorite') : ''}
         </div>
-        <div className="flex items-center text-amber-600 font-medium">
-          {article.isFavorite ? 'Unfavorite' : 'Favorite'}
+        <div className="flex items-center text-amber-600 dark:text-amber-400 font-medium">
+          {settings.swipeLeftAction === 'toggleRead' ? (article.isRead ? 'Mark Unread' : 'Mark Read') : 
+           settings.swipeLeftAction === 'toggleFavorite' ? (article.isFavorite ? 'Unfavorite' : 'Favorite') : ''}
           <Star className="w-6 h-6 ml-2" />
         </div>
       </div>
@@ -56,28 +90,40 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         onClick={onClick}
-        className={`relative w-full bg-white p-4 cursor-pointer shadow-sm ${article.isRead ? 'opacity-60' : 'opacity-100'}`}
+        className={`relative w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
       >
-        <div className="flex gap-4">
-          {article.imageUrl && (
+        <div className={`flex ${settings.imageDisplay === 'large' ? 'flex-col' : 'gap-4'}`}>
+          {article.imageUrl && settings.imageDisplay !== 'none' && (
             <img 
               src={article.imageUrl} 
               alt="" 
-              className="w-20 h-20 object-cover rounded-lg flex-shrink-0 bg-gray-100"
+              className={`${settings.imageDisplay === 'large' ? 'w-full h-48 mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity ${article.isRead ? 'opacity-50 grayscale' : 'opacity-100'}`}
               referrerPolicy="no-referrer"
             />
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-indigo-600 truncate">{feedName}</span>
-              <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                {domain && (
+                  <img 
+                    src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} 
+                    alt="" 
+                    className={`w-4 h-4 rounded-sm flex-shrink-0 ${article.isRead ? 'opacity-50 grayscale' : 'opacity-100'}`}
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <span className={`text-xs font-medium truncate ${article.isRead ? 'text-gray-500 dark:text-gray-500' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                  {feedName}
+                </span>
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
                 {formatDistanceToNow(article.pubDate, { addSuffix: true })}
               </span>
             </div>
-            <h3 className={`text-base font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-600' : 'text-gray-900'}`}>
+            <h3 className={`${getTitleSize()} font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
               {article.title}
             </h3>
-            <p className="text-sm text-gray-500 line-clamp-2">
+            <p className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 line-clamp-2`}>
               {article.contentSnippet}
             </p>
           </div>

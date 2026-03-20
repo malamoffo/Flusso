@@ -1,11 +1,29 @@
 import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
-import { Feed, Article } from '../types';
+import { Feed, Article, Settings } from '../types';
 
 const FEEDS_KEY = 'rss_feeds';
 const ARTICLES_KEY = 'rss_articles';
+const SETTINGS_KEY = 'rss_settings';
+
+export const defaultSettings: Settings = {
+  theme: 'system',
+  swipeLeftAction: 'toggleFavorite',
+  swipeRightAction: 'toggleRead',
+  imageDisplay: 'small',
+  fontSize: 'medium'
+};
 
 export const storage = {
+  async getSettings(): Promise<Settings> {
+    const stored = await get<Settings>(SETTINGS_KEY);
+    return { ...defaultSettings, ...stored };
+  },
+
+  async saveSettings(settings: Settings): Promise<void> {
+    await set(SETTINGS_KEY, settings);
+  },
+
   async getFeeds(): Promise<Feed[]> {
     return (await get<Feed[]>(FEEDS_KEY)) || [];
   },
@@ -24,9 +42,19 @@ export const storage = {
 
   async addFeed(feedUrl: string): Promise<{ feed: Feed; articles: Article[] }> {
     const response = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
-    if (!response.ok) throw new Error('Failed to fetch feed');
+    const text = await response.text();
     
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse JSON response:', text.substring(0, 200));
+      throw new Error(`Invalid server response (Status ${response.status})`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || data.details || 'Failed to fetch feed');
+    }
     
     const newFeed: Feed = {
       id: uuidv4(),
