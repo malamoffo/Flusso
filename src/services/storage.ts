@@ -59,7 +59,14 @@ export const storage = {
   },
 
   async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
-    const response = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+    const apiUrl = `/api/v1/feed?url=${encodeURIComponent(feedUrl)}`;
+    console.log(`[STORAGE] Fetching feed from: ${apiUrl}`);
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
     const text = await response.text();
     const contentType = response.headers.get('content-type');
     
@@ -71,12 +78,13 @@ export const storage = {
         errorData = { error: text || `HTTP error ${response.status}` };
       }
       const errorMsg = errorData.error || errorData.details || `Failed to fetch feed: ${response.status}`;
+      console.error(`[STORAGE] API Error: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
     if (contentType && !contentType.includes('application/json')) {
       const errorMsg = `Expected JSON response from server but got ${contentType} (Status: ${response.status}). Response start: ${text.substring(0, 500)}`;
-      console.error(errorMsg);
+      console.error(`[STORAGE] API Error: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 

@@ -11,16 +11,18 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  console.log(`[SERVER] Starting in ${process.env.NODE_ENV || 'development'} mode`);
+  console.log(`[SERVER] Starting in ${process.env.NODE_ENV || 'development'} mode. Server ID: ${Math.random().toString(36).substring(7)}`);
 
   app.use(cors());
   app.use(express.json());
 
-  // Request Logger
+  // Request Logger - MUST BE FIRST
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api/')) {
-      console.log(`[SERVER] ${req.method} ${req.url}`);
-    }
+    console.log(`[SERVER] ${req.method} ${req.url} - Headers: ${JSON.stringify({
+      'host': req.headers.host,
+      'x-forwarded-proto': req.headers['x-forwarded-proto'],
+      'content-type': req.headers['content-type']
+    })}`);
     next();
   });
 
@@ -30,14 +32,15 @@ async function startServer() {
     },
   });
 
-  // API Routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+  // API Routes - DEFINED BEFORE VITE/STATIC
+  app.get("/api/v1/health", (req, res) => {
+    console.log("[API] Health check");
+    res.json({ status: "ok", timestamp: new Date().toISOString(), env: process.env.NODE_ENV, serverId: 'flusso-v1' });
   });
 
-  app.get("/api/feed", async (req, res) => {
+  app.get("/api/v1/feed", async (req, res) => {
     const feedUrl = req.query.url as string;
-    console.log(`[API] Fetching feed: ${feedUrl}`);
+    console.log(`[API] GET /api/v1/feed - url: ${feedUrl}`);
     try {
       if (!feedUrl) {
         return res.status(400).json({ error: "Missing feed URL" });
@@ -147,9 +150,10 @@ async function startServer() {
     }
   });
 
-  app.get("/api/article", async (req, res) => {
+  app.get("/api/v1/article", async (req, res) => {
     try {
       const articleUrl = req.query.url as string;
+      console.log(`[API] GET /api/v1/article - url: ${articleUrl}`);
       if (!articleUrl) {
         return res.status(400).json({ error: "Missing article URL" });
       }

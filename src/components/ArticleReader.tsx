@@ -69,13 +69,25 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     const fetchFullContent = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/article?url=${encodeURIComponent(article.link)}`);
-        if (response.ok) {
+        const apiUrl = `/api/v1/article?url=${encodeURIComponent(article.link)}`;
+        console.log(`[READER] Fetching article from: ${apiUrl}`);
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        const contentType = response.headers.get('content-type');
+        if (response.ok && contentType?.includes('application/json')) {
           const data = await response.json();
           setFullContent(data);
+        } else {
+          const text = await response.text();
+          console.error(`[READER] API Error: Expected JSON but got ${contentType} (Status: ${response.status}). Response start: ${text.substring(0, 200)}`);
         }
       } catch (error) {
-        console.error("Failed to fetch full article", error);
+        console.error("[READER] Failed to fetch full article", error);
       } finally {
         setIsLoading(false);
       }
