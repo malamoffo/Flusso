@@ -69,7 +69,8 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     const fetchFullContent = async () => {
       try {
         setIsLoading(true);
-        const apiUrl = `/api/v1/article?url=${encodeURIComponent(article.link)}`;
+        const baseUrl = settings.backendUrl || process.env.VITE_API_BASE_URL || '';
+        const apiUrl = `${baseUrl}/api/v1/article?url=${encodeURIComponent(article.link)}`;
         console.log(`[READER] Fetching article from: ${apiUrl}`);
         const response = await fetch(apiUrl, {
           headers: {

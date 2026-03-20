@@ -59,7 +59,9 @@ export const storage = {
   },
 
   async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
-    const apiUrl = `/api/v1/feed?url=${encodeURIComponent(feedUrl)}`;
+    const settings = await this.getSettings();
+    const baseUrl = settings.backendUrl || process.env.VITE_API_BASE_URL || '';
+    const apiUrl = `${baseUrl}/api/v1/feed?url=${encodeURIComponent(feedUrl)}`;
     console.log(`[STORAGE] Fetching feed from: ${apiUrl}`);
     
     // We use a custom event to send logs to the UI since storage.ts is not a React component

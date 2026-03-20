@@ -230,16 +230,32 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
                 {/* Background Refresh Settings */}
                 <section>
-                  <h3 className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3">Background Refresh</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Update Interval
-                    </label>
-                    <select
-                      value={settings.refreshInterval}
-                      onChange={handleRefreshIntervalChange}
-                      className="block w-full pl-3 pr-10 py-3 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
-                    >
+                  <h3 className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3">Backend Configuration</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Server URL (for Android/Native)
+                      </label>
+                      <input 
+                        type="url"
+                        placeholder="https://your-app.run.app"
+                        value={settings.backendUrl || ''}
+                        onChange={(e) => updateSettings({ backendUrl: e.target.value })}
+                        className="block w-full px-3 py-3 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                      <p className="mt-1 text-[10px] text-gray-500">
+                        Leave empty for web version. Required for Android to reach the server.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Update Interval
+                      </label>
+                      <select
+                        value={settings.refreshInterval}
+                        onChange={handleRefreshIntervalChange}
+                        className="block w-full pl-3 pr-10 py-3 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                      >
                       <option value={0}>Manual Only</option>
                       <option value={15}>Every 15 minutes</option>
                       <option value={30}>Every 30 minutes</option>
@@ -249,7 +265,8 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <option value={1440}>Every 24 hours</option>
                     </select>
                   </div>
-                </section>
+                </div>
+              </section>
 
                 {/* Gestures Settings */}
                 <section>
