@@ -1,0 +1,86 @@
+import express from "express";
+import cors from "cors";
+import Parser from "rss-parser";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(cors());
+  app.use(express.json());
+
+  const parser = new Parser({
+    customFields: {
+      item: ["media:content", "media:thumbnail", "content:encoded", "description"],
+    },
+  });
+
+  // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  app.get("/api/feed", async (req, res) => {
+    try {
+      const feedUrl = req.query.url as string;
+      if (!feedUrl) {
+        return res.status(400).json({ error: "Missing feed URL" });
+      }
+      const feed = await parser.parseURL(feedUrl);
+      res.json(feed);
+    } catch (error) {
+      console.error("Error parsing feed:", error);
+      res.status(500).json({ error: "Failed to parse feed" });
+    }
+  });
+
+  app.get("/api/article", async (req, res) => {
+    try {
+      const articleUrl = req.query.url as string;
+      if (!articleUrl) {
+        return res.status(400).json({ error: "Missing article URL" });
+      }
+      
+      const response = await fetch(articleUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      
+      const html = await response.text();
+      const doc = new JSDOM(html, { url: articleUrl });
+      const reader = new Readability(doc.window.document);
+      const article = reader.parse();
+      
+      res.json(article);
+    } catch (error) {
+      console.error("Error fetching article:", error);
+      res.status(500).json({ error: "Failed to fetch article" });
+    }
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer();
