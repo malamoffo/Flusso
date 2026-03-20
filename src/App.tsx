@@ -4,14 +4,15 @@ import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';
 import { Article } from './types';
-import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare } from 'lucide-react';
+import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
 function MainContent() {
-  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAllAsRead } = useRss();
+  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('all');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
     const isDark = settings.theme === 'dark' || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -19,15 +20,28 @@ function MainContent() {
   }, [settings.theme]);
 
   const filteredArticles = articles.filter(article => {
-    if (filter === 'unread') return !article.isRead;
-    if (filter === 'favorites') return article.isFavorite;
-    return true;
+    let matchesFilter = true;
+    if (filter === 'unread') matchesFilter = !article.isRead;
+    else if (filter === 'favorites') matchesFilter = article.isFavorite;
+    
+    let matchesSearch = true;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      matchesSearch = article.title.toLowerCase().includes(query) || 
+                      (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
+                      (article.content?.toLowerCase().includes(query) ?? false);
+    }
+    
+    return matchesFilter && matchesSearch;
   });
 
   const unreadCount = articles.filter(a => !a.isRead).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col font-sans transition-colors">
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors ${
+      settings.font === 'serif' ? 'font-serif' : 
+      settings.font === 'mono' ? 'font-mono' : 'font-sans'
+    }`}>
       {/* Top App Bar */}
       <header className="bg-white dark:bg-gray-900 sticky top-0 z-20 px-4 py-3 flex items-center justify-between shadow-sm transition-colors">
         <div className="flex items-center gap-3">
@@ -43,6 +57,12 @@ function MainContent() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            onClick={() => setIsSearchOpen(true)} 
+            className="p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          <button 
             onClick={() => refreshFeeds()} 
             className={`p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 ${isLoading ? 'animate-spin text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-300'}`}
           >
@@ -50,6 +70,23 @@ function MainContent() {
           </button>
         </div>
       </header>
+
+      {isSearchOpen && (
+        <div className="bg-white dark:bg-gray-900 px-4 py-3 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800">
+          <Search className="w-5 h-5 text-gray-400" />
+          <input 
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search articles..."
+            className="flex-1 bg-transparent text-gray-900 dark:text-white focus:outline-none"
+            autoFocus
+          />
+          <button onClick={() => { setSearchQuery(''); setIsSearchOpen(false); }} className="p-1 text-gray-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Progress Indicator */}
       {progress && (
@@ -123,20 +160,20 @@ function MainContent() {
       </main>
 
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-30">
-        <button 
-          onClick={() => markAllAsRead()}
-          className="w-12 h-12 bg-indigo-50 dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-xl shadow-md flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"
-          title="Mark all as read"
-        >
-          <CheckSquare className="w-5 h-5" />
-        </button>
+      <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-30 items-center">
         <button 
           onClick={() => setIsSettingsModalOpen(true)}
-          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
+          className="w-12 h-12 bg-indigo-50 dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-xl shadow-md flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"
           title="Settings"
         >
-          <SettingsIcon className="w-6 h-6" />
+          <SettingsIcon className="w-5 h-5" />
+        </button>
+        <button 
+          onClick={() => markAllAsRead()}
+          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
+          title="Mark all as read"
+        >
+          <CheckSquare className="w-6 h-6" />
         </button>
       </div>
 

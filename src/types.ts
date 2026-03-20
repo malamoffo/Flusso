@@ -2,6 +2,7 @@ export type SwipeAction = 'toggleRead' | 'toggleFavorite' | 'none';
 export type ImageDisplay = 'none' | 'small' | 'large';
 export type Theme = 'light' | 'dark' | 'system';
 export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';
+export type Font = 'sans' | 'serif' | 'mono';
 
 export interface Settings {
   theme: Theme;
@@ -9,6 +10,8 @@ export interface Settings {
   swipeRightAction: SwipeAction;
   imageDisplay: ImageDisplay;
   fontSize: FontSize;
+  font: Font;
+  refreshInterval: number;
 }
 
 export interface Feed {
@@ -19,6 +22,7 @@ export interface Feed {
   feedUrl: string;
   imageUrl?: string;
   lastFetched?: number;
+  error?: string;
 }
 
 export interface Article {
@@ -31,6 +35,7 @@ export interface Article {
   content?: string;
   imageUrl?: string;
   isRead: boolean;
+  readAt?: number;
   isFavorite: boolean;
 }
 

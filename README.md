@@ -1,20 +1,32 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# RSS Reader Application
 
-# Run and deploy your AI Studio app
+A modern, responsive RSS reader application that allows users to manage their subscriptions, read articles, and stay updated with the latest content.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/bf49b948-0661-46ed-9ef2-0abf24652476
+- **Subscription Management**: Add, view, and remove RSS feeds.
+- **Article Reading**: View full article content or snippets.
+- **Customization**:
+  - Theme (Light, Dark, System)
+  - Font (Sans, Serif, Mono)
+  - Font Size (Small, Medium, Large, X-Large)
+  - Image Display (None, Small, Large)
+  - Background Refresh Intervals
+  - Gesture Controls (Swipe actions)
+- **Gemini Integration**: Get AI-powered summaries for articles.
+- **Media Support**: In-app media player for audio and video content within articles.
 
-## Run Locally
+## Technologies
 
-**Prerequisites:**  Node.js
+- React 19
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- Lucide React
+- RSS Parser
+- Gemini API (for summaries)
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Recent Updates
+- Improved navigation in Settings modal.
+- Enhanced subscription list styling and feed status display.
+- Gemini summarization now consistently in Italian with improved reliability.

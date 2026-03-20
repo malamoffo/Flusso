@@ -11,7 +11,9 @@ export const defaultSettings: Settings = {
   swipeLeftAction: 'toggleFavorite',
   swipeRightAction: 'toggleRead',
   imageDisplay: 'small',
-  fontSize: 'medium'
+  fontSize: 'medium',
+  font: 'sans',
+  refreshInterval: 60 // Default to 1 hour
 };
 
 export const storage = {
@@ -33,14 +35,30 @@ export const storage = {
   },
 
   async getArticles(): Promise<Article[]> {
-    return (await get<Article[]>(ARTICLES_KEY)) || [];
+    const articles = (await get<Article[]>(ARTICLES_KEY)) || [];
+    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    
+    // Filter out read articles older than 3 days
+    const validArticles = articles.filter(a => {
+      if (!a.isRead) return true;
+      const readTime = a.readAt || a.pubDate;
+      return (now - readTime) <= THREE_DAYS;
+    });
+    
+    // If we filtered out some articles, save the cleaned up list
+    if (validArticles.length !== articles.length) {
+      await this.saveArticles(validArticles);
+    }
+    
+    return validArticles;
   },
 
   async saveArticles(articles: Article[]): Promise<void> {
     await set(ARTICLES_KEY, articles);
   },
 
-  async addFeed(feedUrl: string): Promise<{ feed: Feed; articles: Article[] }> {
+  async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
     const response = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
     const text = await response.text();
     
@@ -67,7 +85,6 @@ export const storage = {
     };
 
     const newArticles: Article[] = (data.items || []).map((item: any) => {
-      // Try to extract image from various possible fields
       let imageUrl = null;
       if (item['media:content'] && item['media:content']['$'] && item['media:content']['$'].url) {
         imageUrl = item['media:content']['$'].url;
@@ -76,7 +93,6 @@ export const storage = {
       } else if (item.enclosure && item.enclosure.url && item.enclosure.type?.startsWith('image/')) {
         imageUrl = item.enclosure.url;
       } else {
-        // Try to extract first image from content
         const content = item['content:encoded'] || item.content || item.description || '';
         const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
         if (imgMatch) {
@@ -90,24 +106,51 @@ export const storage = {
         title: item.title || 'Untitled',
         link: item.link,
         pubDate: item.pubDate ? new Date(item.pubDate).getTime() : Date.now(),
-        contentSnippet: item.contentSnippet || item.description?.replace(/<[^>]*>?/gm, '').substring(0, 200),
-        content: item['content:encoded'] || item.content || item.description,
         imageUrl,
         isRead: false,
         isFavorite: false,
+        contentSnippet: item.contentSnippet || item.description || '',
       };
-    });
+    }).filter(a => (Date.now() - a.pubDate) <= 2 * 24 * 60 * 60 * 1000 && (!sinceDate || a.pubDate > sinceDate));
 
+    return { feed: newFeed, articles: newArticles };
+  },
+
+  async saveFeedData(feed: Feed, articles: Article[]): Promise<void> {
     const existingFeeds = await this.getFeeds();
     const existingArticles = await this.getArticles();
 
-    // Check if feed already exists
-    if (!existingFeeds.some(f => f.feedUrl === feedUrl)) {
-      await this.saveFeeds([...existingFeeds, newFeed]);
-      await this.saveArticles([...existingArticles, ...newArticles]);
+    const existingFeedIndex = existingFeeds.findIndex(f => f.feedUrl === feed.feedUrl);
+    
+    if (existingFeedIndex === -1) {
+      await this.saveFeeds([...existingFeeds, feed]);
+      await this.saveArticles([...existingArticles, ...articles]);
+    } else {
+      const updatedFeeds = [...existingFeeds];
+      updatedFeeds[existingFeedIndex] = {
+        ...updatedFeeds[existingFeedIndex],
+        lastFetched: Date.now(),
+        title: feed.title,
+        imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
+      };
+      
+      const existingLinks = new Set(existingArticles.filter(a => a.feedId === updatedFeeds[existingFeedIndex].id).map(a => a.link));
+      const trulyNewArticles = articles.filter(a => !existingLinks.has(a.link)).map(a => ({
+        ...a,
+        feedId: updatedFeeds[existingFeedIndex].id
+      }));
+      
+      if (trulyNewArticles.length > 0) {
+        await this.saveArticles([...existingArticles, ...trulyNewArticles]);
+      }
+      await this.saveFeeds(updatedFeeds);
     }
+  },
 
-    return { feed: newFeed, articles: newArticles };
+  async addFeed(feedUrl: string): Promise<{ feed: Feed; articles: Article[] }> {
+    const data = await this.fetchFeedData(feedUrl);
+    await this.saveFeedData(data.feed, data.articles);
+    return data;
   },
 
   async parseOpml(opmlText: string): Promise<string[]> {

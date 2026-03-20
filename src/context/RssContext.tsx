@@ -16,7 +16,10 @@ interface RssContextType {
   markAllAsRead: () => Promise<void>;
   refreshFeeds: () => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
+  updateFeed: (feedId: string, updates: Partial<Feed>) => Promise<void>;
   updateSettings: (newSettings: Partial<Settings>) => Promise<void>;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
@@ -28,10 +31,20 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (settings.refreshInterval > 0) {
+      const intervalId = setInterval(() => {
+        refreshFeeds();
+      }, settings.refreshInterval * 60 * 1000);
+      return () => clearInterval(intervalId);
+    }
+  }, [settings.refreshInterval, feeds.length]); // Re-run if interval changes or feeds change
 
   const loadData = async () => {
     try {
@@ -111,14 +124,15 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
 
   const toggleRead = async (articleId: string) => {
     const updatedArticles = articles.map(a => 
-      a.id === articleId ? { ...a, isRead: !a.isRead } : a
+      a.id === articleId ? { ...a, isRead: !a.isRead, readAt: !a.isRead ? Date.now() : undefined } : a
     );
     setArticles(updatedArticles);
     await storage.saveArticles(updatedArticles);
   };
 
   const markAllAsRead = async () => {
-    const updatedArticles = articles.map(a => ({ ...a, isRead: true }));
+    const now = Date.now();
+    const updatedArticles = articles.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
     setArticles(updatedArticles);
     await storage.saveArticles(updatedArticles);
   };
@@ -140,20 +154,38 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     await storage.saveArticles(updatedArticles);
   };
 
+  const updateFeed = async (feedId: string, updates: Partial<Feed>) => {
+    const updatedFeeds = feeds.map(f => f.id === feedId ? { ...f, ...updates } : f);
+    setFeeds(updatedFeeds);
+    await storage.saveFeeds(updatedFeeds);
+  };
+
   const refreshFeeds = async () => {
     try {
       setIsLoading(true);
-      setProgress({ current: 0, total: feeds.length });
+      const currentFeeds = await storage.getFeeds();
+      const currentArticles = await storage.getArticles();
+      setProgress({ current: 0, total: currentFeeds.length });
       
-      for (let i = 0; i < feeds.length; i++) {
-        const feed = feeds[i];
-        try {
-          await storage.addFeed(feed.feedUrl);
-        } catch (e) {
-          console.error(`Failed to refresh ${feed.feedUrl}`, e);
+      const feedResults = await Promise.allSettled(currentFeeds.map(async (feed) => {
+        const latestArticle = currentArticles
+          .filter(a => a.feedId === feed.id)
+          .sort((a, b) => b.pubDate - a.pubDate)[0];
+        
+        const data = await storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
+        await storage.saveFeedData(data.feed, data.articles);
+        return data;
+      }));
+
+      let completed = 0;
+      for (const result of feedResults) {
+        if (result.status === 'rejected') {
+          console.error('Failed to refresh feed', result.reason);
         }
-        setProgress({ current: i + 1, total: feeds.length });
+        completed++;
+        setProgress({ current: completed, total: currentFeeds.length });
       }
+      
       await loadData();
     } catch (err) {
       setError('Failed to refresh feeds');
@@ -166,7 +198,8 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   return (
     <RssContext.Provider value={{
       feeds, articles, settings, isLoading, progress, error,
-      addFeed, importOpml, toggleRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateSettings
+      addFeed, importOpml, toggleRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+      searchQuery, setSearchQuery
     }}>
       {children}
     </RssContext.Provider>

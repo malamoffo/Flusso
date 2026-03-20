@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import he from "he";
 
 async function startServer() {
   const app = express();
@@ -15,7 +16,7 @@ async function startServer() {
 
   const parser = new Parser({
     customFields: {
-      item: ["media:content", "media:thumbnail", "content:encoded", "description"],
+      item: ["media:content", "media:thumbnail", "description"],
     },
   });
 
@@ -36,7 +37,7 @@ async function startServer() {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
           "Accept": "application/rss+xml, application/xml, text/xml, */*"
         },
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(30000)
       });
       
       if (!response.ok) {
@@ -45,6 +46,17 @@ async function startServer() {
       
       const xml = await response.text();
       const feed = await parser.parseString(xml);
+      
+      // Decode HTML entities in feed items
+      if (feed.items) {
+        feed.items = feed.items.map(item => ({
+          ...item,
+          title: item.title ? he.decode(item.title) : item.title,
+          contentSnippet: item.contentSnippet ? he.decode(item.contentSnippet) : item.contentSnippet,
+          description: item.description ? he.decode(item.description) : item.description,
+        }));
+      }
+      
       res.json(feed);
     } catch (error) {
       console.error(`Error parsing feed ${req.query.url}:`, error);
@@ -69,6 +81,10 @@ async function startServer() {
       const doc = new JSDOM(html, { url: articleUrl });
       const reader = new Readability(doc.window.document);
       const article = reader.parse();
+      
+      if (article) {
+        article.title = he.decode(article.title);
+      }
       
       res.json(article);
     } catch (error) {

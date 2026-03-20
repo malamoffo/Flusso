@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { format, isToday } from 'date-fns';
 import { Check, Star, Trash2 } from 'lucide-react';
 import { Article } from '../types';
 import { useRss } from '../context/RssContext';
-import { formatDistanceToNow } from 'date-fns';
+import { useInView } from 'react-intersection-observer';
 
 interface SwipeableArticleProps {
   key?: React.Key;
@@ -16,6 +17,17 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
   const { toggleRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
+  const { ref, inView } = useInView({
+    threshold: 0.5,
+    triggerOnce: true,
+  });
+
+  useEffect(() => {
+    if (inView && !article.isRead) {
+      toggleRead(article.id);
+    }
+  }, [inView, article.isRead, article.id, toggleRead]);
+
   // Background colors based on swipe direction
   const background = useTransform(
     x,
@@ -67,9 +79,9 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
   const domain = getDomain(article.link);
 
   return (
-    <div className="relative w-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
+    <div ref={ref} className="relative w-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
       {/* Background Actions */}
-      <div className="absolute inset-0 flex items-center justify-between px-6">
+      <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
         <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
           <Check className="w-6 h-6 mr-2" />
           {settings.swipeRightAction === 'toggleRead' ? (article.isRead ? 'Mark Unread' : 'Mark Read') : 
@@ -90,14 +102,14 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         onClick={onClick}
-        className={`relative w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
+        className={`relative z-10 w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
       >
         <div className={`flex ${settings.imageDisplay === 'large' ? 'flex-col' : 'gap-4'}`}>
           {article.imageUrl && settings.imageDisplay !== 'none' && (
             <img 
               src={article.imageUrl} 
               alt="" 
-              className={`${settings.imageDisplay === 'large' ? 'w-full h-48 mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity ${article.isRead ? 'opacity-50 grayscale' : 'opacity-100'}`}
+              className={`${settings.imageDisplay === 'large' ? 'w-full h-48 mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity`}
               referrerPolicy="no-referrer"
             />
           )}
@@ -108,24 +120,21 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
                   <img 
                     src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} 
                     alt="" 
-                    className={`w-4 h-4 rounded-sm flex-shrink-0 ${article.isRead ? 'opacity-50 grayscale' : 'opacity-100'}`}
+                    className={`w-4 h-4 rounded-sm flex-shrink-0`}
                     referrerPolicy="no-referrer"
                   />
                 )}
-                <span className={`text-xs font-medium truncate ${article.isRead ? 'text-gray-500 dark:text-gray-500' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                <span className={`text-xs font-medium truncate text-indigo-600 dark:text-indigo-400`}>
                   {feedName}
                 </span>
               </div>
               <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
-                {formatDistanceToNow(article.pubDate, { addSuffix: true })}
+                {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy')}
               </span>
             </div>
-            <h3 className={`${getTitleSize()} font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+            <h3 className={`${getTitleSize()} font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {article.title}
             </h3>
-            <p className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 line-clamp-2`}>
-              {article.contentSnippet}
-            </p>
           </div>
           {article.isFavorite && (
             <div className="absolute top-4 right-4">
