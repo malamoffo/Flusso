@@ -63,6 +63,15 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings.refreshInterval, feeds.length]); // Re-run if interval changes or feeds change
 
+  useEffect(() => {
+    const handleAppLog = (e: any) => {
+      const { level, message, details, url } = e.detail;
+      addLog(level, message, details, url);
+    };
+    window.addEventListener('app-log', handleAppLog);
+    return () => window.removeEventListener('app-log', handleAppLog);
+  }, []);
+
   const loadData = async () => {
     try {
       setIsLoading(true);

@@ -61,6 +61,16 @@ export const storage = {
   async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
     const apiUrl = `/api/v1/feed?url=${encodeURIComponent(feedUrl)}`;
     console.log(`[STORAGE] Fetching feed from: ${apiUrl}`);
+    
+    // We use a custom event to send logs to the UI since storage.ts is not a React component
+    const logEvent = (level: string, message: string, details?: string) => {
+      window.dispatchEvent(new CustomEvent('app-log', { 
+        detail: { level, message, details, url: feedUrl, timestamp: Date.now() } 
+      }));
+    };
+
+    logEvent('info', `Fetching feed: ${feedUrl}`);
+
     const response = await fetch(apiUrl, {
       headers: {
         'Cache-Control': 'no-cache',
@@ -78,12 +88,14 @@ export const storage = {
         errorData = { error: text || `HTTP error ${response.status}` };
       }
       const errorMsg = errorData.error || errorData.details || `Failed to fetch feed: ${response.status}`;
+      logEvent('error', `API Error (${response.status}): ${errorMsg}`, text);
       console.error(`[STORAGE] API Error: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
     if (contentType && !contentType.includes('application/json')) {
       const errorMsg = `Expected JSON response from server but got ${contentType} (Status: ${response.status}). Response start: ${text.substring(0, 500)}`;
+      logEvent('error', 'Invalid Content-Type received', errorMsg);
       console.error(`[STORAGE] API Error: ${errorMsg}`);
       throw new Error(errorMsg);
     }

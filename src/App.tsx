@@ -4,8 +4,8 @@ import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';
 import { Article } from './types';
-import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, Terminal } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function MainContent() {
   const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
@@ -13,6 +13,9 @@ function MainContent() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showDebugOverlay, setShowDebugOverlay] = useState(false);
+
+  const { logs, clearLogs } = useRss();
 
   useEffect(() => {
     const isDark = settings.theme === 'dark' || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -56,6 +59,13 @@ function MainContent() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowDebugOverlay(!showDebugOverlay)} 
+            className="p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300"
+            title="Debug Logs"
+          >
+            <Terminal className="w-5 h-5" />
+          </button>
           <button 
             onClick={() => setIsSearchOpen(true)} 
             className="p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300"
@@ -186,6 +196,49 @@ function MainContent() {
             article={selectedArticle} 
             onClose={() => setSelectedArticle(null)} 
           />
+        )}
+      </AnimatePresence>
+
+      {/* Debug Logs Overlay */}
+      <AnimatePresence>
+        {showDebugOverlay && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-4 z-[60] bg-black/95 text-green-400 font-mono text-[10px] p-4 rounded-2xl overflow-hidden flex flex-col border border-green-900/50 shadow-2xl"
+          >
+            <div className="flex justify-between items-center mb-2 border-b border-green-900/30 pb-2">
+              <span className="font-bold">DEBUG_LOGS_V1</span>
+              <div className="flex gap-2">
+                <button onClick={clearLogs} className="px-2 py-1 bg-red-900/30 text-red-400 rounded hover:bg-red-900/50">CLEAR</button>
+                <button onClick={() => setShowDebugOverlay(false)} className="px-2 py-1 bg-green-900/30 text-green-400 rounded hover:bg-green-900/50">CLOSE</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {logs.length === 0 ? (
+                <div className="opacity-50 italic">No logs recorded...</div>
+              ) : (
+                logs.map(log => (
+                  <div key={log.id} className="border-b border-green-900/10 pb-2">
+                    <div className="flex justify-between opacity-50 mb-1">
+                      <span>[{log.level.toUpperCase()}]</span>
+                      <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div className={log.level === 'error' ? 'text-red-400' : log.level === 'warn' ? 'text-yellow-400' : ''}>
+                      {log.message}
+                    </div>
+                    {log.url && <div className="opacity-40 truncate mt-0.5">{log.url}</div>}
+                    {log.details && (
+                      <div className="opacity-60 whitespace-pre-wrap mt-1 bg-white/5 p-1.5 rounded text-[9px] max-h-40 overflow-y-auto">
+                        {log.details}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
