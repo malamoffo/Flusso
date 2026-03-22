@@ -70,59 +70,64 @@ function MainContent() {
       if (filterChanged || searchChanged || refreshFinished || prev.length === 0) {
         // Full re-evaluation on filter/search change, refresh completion, or initial load
         return articles.filter(article => {
-          let matchesFilter = true;
-          if (filter === 'unread') matchesFilter = !article.isRead;
-          else if (filter === 'favorites') matchesFilter = article.isFavorite;
+          if (filter === 'unread' && article.isRead) return false;
+          if (filter === 'favorites' && !article.isFavorite) return false;
           
-          let matchesSearch = true;
           if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            matchesSearch = article.title.toLowerCase().includes(query) || 
-                            (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
-                            (article.content?.toLowerCase().includes(query) ?? false);
+            return article.title.toLowerCase().includes(query) || 
+                   (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
+                   (article.content?.toLowerCase().includes(query) ?? false);
           }
           
-          return matchesFilter && matchesSearch;
+          return true;
         });
       } else {
         // Keep existing articles even if they no longer match the filter (e.g. marked as read)
         // But add new articles that DO match the filter.
         // Also remove articles that were deleted from `articles`.
         
-        const existingIds = new Set(prev.map(a => a.id));
         const currentArticleIds = new Set(articles.map(a => a.id));
+        const existingIds = new Set(prev.map(a => a.id));
+        const articlesMap = new Map(articles.map(a => [a.id, a]));
         
         // 1. Keep articles that were in `prev` AND still exist in `articles`
-        let nextDisplay = prev.filter(a => currentArticleIds.has(a.id));
+        // We also update them with the latest state from `articles`
+        const nextDisplay = prev
+          .filter(a => currentArticleIds.has(a.id))
+          .map(a => articlesMap.get(a.id) || a);
         
         // 2. Add new articles that match the filter
         const newMatchingArticles = articles.filter(article => {
-          if (existingIds.has(article.id)) return false; // Already handled
+          if (existingIds.has(article.id)) return false;
           
-          let matchesFilter = true;
-          if (filter === 'unread') matchesFilter = !article.isRead;
-          else if (filter === 'favorites') matchesFilter = article.isFavorite;
+          if (filter === 'unread' && article.isRead) return false;
+          if (filter === 'favorites' && !article.isFavorite) return false;
           
-          let matchesSearch = true;
           if (searchQuery) {
             const query = searchQuery.toLowerCase();
-            matchesSearch = article.title.toLowerCase().includes(query) || 
-                            (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
-                            (article.content?.toLowerCase().includes(query) ?? false);
+            return article.title.toLowerCase().includes(query) || 
+                   (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
+                   (article.content?.toLowerCase().includes(query) ?? false);
           }
           
-          return matchesFilter && matchesSearch;
+          return true;
         });
         
-        // Combine and sort by date descending
-        nextDisplay = [...nextDisplay, ...newMatchingArticles].sort((a, b) => b.pubDate - a.pubDate);
+        if (newMatchingArticles.length === 0 && nextDisplay.length === prev.length) {
+          // No changes needed if no new matching articles and no deletions
+          // (We still might have updated states, but React handles that if we return same array reference? 
+          // No, we should return a new array if states updated. But wait, we did a map above.)
+          return nextDisplay;
+        }
         
-        return nextDisplay;
+        // Combine and sort by date descending
+        return [...nextDisplay, ...newMatchingArticles].sort((a, b) => b.pubDate - a.pubDate);
       }
     });
   }, [filter, searchQuery, articles, isLoading]);
 
-  const unreadCount = articles.filter(a => !a.isRead).length;
+  const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0 && !isSettingsModalOpen) {
@@ -243,9 +248,7 @@ function MainContent() {
           </div>
         ) : (
           <div className="flex flex-col">
-            {displayArticles.map(displayArticle => {
-              // Get the latest state of the article from the main articles array
-              const article = articles.find(a => a.id === displayArticle.id) || displayArticle;
+            {displayArticles.map(article => {
               const feed = feeds.find(f => f.id === article.feedId);
               return (
                 <SwipeableArticle 

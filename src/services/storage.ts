@@ -294,34 +294,45 @@ export const storage = {
   },
 
   async saveFeedData(feed: Feed, articles: Article[]): Promise<void> {
+    await this.saveAllFeedData([{ feed, articles }]);
+  },
+
+  async saveAllFeedData(results: { feed: Feed; articles: Article[] }[]): Promise<void> {
     const existingFeeds = await this.getFeeds();
     const existingArticles = await this.getArticles();
-
-    const existingFeedIndex = existingFeeds.findIndex(f => f.feedUrl === feed.feedUrl);
     
-    if (existingFeedIndex === -1) {
-      await this.saveFeeds([...existingFeeds, feed]);
-      await this.saveArticles([...existingArticles, ...articles]);
-    } else {
-      const updatedFeeds = [...existingFeeds];
-      updatedFeeds[existingFeedIndex] = {
-        ...updatedFeeds[existingFeedIndex],
-        lastFetched: Date.now(),
-        title: feed.title,
-        imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
-      };
+    let updatedFeeds = [...existingFeeds];
+    let allNewArticles: Article[] = [];
+    
+    for (const { feed, articles } of results) {
+      const existingFeedIndex = updatedFeeds.findIndex(f => f.feedUrl === feed.feedUrl);
       
-      const existingLinks = new Set(existingArticles.filter(a => a.feedId === updatedFeeds[existingFeedIndex].id).map(a => a.link));
-      const trulyNewArticles = articles.filter(a => !existingLinks.has(a.link)).map(a => ({
-        ...a,
-        feedId: updatedFeeds[existingFeedIndex].id
-      }));
-      
-      if (trulyNewArticles.length > 0) {
-        await this.saveArticles([...existingArticles, ...trulyNewArticles]);
+      if (existingFeedIndex === -1) {
+        updatedFeeds.push(feed);
+        allNewArticles.push(...articles);
+      } else {
+        const feedId = updatedFeeds[existingFeedIndex].id;
+        updatedFeeds[existingFeedIndex] = {
+          ...updatedFeeds[existingFeedIndex],
+          lastFetched: Date.now(),
+          title: feed.title,
+          imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
+        };
+        
+        const existingLinks = new Set(existingArticles.filter(a => a.feedId === feedId).map(a => a.link));
+        const trulyNewArticles = articles.filter(a => !existingLinks.has(a.link)).map(a => ({
+          ...a,
+          feedId
+        }));
+        
+        allNewArticles.push(...trulyNewArticles);
       }
-      await this.saveFeeds(updatedFeeds);
     }
+    
+    if (allNewArticles.length > 0) {
+      await this.saveArticles([...existingArticles, ...allNewArticles]);
+    }
+    await this.saveFeeds(updatedFeeds);
   },
 
   async addFeed(feedUrl: string): Promise<{ feed: Feed; articles: Article[] }> {

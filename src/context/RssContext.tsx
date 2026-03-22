@@ -210,15 +210,17 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         return data;
       }));
 
-      let completed = 0;
+      const successfulResults: { feed: Feed; articles: Article[] }[] = [];
       for (const result of feedResults) {
         if (result.status === 'fulfilled') {
-          await storage.saveFeedData(result.value.feed, result.value.articles);
+          successfulResults.push(result.value);
         } else {
           console.error('Failed to refresh feed', result.reason);
         }
-        completed++;
-        setProgress({ current: completed, total: currentFeeds.length });
+      }
+      
+      if (successfulResults.length > 0) {
+        await storage.saveAllFeedData(successfulResults);
       }
       
       await loadData();

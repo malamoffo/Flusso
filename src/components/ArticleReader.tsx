@@ -117,12 +117,19 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     fetchFullContent();
   }, [article.link, article.id]);
 
-  const sanitizedContent = fullContent?.content ? DOMPurify.sanitize(fullContent.content, {
-    ADD_ATTR: ['style'],
-    ADD_TAGS: ['video', 'audio', 'source'],
-  }) : '';
+  const sanitizedContent = React.useMemo(() => {
+    if (!fullContent?.content) return '';
+    return DOMPurify.sanitize(fullContent.content, {
+      ADD_ATTR: ['style'],
+      ADD_TAGS: ['video', 'audio', 'source'],
+    });
+  }, [fullContent?.content]);
 
-  const mediaElements = fullContent?.content ? new DOMParser().parseFromString(fullContent.content, 'text/html').querySelectorAll('video, audio') : [];
+  const mediaElements = React.useMemo(() => {
+    if (!fullContent?.content) return [];
+    return Array.from(new DOMParser().parseFromString(fullContent.content, 'text/html').querySelectorAll('video, audio'));
+  }, [fullContent?.content]);
+
   const hasMedia = mediaElements.length > 0;
 
   return (
@@ -260,7 +267,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
         {hasMedia && (
           <div className="mb-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Media</h3>
-            {Array.from(mediaElements).map((el, i) => (
+            {mediaElements.map((el, i) => (
               <div key={i} className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
                 {el.tagName.toLowerCase() === 'video' ? (
                   <video src={(el as HTMLVideoElement).src} controls className="w-full" />
