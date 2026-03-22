@@ -1,4 +1,4 @@
-# flusso - Modern RSS Reader
+# Flusso - Modern RSS Reader
 
 A fast, privacy-focused, and highly customizable RSS reader built for the modern web and mobile devices.
 

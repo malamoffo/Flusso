@@ -10,6 +10,7 @@ import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
 
 interface ArticleReaderProps {
+  key?: React.Key;
   article: Article;
   onClose: () => void;
   onNext?: () => void;
@@ -22,37 +23,6 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { settings, feeds, toggleFavorite, toggleRead } = useRss();
-
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const SWIPE_THRESHOLD = 80;
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    
-    const deltaX = touchStartX.current - touchEndX;
-    const deltaY = Math.abs(touchStartY.current - touchEndY);
-
-    // Ensure it's mostly a horizontal swipe
-    if (Math.abs(deltaX) > SWIPE_THRESHOLD && deltaY < 100) {
-      // Don't trigger if starting from the left edge (system back gesture)
-      if (touchStartX.current < 30) return;
-
-      if (deltaX > 0 && hasNext && onNext) {
-        // Swiped left -> Next article
-        onNext();
-      } else if (deltaX < 0 && hasPrev && onPrev) {
-        // Swiped right -> Previous article
-        onPrev();
-      }
-    }
-  };
 
   const feed = feeds.find(f => f.id === article.feedId);
   const readTime = fullContent?.textContent ? Math.max(1, Math.ceil(fullContent.textContent.split(/\s+/).length / 200)) : 1;
@@ -159,18 +129,27 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     <motion.div 
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
-      exit={{ x: '100%' }}
+      exit={{ x: '-100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.8}
+      onDragEnd={(e, info) => {
+        const threshold = 100;
+        if (info.offset.x > threshold && hasPrev && onPrev) {
+          onPrev();
+        } else if (info.offset.x < -threshold && hasNext && onNext) {
+          onNext();
+        }
+      }}
       className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words"
     >
       {/* Top App Bar */}
       <div 
         className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between transition-colors"
       >
-        <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-          <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+          <X className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
         <div className="flex items-center gap-2">
         </div>
@@ -210,7 +189,17 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
-            {feed?.imageUrl && <img src={feed.imageUrl} alt="" className="w-4 h-4 rounded-full" />}
+            {article.link && (
+              <img 
+                src={`https://www.google.com/s2/favicons?domain=${(() => {
+                  try { return new URL(article.link).hostname; }
+                  catch { return ''; }
+                })()}&sz=32`} 
+                alt="" 
+                className="w-4 h-4 rounded-sm"
+                referrerPolicy="no-referrer"
+              />
+            )}
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feed?.title || 'Unknown Source'}</span>
           </div>
 

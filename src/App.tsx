@@ -4,7 +4,7 @@ import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';
 import { Article } from './types';
-import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X } from 'lucide-react';
+import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, LayoutGrid, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { App as CapacitorApp } from '@capacitor/app';
@@ -122,7 +122,7 @@ function MainContent() {
   const unreadCount = articles.filter(a => !a.isRead).length;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
+    if (window.scrollY === 0 && !isSettingsModalOpen) {
       setIsPulling(true);
     }
   };
@@ -150,6 +150,7 @@ function MainContent() {
         settings.font === 'serif' ? 'font-serif' : 
         settings.font === 'mono' ? 'font-mono' : 'font-sans'
       }`}
+      style={{ '--theme-color': settings.themeColor } as React.CSSProperties}
       onTouchStart={(e) => {
         (e.currentTarget as any)._startY = e.touches[0].clientY;
         handleTouchStart(e);
@@ -223,28 +224,6 @@ function MainContent() {
             {error}
           </div>
         )}
-
-        {/* Filter Chips */}
-        <div className="px-4 py-3 flex justify-center gap-2 overflow-x-auto no-scrollbar border-t border-gray-100 dark:border-gray-800">
-          <button 
-            onClick={() => setFilter('all')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filter === 'all' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-          >
-            All Articles
-          </button>
-          <button 
-            onClick={() => setFilter('unread')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${filter === 'unread' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-          >
-            Unread {unreadCount > 0 && <span className="bg-indigo-200 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-100 text-xs px-1.5 rounded-md ml-1">{unreadCount}</span>}
-          </button>
-          <button 
-            onClick={() => setFilter('favorites')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filter === 'favorites' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-          >
-            Favorites
-          </button>
-        </div>
       </div>
 
       {/* Article List */}
@@ -283,8 +262,21 @@ function MainContent() {
         )}
       </main>
 
+      {/* Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around p-3 z-20">
+        <button onClick={() => setFilter('all')} className={filter === 'all' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
+          <LayoutGrid className="w-6 h-6" />
+        </button>
+        <button onClick={() => setFilter('unread')} className={filter === 'unread' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
+          <Inbox className="w-6 h-6" />
+        </button>
+        <button onClick={() => setFilter('favorites')} className={filter === 'favorites' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
+          <Star className="w-6 h-6" />
+        </button>
+      </div>
+
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-30 items-center">
+      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-30 items-center">
         <button 
           onClick={() => setIsSettingsModalOpen(true)}
           className="w-12 h-12 bg-indigo-50 dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-xl shadow-md flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"
@@ -307,6 +299,7 @@ function MainContent() {
       <AnimatePresence>
         {selectedArticle && (
           <ArticleReader 
+            key={selectedArticle.id}
             article={selectedArticle} 
             onClose={() => setSelectedArticle(null)} 
             onNext={() => {

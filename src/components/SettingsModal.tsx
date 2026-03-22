@@ -14,6 +14,13 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [editTitle, setEditTitle] = useState('');
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab('settings');
+      setSelectedFeedId(null);
+    }
+  }, [isOpen]);
+
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
@@ -49,8 +56,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 px-6 pb-safe pt-0 max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             <div className="sticky top-0 bg-white dark:bg-gray-900 pt-4 pb-4 z-20 border-b border-gray-100 dark:border-gray-800 mb-6 -mx-6 px-6">
-              {/* Drag Handle */}
-              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4" />
               
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -138,6 +143,16 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <Monitor className="w-6 h-6 mb-2" />
                       <span className="text-xs font-medium">System</span>
                     </button>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+                    <label className="font-medium text-gray-900 dark:text-white">Theme Color</label>
+                    <input 
+                      type="color" 
+                      value={settings.themeColor} 
+                      onChange={(e) => updateSettings({ themeColor: e.target.value })}
+                      className="w-10 h-10 rounded-full cursor-pointer border-0 p-0"
+                    />
                   </div>
 
                   {(settings.theme === 'dark' || settings.theme === 'system') && (

@@ -13,6 +13,7 @@ export interface Settings {
   font: Font;
   refreshInterval: number;
   pureBlack: boolean;
+  themeColor: string;
 }
 
 export interface Feed {
