@@ -12,6 +12,7 @@ interface RssContextType {
   addFeed: (url: string) => Promise<void>;
   importOpml: (file: File) => Promise<void>;
   toggleRead: (articleId: string) => Promise<void>;
+  markAsRead: (articleId: string) => Promise<void>;
   toggleFavorite: (articleId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   refreshFeeds: () => Promise<void>;
@@ -152,6 +153,17 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     await storage.saveArticles(updatedArticles);
   };
 
+  const markAsRead = async (articleId: string) => {
+    const article = articles.find(a => a.id === articleId);
+    if (article && !article.isRead) {
+      const updatedArticles = articles.map(a => 
+        a.id === articleId ? { ...a, isRead: true, readAt: Date.now() } : a
+      );
+      setArticles(updatedArticles);
+      await storage.saveArticles(updatedArticles);
+    }
+  };
+
   const markAllAsRead = async () => {
     const now = Date.now();
     const updatedArticles = articles.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
@@ -195,13 +207,14 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
           .sort((a, b) => b.pubDate - a.pubDate)[0];
         
         const data = await storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
-        await storage.saveFeedData(data.feed, data.articles);
         return data;
       }));
 
       let completed = 0;
       for (const result of feedResults) {
-        if (result.status === 'rejected') {
+        if (result.status === 'fulfilled') {
+          await storage.saveFeedData(result.value.feed, result.value.articles);
+        } else {
           console.error('Failed to refresh feed', result.reason);
         }
         completed++;
@@ -220,7 +233,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   return (
     <RssContext.Provider value={{
       feeds, articles, settings, isLoading, progress, error,
-      addFeed, importOpml, toggleRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+      addFeed, importOpml, toggleRead, markAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
       searchQuery, setSearchQuery
     }}>
       {children}

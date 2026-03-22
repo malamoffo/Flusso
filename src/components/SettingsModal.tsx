@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SwipeAction, Theme, ImageDisplay, FontSize, Font } from '../types';
@@ -46,25 +46,27 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 p-6 pb-safe max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 px-6 pb-safe pt-0 max-h-[90vh] overflow-y-auto shadow-2xl"
           >
-            {/* Drag Handle */}
-            <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
-            
-            <div className="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-gray-900 pt-2 pb-4 z-10 border-b border-gray-100 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                {(activeTab !== 'settings' || selectedFeed) && (
-                  <button onClick={() => selectedFeed ? setSelectedFeedId(null) : setActiveTab('settings')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                  </button>
-                )}
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {selectedFeed ? 'Feed Details' : activeTab === 'settings' ? 'Settings' : 'Subscriptions'}
-                </h2>
+            <div className="sticky top-0 bg-white dark:bg-gray-900 pt-4 pb-4 z-20 border-b border-gray-100 dark:border-gray-800 mb-6 -mx-6 px-6">
+              {/* Drag Handle */}
+              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4" />
+              
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  {(activeTab !== 'settings' || selectedFeed) && (
+                    <button onClick={() => selectedFeed ? setSelectedFeedId(null) : setActiveTab('settings')} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    </button>
+                  )}
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {selectedFeed ? 'Feed Details' : activeTab === 'settings' ? 'Settings' : 'Subscriptions'}
+                  </h2>
+                </div>
+                <button onClick={() => selectedFeed ? setSelectedFeedId(null) : onClose()} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                </button>
               </div>
-              <button onClick={() => selectedFeed ? setSelectedFeedId(null) : onClose()} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              </button>
             </div>
 
             {progress && (
@@ -137,6 +139,29 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <span className="text-xs font-medium">System</span>
                     </button>
                   </div>
+
+                  {(settings.theme === 'dark' || settings.theme === 'system') && (
+                    <div className="mt-4 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
+                          <Moon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Pure Black</p>
+                          <p className="text-xs text-gray-500">AMOLED optimized</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => updateSettings({ pureBlack: !settings.pureBlack })}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${settings.pureBlack ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <motion.div 
+                          animate={{ x: settings.pureBlack ? 24 : 4 }}
+                          className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
+                        />
+                      </button>
+                    </div>
+                  )}
                 </section>
 
                 {/* Font Settings */}

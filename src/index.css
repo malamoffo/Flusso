@@ -7,3 +7,24 @@
   --font-serif: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", monospace;
 }
+
+.pure-black, .pure-black body {
+  background-color: #000000 !important;
+}
+
+.pure-black .bg-white,
+.pure-black .bg-gray-50,
+.pure-black .bg-gray-100,
+.pure-black .bg-gray-900,
+.pure-black .bg-gray-950,
+.pure-black .dark\:bg-gray-900,
+.pure-black .dark\:bg-gray-950 {
+  background-color: #000000 !important;
+}
+
+.pure-black .border-gray-100,
+.pure-black .border-gray-200,
+.pure-black .border-gray-800,
+.pure-black .dark\:border-gray-800 {
+  border-color: #1a1a1a !important;
+}

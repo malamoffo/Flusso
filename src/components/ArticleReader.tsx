@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, ExternalLink, Share2, FileText, AlignLeft, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, FileText, AlignLeft, X, Share2, Bookmark, EyeOff } from 'lucide-react';
 import { Article, FullArticleContent } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
 import DOMPurify from 'dompurify';
-import { GoogleGenAI } from "@google/genai";
 import { CapacitorHttp } from '@capacitor/core';
 import { Readability } from '@mozilla/readability';
+import { fetchWithProxy } from '../utils/proxy';
+import { contentFetcher } from '../utils/contentFetcher';
 
 interface ArticleReaderProps {
   article: Article;
@@ -16,12 +17,51 @@ interface ArticleReaderProps {
 export function ArticleReader({ article, onClose }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'full' | 'snippet'>('full');
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const { settings } = useRss();
+  const [viewMode, setViewMode] = useState<'full' | 'snippet'>('snippet');
+  const { settings, feeds, toggleFavorite, toggleRead } = useRss();
 
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  const [isPullingUp, setIsPullingUp] = useState(false);
+  const [pullUpDistance, setPullUpDistance] = useState(0);
+  const touchStartY = useRef(0);
+  const PULL_UP_THRESHOLD = 80;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 10;
+    
+    if (isAtBottom && viewMode === 'snippet') {
+      setIsPullingUp(true);
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPullingUp) return;
+    const touch = e.touches[0];
+    const distance = touchStartY.current - touch.clientY;
+    
+    if (distance > 0) {
+      setPullUpDistance(Math.min(distance * 0.5, PULL_UP_THRESHOLD + 20));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPullingUp && pullUpDistance >= PULL_UP_THRESHOLD) {
+      setViewMode('full');
+    }
+    setIsPullingUp(false);
+    setPullUpDistance(0);
+  };
+
+  const feed = feeds.find(f => f.id === article.feedId);
+  const readTime = fullContent?.textContent ? Math.max(1, Math.ceil(fullContent.textContent.split(/\s+/).length / 200)) : 1;
+  const formattedDate = new Date(article.pubDate).toLocaleString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   const getProseSize = () => {
     switch (settings.fontSize) {
@@ -43,41 +83,21 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
     }
   };
 
-  const generateSummary = async (retries = 2) => {
-    if (!fullContent?.textContent) return;
-    setIsSummarizing(true);
-    setSummary(null);
-    try {
-      // Use textContent to avoid HTML noise and limit length to avoid token limits
-      const textToSummarize = fullContent.textContent.substring(0, 15000);
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Riassumi questo articolo in 3-5 frasi in italiano: ${textToSummarize}`,
-      });
-      
-      const text = response.text;
-      if (text) {
-        setSummary(text);
-      } else {
-        throw new Error('Empty response from AI');
-      }
-    } catch (error) {
-      console.error("Failed to generate summary", error);
-      if (retries > 0) {
-        await generateSummary(retries - 1);
-      } else {
-        setSummary('Impossibile generare il riassunto. Verifica la connessione o la chiave API.');
-      }
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
-
   useEffect(() => {
     const fetchFullContent = async () => {
       try {
         setIsLoading(true);
-        const isNative = (window as any).Capacitor?.isNativePlatform();
+        
+        // Check cache first
+        const cached = await contentFetcher.getCachedContent(article.id);
+        if (cached) {
+          console.log(`[READER] Using pre-fetched content for: ${article.link}`);
+          setFullContent(cached);
+          setIsLoading(false);
+          return;
+        }
+
+        const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
         let html = '';
 
         if (isNative) {
@@ -89,13 +109,8 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
             throw new Error(`Failed to fetch article: ${response.status}`);
           }
         } else {
-          console.log(`[READER] Web direct fetch (CORS restricted): ${article.link}`);
-          const response = await fetch(article.link);
-          if (response.ok) {
-            html = await response.text();
-          } else {
-            throw new Error(`Failed to fetch article: ${response.status}`);
-          }
+          console.log(`[READER] Web proxy fetch (CORS bypass for preview): ${article.link}`);
+          html = await fetchWithProxy(article.link, false);
         }
 
         if (html) {
@@ -104,7 +119,7 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
           const articleData = reader.parse();
 
           if (articleData) {
-            setFullContent({
+            const contentToSave = {
               title: articleData.title,
               content: articleData.content,
               textContent: articleData.textContent,
@@ -114,7 +129,10 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
               dir: articleData.dir,
               siteName: articleData.siteName,
               lang: articleData.lang,
-            });
+            };
+            setFullContent(contentToSave);
+            // Cache it for future use
+            contentFetcher.setCachedContent(article.id, contentToSave);
           } else {
             setViewMode('snippet');
           }
@@ -144,6 +162,9 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words"
     >
       {/* Top App Bar */}
@@ -154,43 +175,77 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
           <ArrowLeft className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
         <div className="flex items-center gap-2">
-          <a 
-            href={article.link} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <ExternalLink className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-          </a>
-          <button 
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({ title: article.title, url: article.link });
-              }
-            }}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <Share2 className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-          </button>
         </div>
       </div>
 
       {/* Article Content */}
       <div className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
-        <h1 className={`${getTitleSize()} font-bold text-gray-900 dark:text-white mb-4 leading-tight`}>
-          <a href={article.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {article.title}
-          </a>
-        </h1>
-        
-        {article.imageUrl && !fullContent && (
+        {article.imageUrl && (
           <img 
             src={article.imageUrl} 
             alt="" 
-            className="w-full h-auto rounded-xl mb-6 object-cover"
+            className="w-full aspect-video rounded-2xl mb-4 object-cover"
             referrerPolicy="no-referrer"
           />
         )}
+
+        <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          {formattedDate} • {readTime}m read
+        </div>
+
+        <h1 className={`${getTitleSize()} font-bold text-gray-900 dark:text-white mb-4 leading-tight`}>
+          <a 
+            href={article.link} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:underline"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title) }}
+          />
+        </h1>
+        
+        {article.contentSnippet && (
+          <p 
+            className="text-lg text-gray-600 dark:text-gray-300 mb-6 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.contentSnippet) }}
+          />
+        )}
+
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
+            {feed?.imageUrl && <img src={feed.imageUrl} alt="" className="w-4 h-4 rounded-full" />}
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feed?.title || 'Unknown Source'}</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+            <button 
+              onClick={() => {
+                toggleRead(article.id);
+                onClose();
+              }}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <EyeOff className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({ title: article.title, url: article.link });
+                }
+              }}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => toggleFavorite(article.id)}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <Bookmark className={`w-5 h-5 ${article.isFavorite ? 'fill-current text-indigo-500' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        <hr className="border-gray-200 dark:border-gray-800 mb-6" />
 
         {hasMedia && (
           <div className="mb-6 space-y-4">
@@ -223,9 +278,25 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
               prose-pre:max-w-full prose-pre:overflow-x-auto`}
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
-        ) : article.contentSnippet && article.contentSnippet.trim().length > 0 ? (
-          <div className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden`}>
-            <p>{article.contentSnippet}</p>
+        ) : article.contentSnippet ? (
+          <div className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden relative`}>
+            <p 
+              className="text-lg leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.contentSnippet) }}
+            />
+            {/* Pull up to load indicator */}
+            {viewMode === 'snippet' && !isLoading && (
+              <div 
+                className="mt-8 flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ease-out"
+                style={{ height: isPullingUp ? Math.max(0, pullUpDistance) : 0, opacity: isPullingUp ? Math.min(1, pullUpDistance / PULL_UP_THRESHOLD) : 0 }}
+              >
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                  <span className="text-sm font-medium">
+                    {pullUpDistance >= PULL_UP_THRESHOLD ? 'Release to load full article' : 'Pull up to load full article'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden`}>
@@ -234,46 +305,8 @@ export function ArticleReader({ article, onClose }: ArticleReaderProps) {
         )}
       </div>
 
-      {/* FABs */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-50">
-        <button
-          onClick={generateSummary}
-          disabled={isSummarizing}
-          className="p-4 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-          title="Gemini Summary"
-        >
-          {isSummarizing ? <Sparkles className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
-        </button>
-        <button
-          onClick={() => setViewMode(viewMode === 'full' ? 'snippet' : 'full')}
-          className="p-4 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
-        >
-          {viewMode === 'full' ? <AlignLeft className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
-        </button>
-      </div>
+      {/* FABs removed as per request */}
 
-      {/* Summary Modal */}
-      <AnimatePresence>
-        {summary && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSummary(null)}
-          >
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-lg w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Summary</h3>
-                <button onClick={() => setSummary(null)} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                  <X className="w-6 h-6 text-gray-500" />
-                </button>
-              </div>
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{summary}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

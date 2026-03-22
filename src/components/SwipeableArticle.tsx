@@ -5,6 +5,9 @@ import { Check, Star, Trash2 } from 'lucide-react';
 import { Article } from '../types';
 import { useRss } from '../context/RssContext';
 import { useInView } from 'react-intersection-observer';
+import { contentFetcher } from '../utils/contentFetcher';
+
+import DOMPurify from 'dompurify';
 
 interface SwipeableArticleProps {
   key?: React.Key;
@@ -14,19 +17,32 @@ interface SwipeableArticleProps {
 }
 
 export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticleProps) {
-  const { toggleRead, toggleFavorite, settings } = useRss();
+  const { toggleRead, markAsRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
-  const { ref, inView } = useInView({
-    threshold: 0.5,
+  const { ref, inView, entry } = useInView({
+    threshold: 0,
+    rootMargin: '-120px 0px 0px 0px', // Offset for the sticky header
+  });
+
+  const { ref: prefetchRef, inView: prefetchInView } = useInView({
+    threshold: 0,
+    rootMargin: '200px 0px', // Trigger prefetch slightly before it enters the screen
     triggerOnce: true,
   });
 
   useEffect(() => {
-    if (inView && !article.isRead) {
-      toggleRead(article.id);
+    if (prefetchInView) {
+      contentFetcher.enqueue(article.id, article.link);
     }
-  }, [inView, article.isRead, article.id, toggleRead]);
+  }, [prefetchInView, article.id, article.link]);
+
+  useEffect(() => {
+    // Mark as read only when the article completely exits the top of the screen
+    if (!inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
+      markAsRead(article.id);
+    }
+  }, [inView, entry, article.id, article.isRead, markAsRead]);
 
   // Background colors based on swipe direction
   const background = useTransform(
@@ -80,7 +96,10 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
 
   return (
     <motion.div 
-      ref={ref} 
+      ref={(node) => {
+        ref(node);
+        prefetchRef(node);
+      }} 
       style={{ background }}
       className="relative w-full overflow-hidden border-b border-gray-200 dark:border-gray-800"
     >
@@ -136,9 +155,10 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
                 {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy')}
               </span>
             </div>
-            <h3 className={`${getTitleSize()} font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-              {article.title}
-            </h3>
+            <h3 
+              className={`${getTitleSize()} font-semibold leading-tight mb-1 line-clamp-2 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title) }}
+            />
           </div>
           {article.isFavorite && (
             <div className="absolute top-4 right-4">

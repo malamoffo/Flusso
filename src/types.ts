@@ -12,6 +12,7 @@ export interface Settings {
   fontSize: FontSize;
   font: Font;
   refreshInterval: number;
+  pureBlack: boolean;
 }
 
 export interface Feed {

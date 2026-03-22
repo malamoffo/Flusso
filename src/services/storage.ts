@@ -2,13 +2,81 @@ import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
 import { Feed, Article, Settings } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
+import { fetchWithProxy } from '../utils/proxy';
 
 const FEEDS_KEY = 'rss_feeds';
 const ARTICLES_KEY = 'rss_articles';
 const SETTINGS_KEY = 'rss_settings';
 
+// Helper to decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  const textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+}
+
 // Helper to parse RSS/Atom XML using native DOMParser
 function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles: Article[] } {
+  if (!xmlString || xmlString.trim() === '') {
+    throw new Error('Received empty response from the feed URL.');
+  }
+
+  // Check if it's a JSON response from rss2json fallback
+  if (xmlString.trim().startsWith('{')) {
+    try {
+      const data = JSON.parse(xmlString);
+      if (data.status === 'ok' && data.feed && data.items) {
+        const feedId = uuidv4();
+        const articles: Article[] = data.items.map((item: any) => {
+          let imageUrl = item.thumbnail || null;
+          if (!imageUrl && item.enclosure && item.enclosure.link && item.enclosure.type && item.enclosure.type.startsWith('image/')) {
+            imageUrl = item.enclosure.link;
+          }
+          if (!imageUrl) {
+            const content = item.content || item.description || '';
+            const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+            if (imgMatch) imageUrl = imgMatch[1];
+          }
+
+          let pubDate = Date.now();
+          if (item.pubDate) {
+            // rss2json returns dates like "2026-03-22 07:01:18" which might need parsing
+            pubDate = new Date(item.pubDate.replace(' ', 'T') + 'Z').getTime();
+            if (isNaN(pubDate)) pubDate = new Date(item.pubDate).getTime();
+            if (isNaN(pubDate)) pubDate = Date.now();
+          }
+
+          return {
+            id: uuidv4(),
+            feedId,
+            title: decodeHtmlEntities(item.title || 'Untitled'),
+            link: item.link || '',
+            pubDate,
+            imageUrl,
+            isRead: false,
+            isFavorite: false,
+            contentSnippet: decodeHtmlEntities((item.content || item.description || '').replace(/<[^>]*>/g, '').substring(0, 200)),
+          };
+        });
+
+        return {
+          feed: {
+            id: feedId,
+            title: data.feed.title || 'Untitled Feed',
+            description: data.feed.description || '',
+            link: data.feed.link || '',
+            feedUrl,
+            imageUrl: data.feed.image || undefined,
+            lastFetched: Date.now()
+          },
+          articles
+        };
+      }
+    } catch (e) {
+      // Fall through to XML parsing if JSON parsing fails
+    }
+  }
+
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
   
@@ -54,13 +122,13 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       return {
         id: uuidv4(),
         feedId,
-        title: entryTitle,
+        title: decodeHtmlEntities(entryTitle),
         link: entryLink,
         pubDate,
         imageUrl,
         isRead: false,
         isFavorite: false,
-        contentSnippet: content.replace(/<[^>]*>/g, '').substring(0, 200),
+        contentSnippet: decodeHtmlEntities(content.replace(/<[^>]*>/g, '').substring(0, 200)),
       };
     });
 
@@ -107,13 +175,13 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       return {
         id: uuidv4(),
         feedId,
-        title: itemTitle,
+        title: decodeHtmlEntities(itemTitle),
         link: itemLink,
         pubDate,
         imageUrl,
         isRead: false,
         isFavorite: false,
-        contentSnippet: content.replace(/<[^>]*>/g, '').substring(0, 200),
+        contentSnippet: decodeHtmlEntities(content.replace(/<[^>]*>/g, '').substring(0, 200)),
       };
     });
 
@@ -131,7 +199,8 @@ export const defaultSettings: Settings = {
   imageDisplay: 'small',
   fontSize: 'medium',
   font: 'sans',
-  refreshInterval: 60 // Default to 1 hour
+  refreshInterval: 60, // Default to 1 hour
+  pureBlack: false
 };
 
 export const storage = {
@@ -178,7 +247,7 @@ export const storage = {
 
   async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
     // Check if we are on a native platform (Android/iOS)
-    const isNative = (window as any).Capacitor?.isNativePlatform();
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
     
     if (isNative) {
       try {
@@ -206,10 +275,9 @@ export const storage = {
       }
     }
 
-    // Web fallback (will likely fail CORS for most sites)
+    // Web fallback (using CORS proxy to avoid "Failed to fetch" errors in browser preview)
     try {
-      const response = await fetch(feedUrl);
-      const xmlString = await response.text();
+      const xmlString = await fetchWithProxy(feedUrl);
       const { feed, articles } = parseRssXml(xmlString, feedUrl);
       
       const filteredArticles = articles.filter(a => 
@@ -219,6 +287,7 @@ export const storage = {
 
       return { feed, articles: filteredArticles };
     } catch (e) {
+      console.error(`[STORAGE] Web fetch error for ${feedUrl}:`, e);
       throw e;
     }
   },
