@@ -1,54 +1,61 @@
 name: Build Android APK
+
 on:
   push:
     branches: [ main ]
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Risolve il warning di deprecazione
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout del codice
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22' # Versione stabile più recente dai tuoi log
-        cache: 'npm'
-        
-    - name: Install & Build Web
-      run: |
-        npm ci
-        npm run build
+      # 1. Setup Node con caching delle dipendenze npm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Setup Gradle & Cache
-      uses: gradle/actions/setup-gradle@v3 # Sostituisce il caching manuale di setup-java
-      with:
-        gradle-version: wrapper
+      - name: Build Web App
+        run: npm run build
 
-    - name: Sync Capacitor
-      run: |
-        if [ ! -d "android" ]; then
-          npx cap add android
-        fi
-        npx cap sync android
+      # 2. Setup Java con caching automatico di Gradle (Wrapper + Dipendenze)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
 
-    - name: Build APK
-      run: |
-        cd android
-        ./gradlew assembleDebug --no-daemon --build-cache
-      
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk
-        
+      # 3. Caching della cartella Android di Capacitor
+      - name: Cache Capacitor Android
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: ${{ runner.os }}-cap-android-${{ hashFiles('package-lock.json') }}
+
+      - name: Sync Capacitor
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      # 4. Build dell'APK con ottimizzazione del Gradle Daemon
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --build-cache
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
