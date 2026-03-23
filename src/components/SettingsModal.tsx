@@ -15,33 +15,10 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [editTitle, setEditTitle] = useState('');
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
   
-  const [latestRelease, setLatestRelease] = useState<{ version: string; url: string } | null>(null);
-  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
-
-  const checkUpdates = async () => {
-    setIsCheckingUpdates(true);
-    try {
-      const repo = import.meta.env.VITE_GITHUB_REPO || 'malamoffo/flusso';
-      const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
-      if (response.ok) {
-        const data = await response.json();
-        setLatestRelease({
-          version: data.tag_name.replace('v', ''),
-          url: data.html_url
-        });
-      }
-    } catch (error) {
-      console.error('Failed to check for updates:', error);
-    } finally {
-      setIsCheckingUpdates(false);
-    }
-  };
-
   React.useEffect(() => {
     if (isOpen) {
       setActiveTab('settings');
       setSelectedFeedId(null);
-      checkUpdates();
     }
   }, [isOpen]);
 
@@ -399,48 +376,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       Flusso is a minimalist, mobile-first RSS reader designed for speed and focus. 
                       It features full article extraction, swipe gestures, and OPML support.
                     </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Updates</h4>
-                      <button 
-                        onClick={checkUpdates}
-                        disabled={isCheckingUpdates}
-                        className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1"
-                      >
-                        <RefreshCw className={`w-3 h-3 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-                        Check now
-                      </button>
-                    </div>
-                    
-                    {latestRelease ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Latest Version:</span>
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">{latestRelease.version}</span>
-                        </div>
-                        {latestRelease.version !== packageJson.version ? (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl">
-                            <p className="text-xs text-green-800 dark:text-green-300 font-medium">
-                              A newer version is available!
-                            </p>
-                            <a 
-                              href={latestRelease.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-green-600 dark:text-green-400 underline mt-1 inline-block"
-                            >
-                              Download from GitHub
-                            </a>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 text-center">You are using the latest version.</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-500 text-center">Checking for updates...</p>
-                    )}
                   </div>
 
                   <div className="space-y-2">
