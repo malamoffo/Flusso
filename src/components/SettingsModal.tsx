@@ -26,7 +26,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
   const handleFontChange = (font: Font) => updateSettings({ font });
-  const handleRefreshIntervalChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ refreshInterval: parseInt(e.target.value, 10) });
   const handleSwipeLeftChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeLeftAction: e.target.value as SwipeAction });
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
 
@@ -54,7 +53,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 px-6 pb-safe pt-0 max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 px-6 pb-8 pt-0 max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             <div className="sticky top-0 bg-white dark:bg-gray-900 pt-4 pb-4 z-20 border-b border-gray-100 dark:border-gray-800 mb-6 -mx-6 px-6">
               
@@ -258,29 +257,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <Maximize className="w-6 h-6 mb-2" />
                       <span className="text-xs font-medium">Large</span>
                     </button>
-                  </div>
-                </section>
-
-                {/* Background Refresh Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3">Background Refresh</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Update Interval
-                    </label>
-                    <select
-                      value={settings.refreshInterval}
-                      onChange={handleRefreshIntervalChange}
-                      className="block w-full pl-3 pr-10 py-3 text-base border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
-                    >
-                      <option value={0}>Manual Only</option>
-                      <option value={15}>Every 15 minutes</option>
-                      <option value={30}>Every 30 minutes</option>
-                      <option value={60}>Every 1 hour</option>
-                      <option value={360}>Every 6 hours</option>
-                      <option value={720}>Every 12 hours</option>
-                      <option value={1440}>Every 24 hours</option>
-                    </select>
                   </div>
                 </section>
 

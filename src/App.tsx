@@ -232,7 +232,7 @@ function MainContent() {
       </div>
 
       {/* Article List */}
-      <main className="flex-1 overflow-y-auto pb-24" ref={mainRef}>
+      <main className="flex-1 overflow-y-auto pb-32" ref={mainRef}>
         {displayArticles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
             <Inbox className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
@@ -267,7 +267,7 @@ function MainContent() {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around p-3 z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20">
         <button onClick={() => setFilter('all')} className={filter === 'all' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
           <LayoutGrid className="w-6 h-6" />
         </button>
@@ -285,7 +285,7 @@ function MainContent() {
       </div>
 
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-30 items-center">
+      <div className="fixed bottom-28 right-6 flex flex-col gap-4 z-30 items-center">
         <button 
           onClick={() => setIsSettingsModalOpen(true)}
           className="w-12 h-12 bg-indigo-50 dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 rounded-xl shadow-md flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"

@@ -45,6 +45,21 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: S
     }
   }, [inView, entry, article.id, article.isRead, onMarkAsRead]);
 
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    // Mark as read if it stays on screen for 5 seconds
+    if (inView && !article.isRead) {
+      timeoutId = setTimeout(() => {
+        onMarkAsRead(article.id);
+      }, 5000);
+    }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [inView, article.isRead, article.id, onMarkAsRead]);
+
   const handleArticleClick = () => {
     if (!article.isRead) {
       onMarkAsRead(article.id);

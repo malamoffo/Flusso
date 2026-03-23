@@ -35,17 +35,10 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    loadData();
+    loadData().then(() => {
+      refreshFeeds();
+    });
   }, []);
-
-  useEffect(() => {
-    if (settings.refreshInterval > 0) {
-      const intervalId = setInterval(() => {
-        refreshFeeds();
-      }, settings.refreshInterval * 60 * 1000);
-      return () => clearInterval(intervalId);
-    }
-  }, [settings.refreshInterval, feeds.length]); // Re-run if interval changes or feeds change
 
   const loadData = async () => {
     try {

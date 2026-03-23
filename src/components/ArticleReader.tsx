@@ -186,7 +186,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
       </div>
 
       {/* Article Content */}
-      <div className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
+      <div className="flex-1 px-4 pt-6 pb-12 max-w-3xl mx-auto w-full">
         {article.imageUrl && (
           <img 
             src={article.imageUrl} 
