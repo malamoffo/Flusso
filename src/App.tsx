@@ -16,6 +16,8 @@ function MainContent() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('unread');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
+  const mainRef = useRef<HTMLElement>(null);
+  
   // Handle Android back button
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
@@ -130,7 +132,7 @@ function MainContent() {
   const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0 && !isSettingsModalOpen) {
+    if ((mainRef.current?.scrollTop === 0) && !isSettingsModalOpen) {
       setIsPulling(true);
     }
   };
@@ -183,11 +185,6 @@ function MainContent() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center shadow-inner relative">
               <Rss className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-900">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
             </div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
           </div>
@@ -235,7 +232,7 @@ function MainContent() {
       </div>
 
       {/* Article List */}
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto pb-24" ref={mainRef}>
         {displayArticles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
             <Inbox className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
@@ -261,6 +258,7 @@ function MainContent() {
                       markAsRead(article.id);
                     }
                   }}
+                  onMarkAsRead={markAsRead}
                 />
               );
             })}
@@ -273,8 +271,13 @@ function MainContent() {
         <button onClick={() => setFilter('all')} className={filter === 'all' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
           <LayoutGrid className="w-6 h-6" />
         </button>
-        <button onClick={() => setFilter('unread')} className={filter === 'unread' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
+        <button onClick={() => setFilter('unread')} className={`${filter === 'unread' ? 'text-[var(--theme-color)]' : 'text-gray-500'} relative`}>
           <Inbox className="w-6 h-6" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-900">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </button>
         <button onClick={() => setFilter('favorites')} className={filter === 'favorites' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
           <Star className="w-6 h-6" />

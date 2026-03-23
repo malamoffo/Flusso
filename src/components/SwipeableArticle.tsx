@@ -14,9 +14,10 @@ interface SwipeableArticleProps {
   article: Article;
   feedName: string;
   onClick: () => void;
+  onMarkAsRead: (id: string) => void;
 }
 
-export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticleProps) {
+export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: SwipeableArticleProps) {
   const { toggleRead, markAsRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
@@ -38,11 +39,18 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
   }, [prefetchInView, article.id, article.link]);
 
   useEffect(() => {
-    // Mark as read only when the article completely exits the top of the screen
+    // Mark as read when the article exits the top of the screen
     if (!inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
-      markAsRead(article.id);
+      onMarkAsRead(article.id);
     }
-  }, [inView, entry, article.id, article.isRead, markAsRead]);
+  }, [inView, entry, article.id, article.isRead, onMarkAsRead]);
+
+  const handleArticleClick = () => {
+    if (!article.isRead) {
+      onMarkAsRead(article.id);
+    }
+    onClick();
+  };
 
   // Background colors based on swipe direction
   const background = useTransform(
@@ -124,7 +132,7 @@ export function SwipeableArticle({ article, feedName, onClick }: SwipeableArticl
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
-        onClick={onClick}
+        onClick={handleArticleClick}
         className={`relative z-10 w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
       >
         <div className={`flex ${settings.imageDisplay === 'large' ? 'flex-col' : 'gap-4'}`}>

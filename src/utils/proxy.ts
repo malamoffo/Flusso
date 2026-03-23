@@ -2,7 +2,10 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
   // First try direct fetch (in case CORS is enabled on the target server)
   try {
     const directResponse = await fetch(url, {
-      headers: isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {}
+      headers: {
+        ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {}),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
     if (directResponse.ok) {
       const text = await directResponse.text();
@@ -29,9 +32,20 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
   }
 
   let lastError: any;
+  const timeout = 10000; // 10 seconds timeout
+
   for (const proxy of proxies) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
     try {
-      const response = await fetch(proxy.url);
+      const response = await fetch(proxy.url, { 
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      clearTimeout(id);
       if (response.ok) {
         let text = '';
         if (proxy.type === 'json') {
@@ -67,6 +81,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
       }
       lastError = new Error(`Proxy returned status ${response.status}`);
     } catch (e) {
+      clearTimeout(id);
       lastError = e;
     }
   }

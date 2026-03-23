@@ -78,10 +78,17 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
   }
 
   const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+  let xmlDoc = parser.parseFromString(xmlString, 'text/xml');
   
   // Check for parsing errors
-  const parserError = xmlDoc.getElementsByTagName('parsererror')[0];
+  let parserError = xmlDoc.getElementsByTagName('parsererror')[0];
+  if (parserError) {
+    console.warn('XML parsing failed, trying HTML mode:', parserError.textContent);
+    xmlDoc = parser.parseFromString(xmlString, 'text/html');
+  }
+  
+  // Check again for parsing errors
+  parserError = xmlDoc.getElementsByTagName('parsererror')[0];
   if (parserError) {
     throw new Error('Failed to parse XML: ' + parserError.textContent);
   }
@@ -250,19 +257,18 @@ export const storage = {
     // Check if we are on a native platform (Android/iOS)
     const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
     
-    if (isNative) {
-      try {
-        const options = {
-          url: feedUrl,
-          headers: { 'Accept': 'application/xml, text/xml, */*' },
-        };
-        
-        const response = await CapacitorHttp.get(options);
-        
-        if (response.status !== 200) {
-          throw new Error(`Direct fetch failed with status ${response.status}`);
-        }
-
+    // Always try direct fetch first, as native platforms don't have CORS issues
+    try {
+      const options = {
+        url: feedUrl,
+        headers: { 'Accept': 'application/xml, text/xml, */*' },
+        connectTimeout: 5000,
+        readTimeout: 5000,
+      };
+      
+      const response = await CapacitorHttp.get(options);
+      
+      if (response.status === 200) {
         const { feed, articles } = parseRssXml(response.data, feedUrl);
         
         const filteredArticles = articles.filter(a => 
@@ -271,9 +277,9 @@ export const storage = {
         );
 
         return { feed, articles: filteredArticles };
-      } catch (e) {
-        throw e;
       }
+    } catch (e) {
+      console.warn(`Direct fetch failed for ${feedUrl}, falling back to proxy:`, e);
     }
 
     // Web fallback (using CORS proxy to avoid "Failed to fetch" errors in browser preview)
