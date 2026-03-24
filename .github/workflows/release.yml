@@ -51,7 +51,6 @@ jobs:
           gradle-version: '9.4.0'
           cache-read-only: false
           build-scan-publish: false
-          validate-wrappers: false
 
       - name: Sync Capacitor
         run: |
@@ -70,6 +69,7 @@ jobs:
       - name: Build Android APK
         run: |
           cd android
+          gradle wrapper
           chmod +x gradlew
           if [ -f "app/release.keystore" ]; then
             ./gradlew assembleRelease --build-cache
