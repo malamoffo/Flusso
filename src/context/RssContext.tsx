@@ -13,6 +13,7 @@ interface RssContextType {
   importOpml: (file: File) => Promise<void>;
   toggleRead: (articleId: string) => Promise<void>;
   markAsRead: (articleId: string) => Promise<void>;
+  markArticlesAsRead: (articleIds: string[]) => Promise<void>;
   toggleFavorite: (articleId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   refreshFeeds: (currentFeeds?: Feed[], currentArticles?: Article[]) => Promise<void>;
@@ -153,11 +154,23 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   };
 
   const markAsRead = async (articleId: string) => {
-    const article = articles.find(a => a.id === articleId);
-    if (article && !article.isRead) {
-      const updatedArticles = articles.map(a => 
-        a.id === articleId ? { ...a, isRead: true, readAt: Date.now() } : a
-      );
+    await markArticlesAsRead([articleId]);
+  };
+
+  const markArticlesAsRead = async (articleIds: string[]) => {
+    const idsToUpdate = new Set(articleIds);
+    let changed = false;
+    const now = Date.now();
+    
+    const updatedArticles = articles.map(a => {
+      if (idsToUpdate.has(a.id) && !a.isRead) {
+        changed = true;
+        return { ...a, isRead: true, readAt: now };
+      }
+      return a;
+    });
+
+    if (changed) {
       setArticles(updatedArticles);
       await storage.saveArticles(updatedArticles);
     }
@@ -246,7 +259,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   return (
     <RssContext.Provider value={{
       feeds, articles, settings, isLoading, progress, error,
-      addFeed, importOpml, toggleRead, markAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+      addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
       searchQuery, setSearchQuery
     }}>
       {children}

@@ -208,7 +208,8 @@ export const defaultSettings: Settings = {
   font: 'sans',
   refreshInterval: 60, // Default to 1 hour
   pureBlack: false,
-  themeColor: '#4f46e5' // Indigo-600
+  themeColor: '#4f46e5', // Indigo-600
+  dynamicThemeColor: false
 };
 
 export const storage = {

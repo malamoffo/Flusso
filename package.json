@@ -19,6 +19,7 @@
     "@capacitor/core": "^8.2.0",
     "@mozilla/readability": "^0.6.0",
     "clsx": "^2.1.1",
+    "colorthief": "^3.3.1",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.3",
     "framer-motion": "^12.38.0",

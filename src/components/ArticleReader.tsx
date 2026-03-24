@@ -8,6 +8,7 @@ import { CapacitorHttp } from '@capacitor/core';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
+import * as ColorThief from 'colorthief';
 
 interface ArticleReaderProps {
   key?: React.Key;
@@ -22,7 +23,26 @@ interface ArticleReaderProps {
 export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPrev }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
   const { settings, feeds, toggleFavorite, toggleRead } = useRss();
+
+  useEffect(() => {
+    if (settings.dynamicThemeColor && article.imageUrl) {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = article.imageUrl;
+      img.onload = () => {
+        const colorThief = new (ColorThief as any)();
+        const color = colorThief.getColor(img);
+        if (color) {
+          const hexColor = `#${color.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+          setArticleThemeColor(hexColor);
+        }
+      };
+    } else {
+      setArticleThemeColor(null);
+    }
+  }, [article.imageUrl, settings.dynamicThemeColor]);
 
   const feed = feeds.find(f => f.id === article.feedId);
   const readTime = fullContent?.textContent ? Math.max(1, Math.ceil(fullContent.textContent.split(/\s+/).length / 200)) : 1;
@@ -33,6 +53,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     hour: '2-digit',
     minute: '2-digit'
   });
+// ... (rest of the file)
 
   const getProseSize = () => {
     switch (settings.fontSize) {
@@ -134,6 +155,10 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
 
   return (
     <motion.div 
+      style={{ 
+        backgroundColor: articleThemeColor ? `${articleThemeColor}10` : undefined,
+        transition: 'background-color 0.3s ease'
+      }}
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
@@ -158,31 +183,6 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
         <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <X className="w-6 h-6 text-gray-800 dark:text-gray-200" />
         </button>
-        <div className="flex items-center gap-2">
-          <button onClick={() => {
-            window.open(article.link, '_blank');
-          }} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <AlignLeft className="w-5 h-5" />
-          </button>
-          <button onClick={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: article.title,
-                url: article.link
-              }).catch(console.error);
-            } else {
-              navigator.clipboard.writeText(article.link);
-            }
-          }} className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <Share2 className="w-5 h-5" />
-          </button>
-          <button onClick={() => toggleFavorite(article.id)} className={`p-2 rounded-full ${article.isFavorite ? 'text-amber-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors`}>
-            <Bookmark className="w-5 h-5" />
-          </button>
-          <button onClick={() => toggleRead(article.id)} className={`p-2 rounded-full ${article.isRead ? 'text-gray-400' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors`}>
-            <EyeOff className="w-5 h-5" />
-          </button>
-        </div>
       </div>
 
       {/* Article Content */}

@@ -15,9 +15,10 @@ interface SwipeableArticleProps {
   feedName: string;
   onClick: () => void;
   onMarkAsRead: (id: string) => void;
+  onVisibilityChange: (id: string, inView: boolean) => void;
 }
 
-export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: SwipeableArticleProps) {
+export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onVisibilityChange }: SwipeableArticleProps) {
   const { toggleRead, markAsRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
@@ -39,26 +40,23 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: S
   }, [prefetchInView, article.id, article.link]);
 
   useEffect(() => {
+    // Report visibility to parent for batch marking as read
+    if (!article.isRead) {
+      onVisibilityChange(article.id, inView);
+    }
+    
+    // Cleanup on unmount or when article is marked as read
+    return () => {
+      onVisibilityChange(article.id, false);
+    };
+  }, [inView, article.id, article.isRead, onVisibilityChange]);
+
+  useEffect(() => {
     // Mark as read when the article exits the top of the screen
     if (!inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
       onMarkAsRead(article.id);
     }
   }, [inView, entry, article.id, article.isRead, onMarkAsRead]);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    // Mark as read if it stays on screen for 5 seconds
-    if (inView && !article.isRead) {
-      timeoutId = setTimeout(() => {
-        onMarkAsRead(article.id);
-      }, 5000);
-    }
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [inView, article.isRead, article.id, onMarkAsRead]);
 
   const handleArticleClick = () => {
     if (!article.isRead) {
@@ -67,12 +65,30 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: S
     onClick();
   };
 
-  // Background colors based on swipe direction
+  // Background colors based on swipe action
+  const getActionColor = (action: string) => {
+    if (action === 'toggleRead') return '#3b82f6'; // Blue
+    if (action === 'toggleFavorite') return '#f59e0b'; // Yellow
+    return '#ffffff';
+  };
+
   const background = useTransform(
     x,
     [-100, 0, 100],
-    ['#f59e0b', '#ffffff', '#3b82f6'] // Amber for favorite (left), Blue for read (right)
+    [getActionColor(settings.swipeLeftAction), '#ffffff', getActionColor(settings.swipeRightAction)]
   );
+
+  const getActionIcon = (action: string, isLeft: boolean) => {
+    if (action === 'toggleRead') return <Check className="w-6 h-6" />;
+    if (action === 'toggleFavorite') return <Star className="w-6 h-6" />;
+    return null;
+  };
+
+  const getActionText = (action: string) => {
+    if (action === 'toggleRead') return article.isRead ? 'Mark Unread' : 'Mark Read';
+    if (action === 'toggleFavorite') return article.isFavorite ? 'Unfavorite' : 'Favorite';
+    return '';
+  };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 80;
@@ -128,15 +144,15 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead }: S
     >
       {/* Background Actions */}
       <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
-        <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
-          <Check className="w-6 h-6 mr-2" />
-          {settings.swipeRightAction === 'toggleRead' ? (article.isRead ? 'Mark Unread' : 'Mark Read') : 
-           settings.swipeRightAction === 'toggleFavorite' ? (article.isFavorite ? 'Unfavorite' : 'Favorite') : ''}
+        <div className="flex items-center text-white font-medium">
+          {settings.swipeRightAction === 'toggleRead' && <Check className="w-6 h-6 mr-2" />}
+          {settings.swipeRightAction === 'toggleFavorite' && <Star className="w-6 h-6 mr-2" />}
+          {getActionText(settings.swipeRightAction)}
         </div>
-        <div className="flex items-center text-amber-600 dark:text-amber-400 font-medium">
-          {settings.swipeLeftAction === 'toggleRead' ? (article.isRead ? 'Mark Unread' : 'Mark Read') : 
-           settings.swipeLeftAction === 'toggleFavorite' ? (article.isFavorite ? 'Unfavorite' : 'Favorite') : ''}
-          <Star className="w-6 h-6 ml-2" />
+        <div className="flex items-center text-white font-medium">
+          {getActionText(settings.swipeLeftAction)}
+          {settings.swipeLeftAction === 'toggleRead' && <Check className="w-6 h-6 ml-2" />}
+          {settings.swipeLeftAction === 'toggleFavorite' && <Star className="w-6 h-6 ml-2" />}
         </div>
       </div>
 

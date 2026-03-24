@@ -10,13 +10,45 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { App as CapacitorApp } from '@capacitor/app';
 
 function MainContent() {
-  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
+  const mainRef = useRef<HTMLElement>(null);
+  const visibleArticlesRef = useRef<Set<string>>(new Set());
+  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markArticlesAsRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
+
+  const handleVisibilityChange = (id: string, inView: boolean) => {
+    if (inView) {
+      visibleArticlesRef.current.add(id);
+    } else {
+      visibleArticlesRef.current.delete(id);
+    }
+    
+    // Reset timer whenever visibility changes (scrolling or items appearing/disappearing)
+    if (markReadTimeoutRef.current) {
+      clearTimeout(markReadTimeoutRef.current);
+    }
+    
+    markReadTimeoutRef.current = setTimeout(() => {
+      const visibleIds = Array.from(visibleArticlesRef.current);
+      if (visibleIds.length > 0) {
+        markArticlesAsRead(visibleIds);
+      }
+    }, 5000);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('unread');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
-  const mainRef = useRef<HTMLElement>(null);
   
   // Handle Android back button
   useEffect(() => {
@@ -259,6 +291,7 @@ function MainContent() {
                     }
                   }}
                   onMarkAsRead={markAsRead}
+                  onVisibilityChange={handleVisibilityChange}
                 />
               );
             })}
