@@ -12,7 +12,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout del codice
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 1. Setup Node con caching delle dipendenze npm
       - name: Setup Node.js
