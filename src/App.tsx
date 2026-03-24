@@ -11,8 +11,11 @@ import { App as CapacitorApp } from '@capacitor/app';
 
 function MainContent() {
   const mainRef = useRef<HTMLElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const visibleArticlesRef = useRef<Set<string>>(new Set());
   const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const startYRef = useRef<number>(0);
+  const isAtTopRef = useRef<boolean>(true);
 
   const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markArticlesAsRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
 
@@ -164,47 +167,65 @@ function MainContent() {
   const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if ((mainRef.current?.scrollTop === 0) && !isSettingsModalOpen) {
+    const scrollTop = mainRef.current?.scrollTop || 0;
+    isAtTopRef.current = scrollTop <= 0;
+    startYRef.current = e.touches[0].clientY;
+    
+    if (isAtTopRef.current && !isSettingsModalOpen) {
       setIsPulling(true);
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPulling) return;
+    if (!isPulling || !isAtTopRef.current) return;
     
-    // Cancel pull if we scrolled down
-    if (mainRef.current && mainRef.current.scrollTop > 0) {
+    const touch = e.touches[0];
+    const distance = touch.clientY - startYRef.current;
+    
+    // If user moves up (scrolling down), cancel pulling
+    if (distance < 0) {
       setIsPulling(false);
       setPullDistance(0);
       return;
     }
     
-    const touch = e.touches[0];
-    const distance = touch.clientY - (e.currentTarget as any)._startY || 0;
+    // Apply resistance
     if (distance > 0) {
-      setPullDistance(Math.min(distance * 0.5, PULL_THRESHOLD + 20));
-    } else {
-      setPullDistance(0);
+      setPullDistance(Math.min(distance * 0.4, PULL_THRESHOLD + 30));
     }
   };
 
   const handleTouchEnd = () => {
-    if (pullDistance >= PULL_THRESHOLD) {
+    if (isPulling && pullDistance >= PULL_THRESHOLD) {
       refreshFeeds();
     }
     setIsPulling(false);
     setPullDistance(0);
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
-    const target = e.currentTarget;
-    // Check if we reached the bottom (with a small 50px threshold)
-    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
-      const unreadIds = displayArticles.filter(a => !a.isRead).map(a => a.id);
-      if (unreadIds.length > 0) {
-        markArticlesAsRead(unreadIds);
+  // Mark all as read when reaching the bottom
+  useEffect(() => {
+    if (!bottomRef.current || displayArticles.length === 0) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        const unreadIds = displayArticles.filter(a => !a.isRead).map(a => a.id);
+        if (unreadIds.length > 0) {
+          console.log(`[SCROLL] Reached bottom, marking ${unreadIds.length} articles as read`);
+          markArticlesAsRead(unreadIds);
+        }
       }
-    }
+    }, { threshold: 0.1 });
+
+    observer.observe(bottomRef.current);
+    return () => observer.disconnect();
+  }, [displayArticles, markArticlesAsRead]);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    // We still keep handleScroll for other potential needs, 
+    // but the bottom detection is now handled by IntersectionObserver
+    const scrollTop = e.currentTarget.scrollTop;
+    isAtTopRef.current = scrollTop <= 0;
   };
 
   return (
@@ -214,10 +235,7 @@ function MainContent() {
         settings.font === 'mono' ? 'font-mono' : 'font-sans'
       }`}
       style={{ '--theme-color': settings.themeColor } as React.CSSProperties}
-      onTouchStart={(e) => {
-        (e.currentTarget as any)._startY = e.touches[0].clientY;
-        handleTouchStart(e);
-      }}
+      onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
@@ -320,6 +338,10 @@ function MainContent() {
                 />
               );
             })}
+            {/* Sentinel for bottom detection */}
+            <div ref={bottomRef} className="h-20 w-full flex items-center justify-center text-gray-400 text-sm">
+              {displayArticles.some(a => !a.isRead) ? "End of list. Marking as read..." : "You've read everything!"}
+            </div>
           </div>
         )}
       </main>

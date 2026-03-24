@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Feed, Article, Settings } from '../types';
 import { storage, defaultSettings } from '../services/storage';
 
@@ -64,13 +64,15 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateSettings = async (newSettings: Partial<Settings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    await storage.saveSettings(updated);
-  };
+  const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      storage.saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
-  const addFeed = async (url: string) => {
+  const addFeed = useCallback(async (url: string) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -83,7 +85,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const importOpml = async (file: File) => {
     try {
@@ -145,68 +147,83 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleRead = async (articleId: string) => {
-    const updatedArticles = articles.map(a => 
-      a.id === articleId ? { ...a, isRead: !a.isRead, readAt: !a.isRead ? Date.now() : undefined } : a
-    );
-    setArticles(updatedArticles);
-    await storage.saveArticles(updatedArticles);
-  };
+  const toggleRead = useCallback(async (articleId: string) => {
+    setArticles(prev => {
+      const updatedArticles = prev.map(a => 
+        a.id === articleId ? { ...a, isRead: !a.isRead, readAt: !a.isRead ? Date.now() : undefined } : a
+      );
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
+    });
+  }, []);
 
-  const markAsRead = async (articleId: string) => {
-    await markArticlesAsRead([articleId]);
-  };
-
-  const markArticlesAsRead = async (articleIds: string[]) => {
+  const markArticlesAsRead = useCallback(async (articleIds: string[]) => {
     const idsToUpdate = new Set(articleIds);
-    let changed = false;
     const now = Date.now();
     
-    const updatedArticles = articles.map(a => {
-      if (idsToUpdate.has(a.id) && !a.isRead) {
-        changed = true;
-        return { ...a, isRead: true, readAt: now };
+    setArticles(prev => {
+      let changed = false;
+      const updatedArticles = prev.map(a => {
+        if (idsToUpdate.has(a.id) && !a.isRead) {
+          changed = true;
+          return { ...a, isRead: true, readAt: now };
+        }
+        return a;
+      });
+
+      if (changed) {
+        storage.saveArticles(updatedArticles);
+        return updatedArticles;
       }
-      return a;
+      return prev;
     });
+  }, []);
 
-    if (changed) {
-      setArticles(updatedArticles);
-      await storage.saveArticles(updatedArticles);
-    }
-  };
+  const markAsRead = useCallback(async (articleId: string) => {
+    await markArticlesAsRead([articleId]);
+  }, [markArticlesAsRead]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     const now = Date.now();
-    const updatedArticles = articles.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
-    setArticles(updatedArticles);
-    await storage.saveArticles(updatedArticles);
-  };
+    setArticles(prev => {
+      const updatedArticles = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
+    });
+  }, []);
 
-  const toggleFavorite = async (articleId: string) => {
-    const updatedArticles = articles.map(a => 
-      a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
-    );
-    setArticles(updatedArticles);
-    await storage.saveArticles(updatedArticles);
-  };
+  const toggleFavorite = useCallback(async (articleId: string) => {
+    setArticles(prev => {
+      const updatedArticles = prev.map(a => 
+        a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
+      );
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
+    });
+  }, []);
 
-  const removeFeed = async (feedId: string) => {
-    const updatedFeeds = feeds.filter(f => f.id !== feedId);
-    const updatedArticles = articles.filter(a => a.feedId !== feedId);
-    setFeeds(updatedFeeds);
-    setArticles(updatedArticles);
-    await storage.saveFeeds(updatedFeeds);
-    await storage.saveArticles(updatedArticles);
-  };
+  const removeFeed = useCallback(async (feedId: string) => {
+    setFeeds(prev => {
+      const updatedFeeds = prev.filter(f => f.id !== feedId);
+      storage.saveFeeds(updatedFeeds);
+      return updatedFeeds;
+    });
+    setArticles(prev => {
+      const updatedArticles = prev.filter(a => a.feedId !== feedId);
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
+    });
+  }, []);
 
-  const updateFeed = async (feedId: string, updates: Partial<Feed>) => {
-    const updatedFeeds = feeds.map(f => f.id === feedId ? { ...f, ...updates } : f);
-    setFeeds(updatedFeeds);
-    await storage.saveFeeds(updatedFeeds);
-  };
+  const updateFeed = useCallback(async (feedId: string, updates: Partial<Feed>) => {
+    setFeeds(prev => {
+      const updatedFeeds = prev.map(f => f.id === feedId ? { ...f, ...updates } : f);
+      storage.saveFeeds(updatedFeeds);
+      return updatedFeeds;
+    });
+  }, []);
 
-  const refreshFeeds = async (currentFeeds?: Feed[], currentArticles?: Article[]) => {
+  const refreshFeeds = useCallback(async (currentFeeds?: Feed[], currentArticles?: Article[]) => {
     try {
       setIsLoading(true);
       const feedsToUse = currentFeeds || await storage.getFeeds();
@@ -227,7 +244,6 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         
         const data = await storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
         
-        // Update progress safely
         completed++;
         setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
         
@@ -254,7 +270,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       setProgress(null);
     }
-  };
+  }, []);
 
   return (
     <RssContext.Provider value={{
