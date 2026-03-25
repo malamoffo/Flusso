@@ -1,11 +1,17 @@
 export async function fetchWithProxy(url: string, isRss: boolean = true): Promise<string> {
   // First try direct fetch (in case CORS is enabled on the target server)
   try {
+    const directController = new AbortController();
+    const directTimeoutId = setTimeout(() => directController.abort(), 10000);
+    
     const directResponse = await fetch(url, {
+      signal: directController.signal,
       headers: {
         ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {})
       }
     });
+    clearTimeout(directTimeoutId);
+    
     if (directResponse.ok) {
       const text = await directResponse.text();
       if (isRss) {
@@ -17,15 +23,13 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
       }
     }
   } catch (e) {
-    // Direct fetch failed (likely CORS), fallback to proxies
+    // Direct fetch failed (likely CORS or timeout), fallback to proxies
   }
 
   const proxies = [
-    { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text' },
-    { url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
     { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
-    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
-    { url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text' }
+    { url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
+    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' }
   ];
 
   if (isRss) {
@@ -37,13 +41,16 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
 
   for (let i = 0; i < proxies.length; i++) {
     const proxy = proxies[i];
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
     
+    let id: any;
     try {
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between retries
       }
+      
+      const controller = new AbortController();
+      id = setTimeout(() => controller.abort(), timeout);
+      
       const response = await fetch(proxy.url, { 
         signal: controller.signal
       });

@@ -237,32 +237,45 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       setProgress({ current: 0, total: feedsToUse.length });
       
       let completed = 0;
-      const FEED_TIMEOUT = 25000; // 25 seconds max per feed
+      const FEED_TIMEOUT = 90000; // 90 seconds max per feed
+      const CONCURRENCY_LIMIT = 5;
 
-      const feedResults = await Promise.allSettled(feedsToUse.map(async (feed) => {
-        try {
-          const latestArticle = articlesToUse
-            .filter(a => a.feedId === feed.id)
-            .sort((a, b) => b.pubDate - a.pubDate)[0];
-          
-          // Add a timeout to the individual feed fetch
-          const fetchPromise = storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_TIMEOUT)
-          );
+      const feedResults: PromiseSettledResult<{ feed: Feed; articles: Article[] }>[] = [];
+      
+      for (let i = 0; i < feedsToUse.length; i += CONCURRENCY_LIMIT) {
+        const chunk = feedsToUse.slice(i, i + CONCURRENCY_LIMIT);
+        const chunkResults = await Promise.allSettled(chunk.map(async (feed) => {
+          try {
+            const latestArticle = articlesToUse
+              .filter(a => a.feedId === feed.id)
+              .sort((a, b) => b.pubDate - a.pubDate)[0];
+            
+            // Add a timeout to the individual feed fetch
+            const fetchPromise = storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
+            
+            let timeoutId: any;
+            const timeoutPromise = new Promise((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_TIMEOUT);
+            });
 
-          const data = await Promise.race([fetchPromise, timeoutPromise]) as { feed: Feed; articles: Article[] };
-          
-          completed++;
-          setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
-          
-          return data;
-        } catch (error) {
-          completed++;
-          setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
-          throw error;
-        }
-      }));
+            // Prevent unhandled rejection if fetchPromise resolves first
+            timeoutPromise.catch(() => {});
+
+            const data = await Promise.race([fetchPromise, timeoutPromise]) as { feed: Feed; articles: Article[] };
+            clearTimeout(timeoutId);
+            
+            completed++;
+            setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
+            
+            return data;
+          } catch (error) {
+            completed++;
+            setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
+            throw error;
+          }
+        }));
+        feedResults.push(...chunkResults);
+      }
 
       const successfulResults: { feed: Feed; articles: Article[] }[] = [];
       for (const result of feedResults) {

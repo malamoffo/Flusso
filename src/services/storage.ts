@@ -17,6 +17,9 @@ function decodeHtmlEntities(text: string): string {
 
 // Helper to parse RSS/Atom XML using native DOMParser
 function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles: Article[] } {
+  if (typeof xmlString !== 'string') {
+    xmlString = JSON.stringify(xmlString);
+  }
   if (!xmlString || xmlString.trim() === '') {
     throw new Error('Received empty response from the feed URL.');
   }
@@ -325,15 +328,19 @@ export const storage = {
       try {
         const options = {
           url: feedUrl,
-          headers: { 'Accept': 'application/xml, text/xml, */*' },
-          connectTimeout: 15000,
-          readTimeout: 15000,
+          headers: { 
+            'Accept': 'application/xml, text/xml, */*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          connectTimeout: 30000,
+          readTimeout: 30000,
         };
         
         const response = await CapacitorHttp.get(options);
         
         if (response.status === 200) {
-          const { feed, articles } = parseRssXml(response.data, feedUrl);
+          const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+          const { feed, articles } = parseRssXml(dataString, feedUrl);
           
           const filteredArticles = articles.filter(a => 
             (Date.now() - a.pubDate) <= 2 * 24 * 60 * 60 * 1000 && 
