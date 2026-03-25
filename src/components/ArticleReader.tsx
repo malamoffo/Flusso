@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, FileText, AlignLeft, X, Share2, Bookmark, EyeOff } from 'lucide-react';
+import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff } from 'lucide-react';
 import { Article, FullArticleContent } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
@@ -278,7 +278,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
               }}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-current text-indigo-500' : ''}`} />
+              <Star className={`w-5 h-5 ${isFavorite ? 'fill-current text-amber-500' : ''}`} />
             </button>
           </div>
         </div>

@@ -230,7 +230,7 @@ function MainContent() {
 
   return (
     <div 
-      className={`min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors ${
+      className={`h-[100dvh] overflow-hidden bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors ${
         settings.font === 'serif' ? 'font-serif' : 
         settings.font === 'mono' ? 'font-mono' : 'font-sans'
       }`}

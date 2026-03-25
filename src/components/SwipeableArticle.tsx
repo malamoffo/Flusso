@@ -171,7 +171,7 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
             <img 
               src={article.imageUrl} 
               alt="" 
-              className={`${settings.imageDisplay === 'large' ? 'w-full h-48 mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity`}
+              className={`${settings.imageDisplay === 'large' ? 'w-full h-auto max-h-[60vh] mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity`}
               referrerPolicy="no-referrer"
             />
           )}
@@ -190,9 +190,14 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
                   {feedName}
                 </span>
               </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap ml-2">
-                {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy')}
-              </span>
+              <div className="flex items-center gap-1.5 ml-2">
+                {article.isFavorite && (
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                )}
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy')}
+                </span>
+              </div>
             </div>
             <h3 
               className={`${getTitleSize()} font-semibold leading-tight mb-1 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}
@@ -205,11 +210,6 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
               />
             )}
           </div>
-          {article.isFavorite && (
-            <div className="absolute top-4 right-4">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            </div>
-          )}
         </div>
       </motion.div>
     </motion.div>
