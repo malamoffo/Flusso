@@ -236,21 +236,24 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       
       setProgress({ current: 0, total: feedsToUse.length });
       
-      let completed = 0;
       const FEED_TIMEOUT = 90000; // 90 seconds max per feed
       const CONCURRENCY_LIMIT = 5;
 
-      const feedResults: PromiseSettledResult<{ feed: Feed; articles: Article[] }>[] = [];
+      const successfulResults: { feed: Feed; articles: Article[] }[] = [];
+      let completed = 0;
       
-      for (let i = 0; i < feedsToUse.length; i += CONCURRENCY_LIMIT) {
-        const chunk = feedsToUse.slice(i, i + CONCURRENCY_LIMIT);
-        const chunkResults = await Promise.allSettled(chunk.map(async (feed) => {
+      // Use a sliding window for concurrency
+      const pool = [...feedsToUse];
+      const workers = Array(Math.min(CONCURRENCY_LIMIT, pool.length)).fill(null).map(async () => {
+        while (pool.length > 0) {
+          const feed = pool.shift();
+          if (!feed) break;
+          
           try {
             const latestArticle = articlesToUse
               .filter(a => a.feedId === feed.id)
               .sort((a, b) => b.pubDate - a.pubDate)[0];
             
-            // Add a timeout to the individual feed fetch
             const fetchPromise = storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
             
             let timeoutId: any;
@@ -258,33 +261,23 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
               timeoutId = setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_TIMEOUT);
             });
 
-            // Prevent unhandled rejection if fetchPromise resolves first
+            // Prevent unhandled rejection
             timeoutPromise.catch(() => {});
 
             const data = await Promise.race([fetchPromise, timeoutPromise]) as { feed: Feed; articles: Article[] };
             clearTimeout(timeoutId);
             
-            completed++;
-            setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
-            
-            return data;
+            if (data) successfulResults.push(data);
           } catch (error) {
+            console.error(`Failed to refresh feed ${feed.feedUrl}`, error);
+          } finally {
             completed++;
             setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
-            throw error;
           }
-        }));
-        feedResults.push(...chunkResults);
-      }
-
-      const successfulResults: { feed: Feed; articles: Article[] }[] = [];
-      for (const result of feedResults) {
-        if (result.status === 'fulfilled') {
-          successfulResults.push(result.value);
-        } else {
-          console.error('Failed to refresh feed', result.reason);
         }
-      }
+      });
+
+      await Promise.all(workers);
       
       if (successfulResults.length > 0) {
         setProgress(prev => prev ? { ...prev, status: 'Saving articles...' } : null);

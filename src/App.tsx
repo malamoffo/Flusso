@@ -53,6 +53,14 @@ function MainContent() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('unread');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
+  // Scroll to top when filter changes
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+      isAtTopRef.current = true;
+    }
+  }, [filter]);
+  
   // Handle Android back button
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
