@@ -147,19 +147,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                     </button>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
-                    <label className="font-medium text-gray-900 dark:text-white">Dynamic Theme Color</label>
-                    <button 
-                      onClick={() => updateSettings({ dynamicThemeColor: !settings.dynamicThemeColor })}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${settings.dynamicThemeColor ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    >
-                      <motion.div 
-                        animate={{ x: settings.dynamicThemeColor ? 24 : 4 }}
-                        className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
-                      />
-                    </button>
-                  </div>
-
                   {(settings.theme === 'dark' || settings.theme === 'system') && (
                     <div className="mt-4 flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
                       <div className="flex items-center gap-3">

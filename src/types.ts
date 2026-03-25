@@ -14,7 +14,6 @@ export interface Settings {
   refreshInterval: number;
   pureBlack: boolean;
   themeColor: string;
-  dynamicThemeColor: boolean;
 }
 
 export interface Feed {
@@ -37,6 +36,8 @@ export interface Article {
   contentSnippet?: string;
   content?: string;
   imageUrl?: string;
+  mediaUrl?: string;
+  mediaType?: string;
   isRead: boolean;
   readAt?: number;
   isFavorite: boolean;

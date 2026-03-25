@@ -32,7 +32,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
   }, [article.isFavorite]);
 
   useEffect(() => {
-    if (settings.dynamicThemeColor && article.imageUrl) {
+    if (article.imageUrl) {
       const img = new Image();
       img.crossOrigin = "Anonymous";
       // Use proxy to bypass CORS for image color extraction
@@ -59,7 +59,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     } else {
       setArticleThemeColor(null);
     }
-  }, [article.imageUrl, settings.dynamicThemeColor]);
+  }, [article.imageUrl]);
 
   const feed = feeds.find(f => f.id === article.feedId);
   const readTime = fullContent?.textContent ? Math.max(1, Math.ceil(fullContent.textContent.split(/\s+/).length / 200)) : 1;
@@ -157,18 +157,20 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
 
   const sanitizedContent = React.useMemo(() => {
     if (!fullContent?.content) return '';
-    return DOMPurify.sanitize(fullContent.content, {
-      ADD_ATTR: ['style'],
-      ADD_TAGS: ['video', 'audio', 'source'],
+    
+    // Clean up superfluous text/empty tags often left by poor formatting
+    let content = fullContent.content;
+    content = content.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+    content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
+    content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
+    
+    return DOMPurify.sanitize(content, {
+      ADD_ATTR: ['style', 'allowfullscreen', 'frameborder', 'scrolling', 'controls'],
+      ADD_TAGS: ['video', 'audio', 'source', 'iframe'],
     });
   }, [fullContent?.content]);
 
-  const mediaElements = React.useMemo(() => {
-    if (!fullContent?.content) return [];
-    return Array.from(new DOMParser().parseFromString(fullContent.content, 'text/html').querySelectorAll('video, audio'));
-  }, [fullContent?.content]);
-
-  const hasMedia = mediaElements.length > 0;
+  const hasMedia = !!article.mediaUrl;
 
   return (
     <motion.div 
@@ -288,15 +290,13 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
         {hasMedia && (
           <div className="mb-6 space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Media</h3>
-            {mediaElements.map((el, i) => (
-              <div key={i} className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
-                {el.tagName.toLowerCase() === 'video' ? (
-                  <video src={(el as HTMLVideoElement).src} controls className="w-full" />
-                ) : (
-                  <audio src={(el as HTMLAudioElement).src} controls className="w-full" />
-                )}
-              </div>
-            ))}
+            <div className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+              {article.mediaType?.startsWith('video/') ? (
+                <video src={article.mediaUrl!} controls className="w-full" />
+              ) : article.mediaType?.startsWith('audio/') ? (
+                <audio src={article.mediaUrl!} controls className="w-full" />
+              ) : null}
+            </div>
           </div>
         )}
 

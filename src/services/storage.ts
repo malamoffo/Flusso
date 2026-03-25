@@ -29,8 +29,15 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         const feedId = uuidv4();
         const articles: Article[] = data.items.map((item: any) => {
           let imageUrl = item.thumbnail || null;
-          if (!imageUrl && item.enclosure && item.enclosure.link && item.enclosure.type && item.enclosure.type.startsWith('image/')) {
-            imageUrl = item.enclosure.link;
+          let mediaUrl = null;
+          let mediaType = null;
+          if (item.enclosure && item.enclosure.link && item.enclosure.type) {
+            if (item.enclosure.type.startsWith('image/')) {
+              if (!imageUrl) imageUrl = item.enclosure.link;
+            } else if (item.enclosure.type.startsWith('audio/') || item.enclosure.type.startsWith('video/')) {
+              mediaUrl = item.enclosure.link;
+              mediaType = item.enclosure.type;
+            }
           }
           if (!imageUrl) {
             const content = item.content || item.description || '';
@@ -53,6 +60,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
             link: item.link || '',
             pubDate,
             imageUrl,
+            mediaUrl,
+            mediaType,
             isRead: false,
             isFavorite: false,
             contentSnippet: decodeHtmlEntities((item.content || item.description || '').replace(/<[^>]*>/g, '').substring(0, 200)),
@@ -114,11 +123,38 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       const content = entry.getElementsByTagName('content')[0]?.textContent || 
                       entry.getElementsByTagName('summary')[0]?.textContent || '';
       
-      // Try to find an image
+      // Try to find an image or media
       let imageUrl = null;
+      let mediaUrl = null;
+      let mediaType = null;
+      
+      const links = Array.from(entry.getElementsByTagName('link'));
+      for (const l of links) {
+        const rel = l.getAttribute('rel');
+        const type = l.getAttribute('type');
+        const href = l.getAttribute('href');
+        if (rel === 'enclosure' && type && href) {
+          if (type.startsWith('image/')) {
+            if (!imageUrl) imageUrl = href;
+          } else if (type.startsWith('audio/') || type.startsWith('video/')) {
+            mediaUrl = href;
+            mediaType = type;
+          }
+        }
+      }
+
       const mediaContent = entry.getElementsByTagName('media:content')[0];
       if (mediaContent) {
-        imageUrl = mediaContent.getAttribute('url');
+        const type = mediaContent.getAttribute('type');
+        const url = mediaContent.getAttribute('url');
+        if (type?.startsWith('image/')) {
+          if (!imageUrl) imageUrl = url;
+        } else if (type?.startsWith('audio/') || type?.startsWith('video/')) {
+          mediaUrl = url;
+          mediaType = type;
+        } else if (!type && url && (url.endsWith('.jpg') || url.endsWith('.png'))) {
+          if (!imageUrl) imageUrl = url;
+        }
       }
       
       if (!imageUrl) {
@@ -133,6 +169,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         link: entryLink,
         pubDate,
         imageUrl,
+        mediaUrl,
+        mediaType,
         isRead: false,
         isFavorite: false,
         contentSnippet: decodeHtmlEntities(content.replace(/<[^>]*>/g, '').substring(0, 200)),
@@ -163,15 +201,38 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
                       item.getElementsByTagName('content:encoded')[0]?.textContent || '';
       
       let imageUrl = null;
-      const enclosure = item.getElementsByTagName('enclosure')[0];
-      if (enclosure && enclosure.getAttribute('type')?.startsWith('image/')) {
-        imageUrl = enclosure.getAttribute('url');
+      let mediaUrl = null;
+      let mediaType = null;
+      
+      const enclosures = Array.from(item.getElementsByTagName('enclosure'));
+      for (const enclosure of enclosures) {
+        const type = enclosure.getAttribute('type');
+        const url = enclosure.getAttribute('url');
+        if (type && url) {
+          if (type.startsWith('image/')) {
+            if (!imageUrl) imageUrl = url;
+          } else if (type.startsWith('audio/') || type.startsWith('video/')) {
+            mediaUrl = url;
+            mediaType = type;
+          }
+        }
       }
       
       if (!imageUrl) {
         const mediaContent = item.getElementsByTagName('media:content')[0] || 
                             item.getElementsByTagName('media:thumbnail')[0];
-        if (mediaContent) imageUrl = mediaContent.getAttribute('url');
+        if (mediaContent) {
+          const type = mediaContent.getAttribute('type');
+          const url = mediaContent.getAttribute('url');
+          if (type?.startsWith('image/')) {
+            imageUrl = url;
+          } else if (type?.startsWith('audio/') || type?.startsWith('video/')) {
+            mediaUrl = url;
+            mediaType = type;
+          } else if (url) {
+            imageUrl = url; // fallback
+          }
+        }
       }
 
       if (!imageUrl) {
@@ -186,6 +247,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         link: itemLink,
         pubDate,
         imageUrl,
+        mediaUrl,
+        mediaType,
         isRead: false,
         isFavorite: false,
         contentSnippet: decodeHtmlEntities(content.replace(/<[^>]*>/g, '').substring(0, 200)),
@@ -209,7 +272,6 @@ export const defaultSettings: Settings = {
   refreshInterval: 60, // Default to 1 hour
   pureBlack: false,
   themeColor: '#4f46e5', // Indigo-600
-  dynamicThemeColor: false
 };
 
 export const storage = {

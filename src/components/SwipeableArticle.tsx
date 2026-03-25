@@ -159,9 +159,12 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
       {/* Foreground Draggable Card */}
       <motion.div
         style={{ x }}
-        drag="x"
+        drag={settings.swipeLeftAction === 'none' && settings.swipeRightAction === 'none' ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.7}
+        dragElastic={{ 
+          left: settings.swipeLeftAction === 'none' ? 0 : 0.7, 
+          right: settings.swipeRightAction === 'none' ? 0 : 0.7 
+        }}
         onDragEnd={handleDragEnd}
         onClick={handleArticleClick}
         className={`relative z-10 w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
