@@ -4,6 +4,7 @@ import { RssProvider, useRss } from './context/RssContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';
+import { HeaderWidgets } from './components/HeaderWidgets';
 import { Article } from './types';
 import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, LayoutGrid, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -241,10 +242,7 @@ function MainContent() {
     <div 
       className={`h-[100dvh] overflow-hidden flex flex-col transition-colors ${
         settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-gray-50 dark:bg-gray-950'
-      } ${
-        settings.font === 'serif' ? 'font-serif' : 
-        settings.font === 'mono' ? 'font-mono' : 'font-sans'
-      }`}
+      } font-sans`}
       style={{ '--theme-color': settings.themeColor } as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -272,7 +270,10 @@ function MainContent() {
             <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center shadow-inner relative">
               <Rss className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
+            <div className="flex items-baseline gap-4">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
+              <HeaderWidgets />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button 

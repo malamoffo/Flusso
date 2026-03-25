@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SwipeAction, Theme, ImageDisplay, FontSize, Font } from '../types';
+import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
 import packageJson from '../../package.json';
 
@@ -25,7 +25,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
-  const handleFontChange = (font: Font) => updateSettings({ font });
   const handleSwipeLeftChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeLeftAction: e.target.value as SwipeAction });
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
 
@@ -173,22 +172,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       </button>
                     </div>
                   )}
-                </section>
-
-                {/* Font Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Font</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['sans', 'serif', 'mono'].map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => handleFontChange(f as Font)}
-                        className={`p-3 rounded-xl border-2 transition-colors ${settings.font === f ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                      >
-                        <span className="text-sm font-medium capitalize">{f}</span>
-                      </button>
-                    ))}
-                  </div>
                 </section>
 
                 {/* Font Size Settings */}

@@ -9,7 +9,7 @@ const CONTENT_PREFIX = 'article_content_';
 class ContentFetcherQueue {
   private queue: { id: string, url: string }[] = [];
   private activeCount = 0;
-  private maxConcurrent = 4;
+  private maxConcurrent = 2; // Reduced concurrency to avoid rate limits
 
   async getCachedContent(articleId: string): Promise<FullArticleContent | null> {
     return await get<FullArticleContent>(`${CONTENT_PREFIX}${articleId}`) || null;
@@ -37,13 +37,29 @@ class ContentFetcherQueue {
     try {
       const cached = await this.getCachedContent(item.id);
       if (!cached) {
-        await this.fetchAndCache(item.id, item.url);
+        // Add a small delay between prefetches to be polite to servers and proxies
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await this.fetchWithRetry(item.id, item.url);
       }
     } catch (error) {
       console.error(`[PREFETCH] Failed to prefetch ${item.url}:`, error);
     } finally {
       this.activeCount--;
       this.processQueue();
+    }
+  }
+
+  private async fetchWithRetry(articleId: string, url: string, retries = 1) {
+    try {
+      await this.fetchAndCache(articleId, url);
+    } catch (error) {
+      if (retries > 0) {
+        console.log(`[PREFETCH] Retrying ${url}... (${retries} left)`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await this.fetchWithRetry(articleId, url, retries - 1);
+      } else {
+        throw error;
+      }
     }
   }
 

@@ -219,7 +219,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
           <img 
             src={article.imageUrl} 
             alt="" 
-            className="w-full aspect-video rounded-2xl mb-4 object-cover"
+            className="w-full h-auto rounded-2xl mb-4 object-contain max-h-[80vh]"
             referrerPolicy="no-referrer"
           />
         )}

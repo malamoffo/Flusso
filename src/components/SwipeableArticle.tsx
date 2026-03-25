@@ -179,7 +179,7 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
             <img 
               src={article.imageUrl} 
               alt="" 
-              className={`${settings.imageDisplay === 'large' ? 'w-full h-auto max-h-[60vh] mb-3' : 'w-20 h-20'} object-cover rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity`}
+              className={`${settings.imageDisplay === 'large' ? 'w-full h-auto max-h-[70vh] mb-3' : 'w-20 h-auto max-h-32'} object-contain rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity`}
               referrerPolicy="no-referrer"
             />
           )}

@@ -271,7 +271,6 @@ export const defaultSettings: Settings = {
   swipeRightAction: 'toggleRead',
   imageDisplay: 'small',
   fontSize: 'medium',
-  font: 'sans',
   refreshInterval: 60, // Default to 1 hour
   pureBlack: false,
   themeColor: '#4f46e5', // Indigo-600

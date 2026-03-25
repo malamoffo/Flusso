@@ -27,6 +27,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
   }
 
   const proxies = [
+    { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text' },
     { url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
     { url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
     { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' }
