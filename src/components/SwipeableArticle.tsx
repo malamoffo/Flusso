@@ -6,7 +6,7 @@ import { Article } from '../types';
 import { useRss } from '../context/RssContext';
 import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
-
+import { cn } from '../lib/utils';
 import DOMPurify from 'dompurify';
 
 interface SwipeableArticleProps {
@@ -16,9 +16,10 @@ interface SwipeableArticleProps {
   onClick: () => void;
   onMarkAsRead: (id: string) => void;
   onVisibilityChange: (id: string, inView: boolean) => void;
+  style?: React.CSSProperties;
 }
 
-export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onVisibilityChange }: SwipeableArticleProps) {
+export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onVisibilityChange, style }: SwipeableArticleProps) {
   const { toggleRead, markAsRead, toggleFavorite, settings } = useRss();
   const x = useMotionValue(0);
   
@@ -139,7 +140,7 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
         ref(node);
         prefetchRef(node);
       }} 
-      style={{ background }}
+      style={{ ...style, background }}
       className="relative w-full overflow-hidden border-b border-gray-200 dark:border-gray-800"
     >
       {/* Background Actions */}
@@ -162,12 +163,16 @@ export function SwipeableArticle({ article, feedName, onClick, onMarkAsRead, onV
         drag={settings.swipeLeftAction === 'none' && settings.swipeRightAction === 'none' ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={{ 
-          left: settings.swipeLeftAction === 'none' ? 0 : 0.7, 
-          right: settings.swipeRightAction === 'none' ? 0 : 0.7 
+          left: settings.swipeLeftAction === 'none' ? 0 : 0.2, 
+          right: settings.swipeRightAction === 'none' ? 0 : 0.2 
         }}
+        dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
         onDragEnd={handleDragEnd}
         onClick={handleArticleClick}
-        className={`relative z-10 w-full bg-white dark:bg-gray-900 p-4 cursor-pointer shadow-sm transition-colors`}
+        className={cn(
+          "relative z-10 w-full p-4 cursor-pointer shadow-sm transition-colors",
+          settings.pureBlack ? "bg-black" : "bg-white dark:bg-gray-900"
+        )}
       >
         <div className={`flex ${settings.imageDisplay === 'large' ? 'flex-col' : 'gap-4'}`}>
           {article.imageUrl && settings.imageDisplay !== 'none' && (

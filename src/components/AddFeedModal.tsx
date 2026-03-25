@@ -7,7 +7,7 @@ export function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const [url, setUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addFeed, importOpml, error, progress } = useRss();
+  const { addFeed, importOpml, error, progress, settings } = useRss();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +57,9 @@ export function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-3xl z-50 p-6 pb-8"
+            className={`fixed bottom-0 left-0 right-0 rounded-t-3xl z-50 p-6 pb-8 transition-colors ${
+              settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+            }`}
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add RSS Feed</h2>
@@ -116,7 +118,9 @@ export function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 <div className="w-full border-t border-gray-200 dark:border-gray-800" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">Or import from OPML</span>
+                <span className={`px-2 transition-colors ${
+                  settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+                } text-gray-500 dark:text-gray-400`}>Or import from OPML</span>
               </div>
             </div>
 

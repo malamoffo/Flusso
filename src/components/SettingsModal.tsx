@@ -53,9 +53,13 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-[28px] z-50 px-6 pb-8 pt-0 max-h-[90vh] overflow-y-auto shadow-2xl"
+            className={`fixed bottom-0 left-0 right-0 rounded-t-[28px] z-50 px-6 pb-8 pt-0 max-h-[90vh] overflow-y-auto shadow-2xl transition-colors ${
+              settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+            }`}
           >
-            <div className="sticky top-0 bg-white dark:bg-gray-900 pt-4 pb-4 z-20 border-b border-gray-100 dark:border-gray-800 mb-6 -mx-6 px-6">
+            <div className={`sticky top-0 pt-4 pb-4 z-20 border-b border-gray-100 dark:border-gray-800 mb-6 -mx-6 px-6 transition-colors ${
+              settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+            }`}>
               
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">

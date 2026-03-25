@@ -1,4 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as ReactWindow from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+const { FixedSizeList, VariableSizeList } = ReactWindow;
 import { RssProvider, useRss } from './context/RssContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
@@ -17,7 +21,7 @@ function MainContent() {
   const startYRef = useRef<number>(0);
   const isAtTopRef = useRef<boolean>(true);
 
-  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markArticlesAsRead, markAllAsRead, searchQuery, setSearchQuery } = useRss();
+  const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markArticlesAsRead, markAllAsRead, searchQuery, setSearchQuery, unreadCount } = useRss();
 
   const handleVisibilityChange = (id: string, inView: boolean) => {
     if (inView) {
@@ -50,6 +54,7 @@ function MainContent() {
 
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isMarkAllConfirmOpen, setIsMarkAllConfirmOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'favorites'>('unread');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
@@ -172,8 +177,6 @@ function MainContent() {
     });
   }, [filter, searchQuery, articles, isLoading]);
 
-  const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
-
   const handleTouchStart = (e: React.TouchEvent) => {
     const scrollTop = mainRef.current?.scrollTop || 0;
     isAtTopRef.current = scrollTop <= 0;
@@ -236,9 +239,38 @@ function MainContent() {
     isAtTopRef.current = scrollTop <= 0;
   };
 
+  const listRef = useRef<any>(null);
+
+  const getItemSize = useCallback((index: number) => {
+    const article = displayArticles[index];
+    let size = 110;
+    
+    if (settings.imageDisplay === 'large' && article.imageUrl) {
+      size = 420;
+    } else if (settings.imageDisplay === 'small' && article.imageUrl) {
+      size = 130;
+    } else {
+      size = 110;
+    }
+    
+    if (settings.fontSize === 'large') size += 20;
+    if (settings.fontSize === 'xlarge') size += 40;
+    
+    return size;
+  }, [displayArticles, settings.imageDisplay, settings.fontSize]);
+
+  // Reset list cache when articles or settings change
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+  }, [displayArticles, settings.imageDisplay, settings.fontSize]);
+
   return (
     <div 
-      className={`h-[100dvh] overflow-hidden bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors ${
+      className={`h-[100dvh] overflow-hidden flex flex-col transition-colors ${
+        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-gray-50 dark:bg-gray-950'
+      } ${
         settings.font === 'serif' ? 'font-serif' : 
         settings.font === 'mono' ? 'font-mono' : 'font-sans'
       }`}
@@ -252,13 +284,17 @@ function MainContent() {
         className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50"
         style={{ transform: `translateY(${pullDistance - 40}px)`, opacity: pullDistance / PULL_THRESHOLD }}
       >
-        <div className="bg-white dark:bg-gray-800 rounded-full p-2 shadow-lg border border-gray-100 dark:border-gray-700">
+        <div className={`rounded-full p-2 shadow-lg border transition-colors ${
+          settings.theme === 'dark' && settings.pureBlack ? 'bg-gray-900 border-gray-800' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+        }`}>
           <RefreshCw className={`w-6 h-6 text-indigo-600 dark:text-indigo-400 ${pullDistance >= PULL_THRESHOLD ? 'animate-spin' : ''}`} />
         </div>
       </div>
 
       {/* Sticky Header Group */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-gray-900 shadow-sm transition-colors">
+      <div className={`sticky top-0 z-20 shadow-sm transition-colors ${
+        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+      }`}>
         {/* Top App Bar */}
         <header className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -312,12 +348,11 @@ function MainContent() {
 
       {/* Article List */}
       <main 
-        className="flex-1 overflow-y-auto pb-32" 
+        className="flex-1 overflow-hidden" 
         ref={mainRef}
-        onScroll={handleScroll}
       >
         {displayArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400 px-6 text-center">
             <Inbox className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
             <p className="text-sm">
@@ -327,35 +362,50 @@ function MainContent() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col">
-            {displayArticles.map(article => {
-              const feed = feeds.find(f => f.id === article.feedId);
-              return (
-                <SwipeableArticle 
-                  key={article.id} 
-                  article={article} 
-                  feedName={feed?.title || 'Unknown Feed'}
-                  onClick={() => {
-                    setSelectedArticle(article);
-                    if (!article.isRead) {
-                      markAsRead(article.id);
-                    }
+          <div className="h-full w-full">
+            <AutoSizer>
+              {({ height, width }) => (
+                <VariableSizeList
+                  ref={listRef}
+                  height={height}
+                  itemCount={displayArticles.length}
+                  itemSize={getItemSize}
+                  width={width}
+                  className="scrollbar-hide"
+                >
+                  {({ index, style }) => {
+                    const article = displayArticles[index];
+                    const feed = feeds.find(f => f.id === article.feedId);
+                    return (
+                      <div style={style}>
+                        <SwipeableArticle 
+                          key={article.id} 
+                          article={article} 
+                          feedName={feed?.title || 'Unknown Feed'}
+                          onClick={() => {
+                            setSelectedArticle(article);
+                            if (!article.isRead) {
+                              markAsRead(article.id);
+                            }
+                          }}
+                          onMarkAsRead={markAsRead}
+                          onVisibilityChange={handleVisibilityChange}
+                        />
+                      </div>
+                    );
                   }}
-                  onMarkAsRead={markAsRead}
-                  onVisibilityChange={handleVisibilityChange}
-                />
-              );
-            })}
-            {/* Sentinel for bottom detection */}
-            <div ref={bottomRef} className="h-20 w-full flex items-center justify-center text-gray-400 text-sm">
-              {displayArticles.some(a => !a.isRead) ? "End of list. Marking as read..." : "You've read everything!"}
-            </div>
+                </VariableSizeList>
+              )}
+            </AutoSizer>
           </div>
         )}
       </main>
 
+
       {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20">
+      <div className={`fixed bottom-0 left-0 right-0 border-t border-gray-100 dark:border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20 transition-colors ${
+        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
+      }`}>
         <button onClick={() => setFilter('all')} className={filter === 'all' ? 'text-[var(--theme-color)]' : 'text-gray-500'}>
           <LayoutGrid className="w-6 h-6" />
         </button>
@@ -382,7 +432,7 @@ function MainContent() {
           <SettingsIcon className="w-5 h-5" />
         </button>
         <button 
-          onClick={() => markAllAsRead()}
+          onClick={() => setIsMarkAllConfirmOpen(true)}
           className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
           title="Mark all as read"
         >
@@ -391,6 +441,42 @@ function MainContent() {
       </div>
 
       {/* Modals & Overlays */}
+      <AnimatePresence>
+        {isMarkAllConfirmOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={cn(
+                "w-full max-w-sm p-6 rounded-2xl shadow-2xl bg-white dark:bg-gray-900",
+                settings.pureBlack && "bg-black"
+              )}
+            >
+              <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">Mark all as read?</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">This will mark all articles in the current view as read.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsMarkAllConfirmOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    markAllAsRead();
+                    setIsMarkAllConfirmOpen(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-indigo-600 text-white"
+                >
+                  Mark All
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
       
       <AnimatePresence>

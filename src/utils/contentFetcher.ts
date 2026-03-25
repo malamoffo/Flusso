@@ -9,7 +9,7 @@ const CONTENT_PREFIX = 'article_content_';
 class ContentFetcherQueue {
   private queue: { id: string, url: string }[] = [];
   private activeCount = 0;
-  private maxConcurrent = 2;
+  private maxConcurrent = 4;
 
   async getCachedContent(articleId: string): Promise<FullArticleContent | null> {
     return await get<FullArticleContent>(`${CONTENT_PREFIX}${articleId}`) || null;

@@ -20,11 +20,15 @@ interface RssContextType {
   removeFeed: (feedId: string) => Promise<void>;
   updateFeed: (feedId: string, updates: Partial<Feed>) => Promise<void>;
   updateSettings: (newSettings: Partial<Settings>) => Promise<void>;
+  exportFeeds: () => Promise<string>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  unreadCount: number;
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
+
+import { App as CapacitorApp } from '@capacitor/app';
 
 export function RssProvider({ children }: { children: React.ReactNode }) {
   const [feeds, setFeeds] = useState<Feed[]>([]);
@@ -34,6 +38,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<{ current: number; total: number; status?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const lastRefreshRef = React.useRef<number>(Date.now());
 
   useEffect(() => {
     let mounted = true;
@@ -42,7 +47,23 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         refreshFeeds(data.loadedFeeds, data.loadedArticles);
       }
     });
-    return () => { mounted = false; };
+
+    // Handle background to foreground transitions
+    const stateListener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        // If it's been more than 15 minutes since last refresh, refresh again
+        const now = Date.now();
+        if (now - lastRefreshRef.current > 15 * 60 * 1000) {
+          console.log('App resumed after 15+ mins, refreshing feeds...');
+          refreshFeeds();
+        }
+      }
+    });
+
+    return () => { 
+      mounted = false; 
+      stateListener.then(l => l.remove());
+    };
   }, []);
 
   const loadData = async () => {
@@ -223,6 +244,10 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const exportFeeds = useCallback(async () => {
+    return await storage.exportOpml();
+  }, []);
+
   const refreshFeeds = useCallback(async (currentFeeds?: Feed[], currentArticles?: Article[]) => {
     try {
       setIsLoading(true);
@@ -237,7 +262,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       setProgress({ current: 0, total: feedsToUse.length });
       
       const FEED_TIMEOUT = 90000; // 90 seconds max per feed
-      const CONCURRENCY_LIMIT = 5;
+      const CONCURRENCY_LIMIT = 15;
 
       const successfulResults: { feed: Feed; articles: Article[] }[] = [];
       let completed = 0;
@@ -286,6 +311,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       
       setProgress(prev => prev ? { ...prev, status: 'Finalizing...' } : null);
       await loadData();
+      lastRefreshRef.current = Date.now();
     } catch (err) {
       setError('Failed to refresh feeds');
     } finally {
@@ -294,11 +320,13 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const unreadCount = articles.filter(a => !a.isRead).length;
+
   return (
     <RssContext.Provider value={{
       feeds, articles, settings, isLoading, progress, error,
       addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
-      searchQuery, setSearchQuery
+      exportFeeds, searchQuery, setSearchQuery, unreadCount
     }}>
       {children}
     </RssContext.Provider>

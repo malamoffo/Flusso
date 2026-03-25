@@ -460,5 +460,22 @@ export const storage = {
     const uniqueUrls = Array.from(new Set(urls));
     console.log('Extracted unique URLs:', uniqueUrls.length);
     return uniqueUrls;
+  },
+
+  async exportOpml(): Promise<string> {
+    const feeds = await this.getFeeds();
+    let opml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    opml += '<opml version="1.0">\n';
+    opml += '  <head>\n';
+    opml += '    <title>Flusso Feeds</title>\n';
+    opml += '  </head>\n';
+    opml += '  <body>\n';
+    feeds.forEach(feed => {
+      const title = (feed.title || 'Untitled').replace(/"/g, '&quot;');
+      opml += `    <outline text="${title}" title="${title}" type="rss" xmlUrl="${feed.feedUrl}" htmlUrl="${feed.link}"/>\n`;
+    });
+    opml += '  </body>\n';
+    opml += '</opml>';
+    return opml;
   }
 };

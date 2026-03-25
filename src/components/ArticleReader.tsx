@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
 import DOMPurify from 'dompurify';
 import { CapacitorHttp } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -189,7 +190,9 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
           onNext();
         }
       }}
-      className="fixed inset-0 z-50 bg-white dark:bg-gray-950 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words"
+      className={`fixed inset-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words ${
+        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-950'
+      }`}
     >
       {/* Background Tint */}
       {articleThemeColor && (
@@ -201,7 +204,9 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
 
       {/* Top App Bar */}
       <div 
-        className="sticky top-0 z-20 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between transition-colors"
+        className={`sticky top-0 z-20 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between transition-colors ${
+          settings.theme === 'dark' && settings.pureBlack ? 'bg-black/80' : 'bg-white/80 dark:bg-gray-950/80'
+        }`}
       >
         <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
           <X className="w-6 h-6 text-gray-800 dark:text-gray-200" />
@@ -260,13 +265,20 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
             <button 
               onClick={async () => {
                 try {
-                  if (navigator.share) {
-                    await navigator.share({ title: article.title, url: article.link });
-                  } else {
-                    console.log('Web Share API not supported');
-                  }
+                  await Share.share({
+                    title: article.title,
+                    url: article.link,
+                    dialogTitle: 'Condividi articolo'
+                  });
                 } catch (err) {
-                  console.error('Error sharing:', err);
+                  console.error('Error sharing with Capacitor:', err);
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({ title: article.title, url: article.link });
+                    } catch (e) {
+                      console.error('Fallback share error:', e);
+                    }
+                  }
                 }
               }}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
