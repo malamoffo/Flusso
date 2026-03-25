@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as ReactWindow from 'react-window';
+import { List as VariableSizeList } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
+// @ts-ignore
+import { cn } from './lib/utils';
 
-const { FixedSizeList, VariableSizeList } = ReactWindow;
 import { RssProvider, useRss } from './context/RssContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
@@ -363,17 +364,16 @@ function MainContent() {
           </div>
         ) : (
           <div className="h-full w-full">
+            {/* @ts-ignore */}
             <AutoSizer>
-              {({ height, width }) => (
+              {({ height, width }: any) => (
                 <VariableSizeList
-                  ref={listRef}
-                  height={height}
-                  itemCount={displayArticles.length}
-                  itemSize={getItemSize}
-                  width={width}
+                  listRef={listRef}
+                  rowCount={displayArticles.length}
+                  rowHeight={getItemSize}
+                  style={{ height: height ?? 0, width: width ?? 0 }}
                   className="scrollbar-hide"
-                >
-                  {({ index, style }) => {
+                  rowComponent={({ index, style }: any) => {
                     const article = displayArticles[index];
                     const feed = feeds.find(f => f.id === article.feedId);
                     return (
@@ -394,7 +394,8 @@ function MainContent() {
                       </div>
                     );
                   }}
-                </VariableSizeList>
+                  rowProps={{}}
+                />
               )}
             </AutoSizer>
           </div>
