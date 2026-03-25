@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as ReactWindow from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
+import * as AutoSizerModule from 'react-virtualized-auto-sizer';
 
-const { FixedSizeList, VariableSizeList } = ReactWindow;
+const FixedSizeList = (ReactWindow as any).FixedSizeList || (ReactWindow as any).default?.FixedSizeList;
+const VariableSizeList = (ReactWindow as any).VariableSizeList || (ReactWindow as any).default?.VariableSizeList;
+const AutoSizer = ((AutoSizerModule as any).AutoSizer || (AutoSizerModule as any).default?.AutoSizer || (AutoSizerModule as any).default) as any;
+
 import { RssProvider, useRss } from './context/RssContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
@@ -10,6 +13,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { Article } from './types';
 import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, LayoutGrid, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from './lib/utils';
 
 import { App as CapacitorApp } from '@capacitor/app';
 
