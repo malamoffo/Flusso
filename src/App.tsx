@@ -1,10 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import * as ReactWindow from 'react-window';
-import * as AutoSizerModule from 'react-virtualized-auto-sizer';
-
-const FixedSizeList = (ReactWindow as any).FixedSizeList || (ReactWindow as any).default?.FixedSizeList;
-const VariableSizeList = (ReactWindow as any).VariableSizeList || (ReactWindow as any).default?.VariableSizeList;
-const AutoSizer = ((AutoSizerModule as any).AutoSizer || (AutoSizerModule as any).default?.AutoSizer || (AutoSizerModule as any).default) as any;
 
 import { RssProvider, useRss } from './context/RssContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
@@ -243,33 +237,6 @@ function MainContent() {
     isAtTopRef.current = scrollTop <= 0;
   };
 
-  const listRef = useRef<any>(null);
-
-  const getItemSize = useCallback((index: number) => {
-    const article = displayArticles[index];
-    let size = 110;
-    
-    if (settings.imageDisplay === 'large' && article.imageUrl) {
-      size = 420;
-    } else if (settings.imageDisplay === 'small' && article.imageUrl) {
-      size = 130;
-    } else {
-      size = 110;
-    }
-    
-    if (settings.fontSize === 'large') size += 20;
-    if (settings.fontSize === 'xlarge') size += 40;
-    
-    return size;
-  }, [displayArticles, settings.imageDisplay, settings.fontSize]);
-
-  // Reset list cache when articles or settings change
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
-    }
-  }, [displayArticles, settings.imageDisplay, settings.fontSize]);
-
   return (
     <div 
       className={`h-[100dvh] overflow-hidden flex flex-col transition-colors ${
@@ -352,11 +319,12 @@ function MainContent() {
 
       {/* Article List */}
       <main 
-        className="flex-1 overflow-hidden" 
+        className="flex-1 overflow-y-auto pb-32" 
         ref={mainRef}
+        onScroll={handleScroll}
       >
         {displayArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400 px-6 text-center">
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
             <Inbox className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
             <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
             <p className="text-sm">
@@ -366,41 +334,26 @@ function MainContent() {
             </p>
           </div>
         ) : (
-          <div className="h-full w-full">
-            <AutoSizer>
-              {({ height, width }) => (
-                <VariableSizeList
-                  ref={listRef}
-                  height={height}
-                  itemCount={displayArticles.length}
-                  itemSize={getItemSize}
-                  width={width}
-                  className="scrollbar-hide"
-                >
-                  {({ index, style }) => {
-                    const article = displayArticles[index];
-                    const feed = feeds.find(f => f.id === article.feedId);
-                    return (
-                      <div style={style}>
-                        <SwipeableArticle 
-                          key={article.id} 
-                          article={article} 
-                          feedName={feed?.title || 'Unknown Feed'}
-                          onClick={() => {
-                            setSelectedArticle(article);
-                            if (!article.isRead) {
-                              markAsRead(article.id);
-                            }
-                          }}
-                          onMarkAsRead={markAsRead}
-                          onVisibilityChange={handleVisibilityChange}
-                        />
-                      </div>
-                    );
+          <div className="flex-1">
+            {displayArticles.map((article) => {
+              const feed = feeds.find(f => f.id === article.feedId);
+              return (
+                <SwipeableArticle 
+                  key={article.id} 
+                  article={article} 
+                  feedName={feed?.title || 'Unknown Feed'}
+                  onClick={() => {
+                    setSelectedArticle(article);
+                    if (!article.isRead) {
+                      markAsRead(article.id);
+                    }
                   }}
-                </VariableSizeList>
-              )}
-            </AutoSizer>
+                  onMarkAsRead={markAsRead}
+                  onVisibilityChange={handleVisibilityChange}
+                />
+              );
+            })}
+            <div ref={bottomRef} className="h-20" />
           </div>
         )}
       </main>
