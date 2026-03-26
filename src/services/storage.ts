@@ -521,13 +521,13 @@ export const storage = {
   async parseOpml(opmlText: string): Promise<string[]> {
     console.log('Parsing OPML text, length:', opmlText.length);
     const parser = new DOMParser();
-    let doc = parser.parseFromString(opmlText, 'text/xml');
+    const doc = parser.parseFromString(opmlText, 'text/xml');
     
-    // If XML parsing fails (common with malformed OPML), try text/html which is more lenient
+    // If XML parsing fails (common with malformed OPML), treat as invalid and return no URLs
     const parserError = doc.querySelector('parsererror');
     if (parserError) {
-      console.warn('OPML XML parsing failed, trying HTML mode:', parserError.textContent);
-      doc = parser.parseFromString(opmlText, 'text/html');
+      console.warn('OPML XML parsing failed, treating file as invalid:', parserError.textContent);
+      return [];
     }
 
     const outlines = doc.querySelectorAll('outline');
