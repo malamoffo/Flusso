@@ -44,12 +44,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Opzionale: Imposta Java 17 (versione consigliata per le build Android moderne)
-    - name: Set up JDK 17
+    # Imposta Java 21 (versione usata negli altri workflow del progetto)
+    - name: Set up JDK 21
       if: matrix.language == 'java-kotlin'
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
 
     - name: Initialize CodeQL
