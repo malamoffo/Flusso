@@ -1,71 +1,77 @@
-# 🌊 Flusso - Il Tuo Lettore RSS Moderno
+# 🌊 Flusso - Your Modern RSS Reader
 
-**Flusso** è un lettore di notizie veloce, focalizzato sulla privacy e altamente personalizzabile, progettato per offrire un'esperienza di lettura superiore sia sul web che su dispositivi mobile.
+[![Build Web App](https://github.com/malamoffo/flusso/actions/workflows/android.yml/badge.svg)](https://github.com/malamoffo/flusso/actions/workflows/android.yml)
+[![Latest Release](https://img.shields.io/github/v/release/malamoffo/flusso)](https://github.com/malamoffo/flusso/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
-
-## ✨ Funzionalità Avanzate
-
-### 🛠️ Widget Intelligenti & Header Dinamico
-*   **Meteo in Tempo Reale**: Widget meteo integrato che rileva automaticamente la tua posizione per fornirti le condizioni attuali.
-*   **Orologio Sincronizzato**: Un design minimalista che integra ora e meteo direttamente nel flusso delle tue notizie.
-
-### 📖 Esperienza di Lettura Immersiva
-*   **Modalità Distraction-Free**: Estrazione automatica del contenuto tramite *Mozilla Readability* per una lettura pulita e coerente.
-*   **Ricerca & Organizzazione**: Motore di ricerca integrato per trovare rapidamente articoli tra tutti i tuoi feed e gestione semplificata delle sottoscrizioni.
-*   **Prefetching Intelligente**: Gli articoli vengono caricati preventivamente in background per garantirti un'apertura istantanea, anche offline.
-*   **Immagini Senza Compromessi**: Visualizzazione ottimizzata delle immagini a tutta altezza (senza ritagli) sia nell'anteprima che nell'articolo completo.
-
-### 🎨 Personalizzazione Estrema
-*   **OLED Ready**: Include il tema **Pure Black** per il massimo risparmio energetico su schermi AMOLED.
-*   **Tipografia Variabile**: Supporto per font Sans-serif (Inter) con dimensioni regolabili da *Small* a *X-Large*.
-*   **Gesti Intuitivi**: Azioni swipe personalizzabili per segnare come letto o aggiungere ai preferiti con un solo tocco.
-
-### 🚀 Tecnologia & Performance
-*   **Offline First**: Tutti i feed e gli articoli sono salvati localmente tramite *IndexedDB*.
-*   **Android Native**: Icone e splash screen personalizzati per un'esperienza app nativa fluida grazie a *Capacitor*.
+**Flusso** is a fast, privacy-focused, and highly customizable news reader designed to provide a superior reading experience on both web and mobile devices.
 
 ---
 
-## 🛠️ Stack Tecnologico
+## ✨ Advanced Features
+
+### 🛠️ Smart Widgets & Dynamic Header
+*   **Real-time Weather**: Integrated weather widget that automatically detects your location to provide current conditions.
+*   **Synchronized Clock**: A minimalist design that integrates time and weather directly into your news flow.
+
+### 📖 Immersive Reading Experience
+*   **Distraction-Free Mode**: Automatic content extraction via *Mozilla Readability* for a clean and consistent reading experience.
+*   **Search & Organization**: Integrated search engine to quickly find articles across all your feeds and simplified subscription management.
+*   **Smart Prefetching**: Articles are pre-loaded in the background to ensure instant opening, even offline.
+*   **Uncompromised Images**: Optimized display of full-height images (no cropping) in both the preview and the full article.
+
+### 🎨 Extreme Customization
+*   **OLED Ready**: Includes the **Pure Black** theme for maximum energy savings on AMOLED screens.
+*   **Variable Typography**: Support for Sans-serif (Inter) fonts with adjustable sizes from *Small* to *X-Large*.
+*   **Intuitive Gestures**: Customizable swipe actions to mark as read or add to favorites with a single touch.
+
+### 🚀 Technology & Performance
+*   **Offline First**: All feeds and articles are saved locally via *IndexedDB*.
+*   **Android Native**: Custom icons and splash screens for a smooth native app experience powered by *Capacitor*.
+*   **Automated CI/CD**: Automatic builds for every Pull Request and automated releases via GitHub Actions.
+*   **In-App Updates**: Stay up to date with the latest features! Flusso now automatically checks for new releases on GitHub and allows you to update directly from the settings.
+
+---
+
+## 🛠️ Tech Stack
 
 *   **Frontend**: React 19 + TypeScript
 *   **Styling**: Tailwind CSS 4.0 (Modern Utility-First)
-*   **Animazioni**: Framer Motion (Transizioni fluide e feedback aptico visivo)
+*   **Animations**: Framer Motion (Fluid transitions and visual haptic feedback)
 *   **Storage**: idb-keyval (IndexedDB)
-*   **Native Bridge**: Capacitor (Accesso alle API native Android/iOS)
+*   **Native Bridge**: Capacitor (Access to native Android/iOS APIs)
 *   **Content Engine**: @mozilla/readability
 
 ---
 
-## 📱 Installazione & Sviluppo
+## 📱 Installation & Development
 
-### Requisiti
+### Requirements
 *   Node.js (v18+)
 *   npm
 
-### Setup Locale
+### Local Setup
 ```bash
-# Installa le dipendenze
+# Install dependencies
 npm install
 
-# Avvia il server di sviluppo
+# Start development server
 npm run dev
 ```
 
-### Build Android
+### Android Build
 ```bash
-# Genera la build di produzione
+# Generate production build
 npm run build
 
-# Sincronizza con il progetto Android
+# Sync with Android project
 npx cap sync android
 ```
 
 ---
 
-## 🛡️ Privacy & Sicurezza
-Flusso non traccia le tue abitudini di lettura. Tutti i dati dei tuoi feed rimangono sul tuo dispositivo. Le immagini vengono caricate con `referrerPolicy="no-referrer"` per proteggere la tua identità durante la navigazione.
+## 🛡️ Privacy & Security
+Flusso does not track your reading habits. All your feed data remains on your device. Images are loaded with `referrerPolicy="no-referrer"` to protect your identity while browsing.
 
 ---
-*Sviluppato con ❤️ per una lettura migliore.*
+*Developed with ❤️ for a better reading experience.*

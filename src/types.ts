@@ -12,6 +12,7 @@ export interface Settings {
   refreshInterval: number;
   pureBlack: boolean;
   themeColor: string;
+  autoCheckUpdates: boolean;
 }
 
 export interface Feed {

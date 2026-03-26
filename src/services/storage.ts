@@ -274,6 +274,7 @@ export const defaultSettings: Settings = {
   refreshInterval: 60, // Default to 1 hour
   pureBlack: false,
   themeColor: '#4f46e5', // Indigo-600
+  autoCheckUpdates: true,
 };
 
 export const storage = {

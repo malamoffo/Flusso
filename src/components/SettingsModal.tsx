@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2 } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
@@ -7,8 +7,9 @@ import { AddFeedModal } from './AddFeedModal';
 import packageJson from '../../package.json';
 
 export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress } = useRss();
+  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates } = useRss();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'subscriptions' | 'about'>('settings');
   const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
+  const handleAutoCheckUpdates = () => updateSettings({ autoCheckUpdates: !settings.autoCheckUpdates });
   const handleSwipeLeftChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeLeftAction: e.target.value as SwipeAction });
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
 
@@ -237,6 +239,52 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   </div>
                 </section>
 
+                {/* Update Settings */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Updates</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                          <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">Auto-check updates</p>
+                          <p className="text-xs text-gray-500">Check for new releases on startup</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={handleAutoCheckUpdates}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${settings.autoCheckUpdates ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                      >
+                        <motion.div 
+                          animate={{ x: settings.autoCheckUpdates ? 24 : 4 }}
+                          className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
+                        />
+                      </button>
+                    </div>
+                    
+                    {!updateInfo?.hasUpdate && (
+                      <button
+                        onClick={async () => {
+                          setIsCheckingUpdate(true);
+                          await checkUpdates(true);
+                          setIsCheckingUpdate(false);
+                        }}
+                        disabled={isCheckingUpdate}
+                        className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        {isCheckingUpdate ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="w-4 h-4" />
+                        )}
+                        {isCheckingUpdate ? 'Checking...' : 'Check for updates now'}
+                      </button>
+                    )}
+                  </div>
+                </section>
+
                 {/* Gestures Settings */}
                 <section>
                   <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Gestures</h3>
@@ -320,9 +368,92 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   </div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Flusso</h3>
                   <p className="text-gray-500 dark:text-gray-400 mt-1">Version {packageJson.version}</p>
+                  
+                  {updateInfo?.hasUpdate && (
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="mt-4 px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium flex items-center gap-2"
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      New version {updateInfo.latestRelease?.version} available!
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="space-y-4">
+                  {updateInfo?.hasUpdate ? (
+                    <div className="p-5 rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-500/20">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-bold text-lg">Update Available</h4>
+                          <p className="text-indigo-100 text-sm">Version {updateInfo.latestRelease?.version} is ready for download.</p>
+                        </div>
+                        <div className="p-2 bg-white/20 rounded-xl">
+                          <Download className="w-6 h-6" />
+                        </div>
+                      </div>
+                      
+                      {updateInfo.latestRelease?.notes && (
+                        <div className="mb-6 p-3 bg-white/10 rounded-xl text-xs leading-relaxed max-h-32 overflow-y-auto">
+                          <p className="font-semibold mb-1 opacity-70 uppercase tracking-wider">What's New:</p>
+                          {updateInfo.latestRelease.notes}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <a 
+                          href={updateInfo.latestRelease?.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 p-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Release Page
+                        </a>
+                        {updateInfo.latestRelease?.assets.find(a => a.name.endsWith('.apk')) ? (
+                          <a 
+                            href={updateInfo.latestRelease.assets.find(a => a.name.endsWith('.apk'))?.browser_download_url}
+                            className="flex items-center justify-center gap-2 p-3 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-400 transition-colors border border-white/20"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download APK
+                          </a>
+                        ) : (
+                          <button 
+                            disabled
+                            className="flex items-center justify-center gap-2 p-3 bg-indigo-500/50 text-white/50 rounded-xl font-bold text-sm cursor-not-allowed border border-white/10"
+                          >
+                            <Download className="w-4 h-4" />
+                            No APK found
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setIsCheckingUpdate(true);
+                        await checkUpdates(true);
+                        setIsCheckingUpdate(false);
+                      }}
+                      disabled={isCheckingUpdate}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        {isCheckingUpdate ? (
+                          <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+                        ) : updateInfo ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <ShieldCheck className="w-5 h-5 text-gray-500" />
+                        )}
+                        <span>{isCheckingUpdate ? 'Checking for updates...' : updateInfo ? 'App is up to date' : 'Check for updates'}</span>
+                      </div>
+                      {!isCheckingUpdate && <span className="text-xs text-gray-400">{updateInfo ? 'Checked just now' : 'Manual check'}</span>}
+                    </button>
+                  )}
+
                   <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
                     <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">App Information</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">

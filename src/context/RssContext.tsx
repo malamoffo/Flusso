@@ -24,11 +24,20 @@ interface RssContextType {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   unreadCount: number;
+  updateInfo: UpdateCheckResult | null;
+  checkUpdates: (manual?: boolean) => Promise<void>;
+}
+
+interface LoadedData {
+  loadedFeeds: Feed[];
+  loadedArticles: Article[];
+  loadedSettings: Settings;
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
 
 import { App as CapacitorApp } from '@capacitor/app';
+import { updateService, UpdateCheckResult } from '../services/updateService';
 
 export function RssProvider({ children }: { children: React.ReactNode }) {
   const [feeds, setFeeds] = useState<Feed[]>([]);
@@ -38,13 +47,32 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<{ current: number; total: number; status?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
   const lastRefreshRef = React.useRef<number>(Date.now());
+
+  const checkUpdates = useCallback(async (manual = false) => {
+    try {
+      const result = await updateService.checkForUpdates();
+      if (result.hasUpdate || manual) {
+        setUpdateInfo(result);
+      }
+    } catch (err) {
+      console.error('Update check failed', err);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     loadData().then((data) => {
-      if (mounted && data && data.loadedFeeds.length > 0) {
-        refreshFeeds(data.loadedFeeds, data.loadedArticles);
+      if (mounted) {
+        if (data && data.loadedFeeds.length > 0) {
+          refreshFeeds(data.loadedFeeds, data.loadedArticles);
+        }
+        
+        // Check for updates on startup if enabled
+        if (data && data.loadedSettings.autoCheckUpdates) {
+          checkUpdates();
+        }
       }
     });
 
@@ -66,7 +94,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (): Promise<LoadedData | null> => {
     try {
       setIsLoading(true);
       const loadedFeeds = await storage.getFeeds();
@@ -75,7 +103,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       setFeeds(loadedFeeds);
       setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
       setSettings(loadedSettings);
-      return { loadedFeeds, loadedArticles };
+      return { loadedFeeds, loadedArticles, loadedSettings };
     } catch (err) {
       setError('Failed to load data');
       console.error(err);
@@ -326,7 +354,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     <RssContext.Provider value={{
       feeds, articles, settings, isLoading, progress, error,
       addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
-      exportFeeds, searchQuery, setSearchQuery, unreadCount
+      exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
     }}>
       {children}
     </RssContext.Provider>
