@@ -278,7 +278,9 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         mediaType,
         isRead: false,
         isFavorite: false,
-        contentSnippet: decodeHtmlEntities(content.replace(/<[^>]*>/g, '').substring(0, 200)),
+        contentSnippet: decodeHtmlEntities(
+          sanitizeHtml(content, { allowedTags: [], allowedAttributes: {} }).substring(0, 200)
+        ),
       };
     });
 
