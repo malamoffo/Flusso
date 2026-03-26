@@ -15,6 +15,7 @@
 *   **Synchronized Clock**: A minimalist design that integrates time and weather directly into your news flow.
 
 ### 📖 Immersive Reading Experience
+*   **Smart Feed Discovery**: Simply enter a website URL, and Flusso will automatically find the RSS/Atom feed for you.
 *   **Distraction-Free Mode**: Automatic content extraction via *Mozilla Readability* for a clean and consistent reading experience.
 *   **Search & Organization**: Integrated search engine to quickly find articles across all your feeds and simplified subscription management.
 *   **Smart Prefetching**: Articles are pre-loaded in the background to ensure instant opening, even offline.

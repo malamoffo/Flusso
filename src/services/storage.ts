@@ -420,8 +420,84 @@ export const storage = {
     await this.saveFeeds(updatedFeeds);
   },
 
-  async addFeed(feedUrl: string): Promise<{ feed: Feed; articles: Article[] }> {
-    const data = await this.fetchFeedData(feedUrl);
+  async fetchUrlContent(url: string): Promise<string> {
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    if (isNative) {
+      const options = {
+        url,
+        headers: { 
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        connectTimeout: 30000,
+        readTimeout: 30000,
+      };
+      const response = await CapacitorHttp.get(options);
+      if (response.status === 200) {
+        return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      }
+      throw new Error(`Fetch failed with status ${response.status}`);
+    }
+    return await fetchWithProxy(url, false);
+  },
+
+  async discoverFeedUrl(url: string): Promise<string> {
+    try {
+      const content = await this.fetchUrlContent(url);
+      const trimmedContent = content.trim();
+
+      // If it looks like XML or JSON, it might already be a feed
+      if (trimmedContent.startsWith('<?xml') || trimmedContent.startsWith('<rss') || trimmedContent.startsWith('<feed') || trimmedContent.startsWith('{')) {
+        return url;
+      }
+
+      // It's likely HTML, try to find feed links
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
+      
+      // Look for <link rel="alternate" type="application/rss+xml" ...>
+      const feedLinks = doc.querySelectorAll('link[rel="alternate"]');
+      for (const link of Array.from(feedLinks)) {
+        const type = link.getAttribute('type');
+        const href = link.getAttribute('href');
+        if (href && (type === 'application/rss+xml' || type === 'application/atom+xml' || type === 'application/json')) {
+          // Resolve relative URL
+          try {
+            return new URL(href, url).href;
+          } catch (e) {
+            return href;
+          }
+        }
+      }
+
+      // Try common paths as a fallback
+      const commonPaths = ['feed', 'rss', 'rss.xml', 'index.xml', 'atom.xml', 'feed.xml', '/feed', '/rss', '/rss.xml', '/index.xml', '/atom.xml', '/feed.xml'];
+      const baseUrl = new URL(url);
+      const baseSearchUrl = baseUrl.href.endsWith('/') ? baseUrl.href : baseUrl.href + '/';
+      
+      for (const path of commonPaths) {
+        try {
+          const testUrl = new URL(path, baseSearchUrl).href;
+          const testContent = await this.fetchUrlContent(testUrl);
+          const trimmed = testContent.trim();
+          if (trimmed.startsWith('<?xml') || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) {
+            return testUrl;
+          }
+        } catch (e) {
+          // Ignore failures for common paths
+        }
+      }
+
+      return url; // Return original if nothing found
+    } catch (e) {
+      console.warn('Feed discovery failed, using original URL:', e);
+      return url;
+    }
+  },
+
+  async addFeed(url: string): Promise<{ feed: Feed; articles: Article[] }> {
+    const discoveredUrl = await this.discoverFeedUrl(url);
+    const data = await this.fetchFeedData(discoveredUrl);
     await this.saveFeedData(data.feed, data.articles);
     return data;
   },
