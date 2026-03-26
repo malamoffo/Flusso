@@ -8,11 +8,27 @@ const FEEDS_KEY = 'rss_feeds';
 const ARTICLES_KEY = 'rss_articles';
 const SETTINGS_KEY = 'rss_settings';
 
-// Helper to decode HTML entities
+// Helper to decode HTML entities safely using DOMParser
 function decodeHtmlEntities(text: string): string {
-  const textArea = document.createElement('textarea');
-  textArea.innerHTML = text;
-  return textArea.value;
+  if (!text) return '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+  return doc.documentElement.textContent || '';
+}
+
+// Helper to escape XML special characters
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
 }
 
 // Helper to parse RSS/Atom XML using native DOMParser
@@ -547,8 +563,10 @@ export const storage = {
     opml += '  </head>\n';
     opml += '  <body>\n';
     feeds.forEach(feed => {
-      const title = (feed.title || 'Untitled').replace(/"/g, '&quot;');
-      opml += `    <outline text="${title}" title="${title}" type="rss" xmlUrl="${feed.feedUrl}" htmlUrl="${feed.link}"/>\n`;
+      const title = escapeXml(feed.title || 'Untitled');
+      const xmlUrl = escapeXml(feed.feedUrl || '');
+      const htmlUrl = escapeXml(feed.link || '');
+      opml += `    <outline text="${title}" title="${title}" type="rss" xmlUrl="${xmlUrl}" htmlUrl="${htmlUrl}"/>\n`;
     });
     opml += '  </body>\n';
     opml += '</opml>';
