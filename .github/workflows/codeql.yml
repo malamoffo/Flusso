@@ -44,6 +44,21 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Setup Node.js
+      if: matrix.language == 'java-kotlin'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+
+    - name: Install dependencies and Sync Capacitor
+      if: matrix.language == 'java-kotlin'
+      run: |
+        npm install
+        npm run build
+        npx cap sync android
+
     # Imposta Java 21 (versione usata negli altri workflow del progetto)
     - name: Set up JDK 21
       if: matrix.language == 'java-kotlin'
