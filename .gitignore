@@ -8,3 +8,10 @@ coverage/
 !.env.example
 *.jks
 *.keystore
+
+# Generated icons
+android/app/src/main/res/mipmap-*/
+android/app/src/main/res/drawable-*/
+android/app/src/main/res/drawable/splash.png
+icons/
+public/icons/
