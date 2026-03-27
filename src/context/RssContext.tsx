@@ -348,14 +348,24 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const unreadCount = articles.filter(a => !a.isRead).length;
+  // ⚡ Bolt: Memoize unread count to prevent re-calculating on every render
+  // unless the articles array itself has changed.
+  const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
+
+  // ⚡ Bolt: Stabilize the context value to prevent unnecessary re-renders of all
+  // consumer components when unrelated parent state changes.
+  const value = React.useMemo(() => ({
+    feeds, articles, settings, isLoading, progress, error,
+    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+    exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
+  }), [
+    feeds, articles, settings, isLoading, progress, error,
+    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+    exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
+  ]);
 
   return (
-    <RssContext.Provider value={{
-      feeds, articles, settings, isLoading, progress, error,
-      addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
-      exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
-    }}>
+    <RssContext.Provider value={value}>
       {children}
     </RssContext.Provider>
   );
