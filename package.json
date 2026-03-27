@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
+    "postinstall": "node scripts/generate-icons.js",
     "lint": "tsc --noEmit",
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android"
