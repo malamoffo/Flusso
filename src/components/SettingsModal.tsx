@@ -61,7 +61,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       });
     } catch (error) {
       console.error('Update failed:', error);
-      alert('Update failed. Please try again later.');
+      alert('Update failed. If the installation is blocked, please enable "Install unknown apps" for Flusso in your Android settings.');
     } finally {
       setIsDownloadingUpdate(false);
       setDownloadProgress(0);
@@ -439,23 +439,28 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                           Release Page
                         </a>
                         {updateInfo.latestRelease?.assets.find(a => a.name.endsWith('.apk')) ? (
-                          <button 
-                            onClick={handleUpdate}
-                            disabled={isDownloadingUpdate}
-                            className="flex items-center justify-center gap-2 p-3 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-400 transition-colors border border-white/20 disabled:opacity-50"
-                          >
-                            {isDownloadingUpdate ? (
-                              <>
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                {downloadProgress}%
-                              </>
-                            ) : (
-                              <>
-                                <Download className="w-4 h-4" />
-                                Update Now
-                              </>
-                            )}
-                          </button>
+                          <>
+                            <button 
+                              onClick={handleUpdate}
+                              disabled={isDownloadingUpdate}
+                              className="flex items-center justify-center gap-2 p-3 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-400 transition-colors border border-white/20 disabled:opacity-50"
+                            >
+                              {isDownloadingUpdate ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  {downloadProgress}%
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4" />
+                                  Update Now
+                                </>
+                              )}
+                            </button>
+                            <p className="mt-2 text-[10px] text-indigo-200/70 text-center leading-tight">
+                              You may need to enable "Install unknown apps" for Flusso in your Android settings.
+                            </p>
+                          </>
                         ) : (
                           <button 
                             disabled
