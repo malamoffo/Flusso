@@ -191,26 +191,32 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
     throw new Error('Failed to parse XML: ' + parserError.textContent);
   }
 
+  // Helper to get text content from a list of possible tags
+  function getTagText(element: Element, tags: string[]): string {
+    for (const tag of tags) {
+      const el = element.getElementsByTagName(tag)[0];
+      if (el && el.textContent) return el.textContent;
+    }
+    return '';
+  }
+
   const isAtom = xmlDoc.getElementsByTagName('feed').length > 0;
   const feedId = uuidv4();
   
   if (isAtom) {
     const feedNode = xmlDoc.getElementsByTagName('feed')[0];
-    const title = feedNode.getElementsByTagName('title')[0]?.textContent || 'Untitled Atom Feed';
-    const description = feedNode.getElementsByTagName('subtitle')[0]?.textContent || '';
+    const title = getTagText(feedNode, ['title', 'dc:title']) || 'Untitled Atom Feed';
+    const description = getTagText(feedNode, ['subtitle', 'description', 'summary']) || '';
     const link = feedNode.getElementsByTagName('link')[0]?.getAttribute('href') || '';
     
     const entries = Array.from(xmlDoc.getElementsByTagName('entry'));
     const articles: Article[] = entries.map(entry => {
-      const entryTitle = entry.getElementsByTagName('title')[0]?.textContent || 'Untitled';
+      const entryTitle = getTagText(entry, ['title', 'dc:title']) || 'Untitled';
       const entryLink = entry.getElementsByTagName('link')[0]?.getAttribute('href') || '';
-      const pubDateStr = entry.getElementsByTagName('published')[0]?.textContent || 
-                         entry.getElementsByTagName('updated')[0]?.textContent || 
-                         new Date().toISOString();
+      const pubDateStr = getTagText(entry, ['published', 'updated', 'pubDate']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
       
-      const content = entry.getElementsByTagName('content')[0]?.textContent || 
-                      entry.getElementsByTagName('summary')[0]?.textContent || '';
+      const content = getTagText(entry, ['content', 'summary', 'description', 'content:encoded']) || '';
       
       // Try to find an image or media
       let imageUrl = null;
@@ -281,19 +287,18 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
     const channel = xmlDoc.getElementsByTagName('channel')[0];
     if (!channel) throw new Error('Invalid RSS feed: missing <channel>');
     
-    const title = channel.getElementsByTagName('title')[0]?.textContent || 'Untitled RSS Feed';
-    const description = channel.getElementsByTagName('description')[0]?.textContent || '';
-    const link = channel.getElementsByTagName('link')[0]?.textContent || '';
+    const title = getTagText(channel, ['title', 'dc:title']) || 'Untitled RSS Feed';
+    const description = getTagText(channel, ['description', 'subtitle', 'summary']) || '';
+    const link = getTagText(channel, ['link']) || '';
     const feedImage = channel.getElementsByTagName('image')[0]?.getElementsByTagName('url')[0]?.textContent;
 
     const items = Array.from(xmlDoc.getElementsByTagName('item'));
     const articles: Article[] = items.map(item => {
-      const itemTitle = item.getElementsByTagName('title')[0]?.textContent || 'Untitled';
-      const itemLink = item.getElementsByTagName('link')[0]?.textContent || '';
-      const pubDateStr = item.getElementsByTagName('pubDate')[0]?.textContent || new Date().toISOString();
+      const itemTitle = getTagText(item, ['title', 'dc:title']) || 'Untitled';
+      const itemLink = getTagText(item, ['link']) || '';
+      const pubDateStr = getTagText(item, ['pubDate', 'published', 'updated']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
-      const content = item.getElementsByTagName('description')[0]?.textContent || 
-                      item.getElementsByTagName('content:encoded')[0]?.textContent || '';
+      const content = getTagText(item, ['description', 'content:encoded', 'content', 'summary']) || '';
       
       let imageUrl = null;
       let mediaUrl = null;
