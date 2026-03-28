@@ -26,7 +26,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
-  const handleAutoCheckUpdates = () => updateSettings({ autoCheckUpdates: !settings.autoCheckUpdates });
   const handleSwipeLeftChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeLeftAction: e.target.value as SwipeAction });
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
 
@@ -236,33 +235,6 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                       <Maximize className="w-6 h-6 mb-2" />
                       <span className="text-xs font-medium">Large</span>
                     </button>
-                  </div>
-                </section>
-
-                {/* Update Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Updates</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                          <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Auto-check updates</p>
-                          <p className="text-xs text-gray-500">Check for new releases on startup</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={handleAutoCheckUpdates}
-                        className={`w-12 h-6 rounded-full transition-colors relative ${settings.autoCheckUpdates ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                      >
-                        <motion.div 
-                          animate={{ x: settings.autoCheckUpdates ? 24 : 4 }}
-                          className="absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow-sm"
-                        />
-                      </button>
-                    </div>
                   </div>
                 </section>
 

@@ -236,7 +236,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
             />
             {article.contentSnippet && article.contentSnippet.trim() !== '' && (
               <p 
-                className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 mt-1`}
+                className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 mt-1 line-clamp-3 text-justify`}
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.contentSnippet, { FORBID_ATTR: ['id', 'name'] }) }}
               />
             )}

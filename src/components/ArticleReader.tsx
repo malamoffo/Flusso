@@ -332,7 +332,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
           </div>
         ) : fullContent?.content ? (
           <div 
-            className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden
+            className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden text-justify
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
               prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-headings:font-bold
               prose-pre:max-w-full prose-pre:overflow-x-auto`}
