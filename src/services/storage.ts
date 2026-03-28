@@ -23,9 +23,14 @@ function sanitizeOpmlText(opmlText: string): string {
   if (!opmlText) return '';
   // Remove script and style blocks, which are irrelevant for OPML and could contain HTML/JS
   let sanitized = opmlText.replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
-  // Remove common event handler attributes (onload, onclick, etc.) that are HTML-specific
-  sanitized = sanitized.replace(/\son[a-z]+\s*=\s*"(?:[^"\\]|\\.)*"/gi, '');
-  sanitized = sanitized.replace(/\son[a-z]+\s*=\s*'(?:[^'\\]|\\.)*'/gi, '');
+  // Remove common event handler attributes (onload, onclick, etc.) that are HTML-specific.
+  // Apply the replacement repeatedly to avoid incomplete multi-character sanitization.
+  let previous: string;
+  do {
+    previous = sanitized;
+    sanitized = sanitized.replace(/\son[a-z]+\s*=\s*"(?:[^"\\]|\\.)*"/gi, '');
+    sanitized = sanitized.replace(/\son[a-z]+\s*=\s*'(?:[^'\\]|\\.)*'/gi, '');
+  } while (sanitized !== previous);
   return sanitized;
 }
 
