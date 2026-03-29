@@ -1,6 +1,5 @@
 import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
-import fetch from 'node-fetch';
 
 async function run() {
   const res = await fetch('https://pagineromaniste.com/wesley-ko-in-nazionale-rientro-nella-capitale-e-controlli-previsti/');

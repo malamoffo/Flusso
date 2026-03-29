@@ -39,6 +39,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     if (article.imageUrl) {
       const img = new Image();
       img.crossOrigin = "Anonymous";
+      img.referrerPolicy = "no-referrer";
       // Use proxy to bypass CORS for image color extraction
       img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(article.imageUrl)}`;
       img.onload = () => {
@@ -314,7 +315,10 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
             target="_blank" 
             rel="noopener noreferrer" 
             className="hover:underline"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, {
+              ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'span'],
+              FORBID_ATTR: ['id', 'name']
+            }) }}
           />
         </h1>
 

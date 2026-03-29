@@ -232,13 +232,15 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
             </div>
             <h3 
               className={`${getTitleSize()} font-semibold leading-tight mb-1 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, {
+                ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'span'],
+                FORBID_ATTR: ['id', 'name']
+              }) }}
             />
             {article.contentSnippet && article.contentSnippet.trim() !== '' && (
-              <p 
-                className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 mt-1 line-clamp-3 text-justify`}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.contentSnippet, { FORBID_ATTR: ['id', 'name'] }) }}
-              />
+              <p className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 mt-1 line-clamp-3 text-justify`}>
+                {article.contentSnippet}
+              </p>
             )}
           </div>
         </div>

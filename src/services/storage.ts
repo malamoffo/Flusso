@@ -4,7 +4,7 @@ import { Feed, Article, Settings } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../utils/proxy';
 import sanitizeHtml from 'sanitize-html';
-import { getSafeUrl } from '../lib/utils';
+import { getSafeUrl, isSafeUrl } from '../lib/utils';
 
 import he from 'he';
 
@@ -641,15 +641,15 @@ export const storage = {
     outlines.forEach((outline, index) => {
       // OPML attributes can be case-sensitive in XML but case-insensitive in HTML
       // We check common variations
-      const url = outline.getAttribute('xmlUrl') || 
+      const url = (outline.getAttribute('xmlUrl') ||
                   outline.getAttribute('xmlURL') || 
                   outline.getAttribute('xmlurl') || 
-                  outline.getAttribute('url');
+                  outline.getAttribute('url'))?.trim();
                   
-      if (url && url.trim().startsWith('http')) {
-        urls.push(url.trim());
+      if (url && isSafeUrl(url)) {
+        urls.push(url);
       } else if (url) {
-        console.warn(`Outline ${index} has invalid URL:`, url);
+        console.warn(`Outline ${index} has invalid or unsafe URL:`, url);
       }
     });
     
