@@ -19,6 +19,7 @@ interface RssContextType {
   refreshFeeds: (currentFeeds?: Feed[], currentArticles?: Article[]) => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
   updateFeed: (feedId: string, updates: Partial<Feed>) => Promise<void>;
+  updateArticle: (articleId: string, updates: Partial<Article>) => Promise<void>;
   updateSettings: (newSettings: Partial<Settings>) => Promise<void>;
   exportFeeds: () => Promise<string>;
   searchQuery: string;
@@ -252,6 +253,16 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateArticle = useCallback(async (articleId: string, updates: Partial<Article>) => {
+    setArticles(prev => {
+      const updatedArticles = prev.map(a => 
+        a.id === articleId ? { ...a, ...updates } : a
+      );
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
+    });
+  }, []);
+
   const removeFeed = useCallback(async (feedId: string) => {
     setFeeds(prev => {
       const updatedFeeds = prev.filter(f => f.id !== feedId);
@@ -357,11 +368,11 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   // consumer components when unrelated parent state changes.
   const value = React.useMemo(() => ({
     feeds, articles, settings, isLoading, progress, error,
-    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateArticle, updateSettings,
     exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
   }), [
     feeds, articles, settings, isLoading, progress, error,
-    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateSettings,
+    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateArticle, updateSettings,
     exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
   ]);
 

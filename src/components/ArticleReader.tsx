@@ -11,6 +11,7 @@ import { Share } from '@capacitor/share';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
+import { extractBestImage } from '../services/storage';
 import { getColorSync } from 'colorthief';
 
 interface ArticleReaderProps {
@@ -27,7 +28,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
-  const { settings, feeds, toggleFavorite, toggleRead } = useRss();
+  const { settings, feeds, toggleFavorite, toggleRead, updateArticle } = useRss();
   const [isFavorite, setIsFavorite] = useState(article.isFavorite);
 
   useEffect(() => {
@@ -146,6 +147,17 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
             setFullContent(contentToSave);
             // Cache it for future use
             contentFetcher.setCachedContent(article.id, contentToSave);
+            
+            // If the article doesn't have an image, try to extract one from the full content
+            if (!article.imageUrl && contentToSave.content) {
+              const newImageUrl = extractBestImage(contentToSave.content);
+              if (newImageUrl) {
+                const safeUrl = getSafeUrl(newImageUrl, '');
+                if (safeUrl) {
+                  updateArticle(article.id, { imageUrl: safeUrl });
+                }
+              }
+            }
           }
         }
       } catch (error) {
@@ -169,6 +181,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
     
     // Clean up superfluous text/empty tags often left by poor formatting
     let content = contentToSanitize;
+    
     content = content.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
     content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
     content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
@@ -194,6 +207,35 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
       }
       if (node.hasAttribute('href')) {
         node.setAttribute('href', getSafeUrl(node.getAttribute('href'), ''));
+      }
+
+      // Remove tracking pixels, avatars, small icons, and the main image (to avoid duplication)
+      if (node.tagName === 'IMG') {
+        const src = node.getAttribute('src') || '';
+        const lowerSrc = src.toLowerCase();
+        const width = parseInt(node.getAttribute('width') || '0', 10);
+        const height = parseInt(node.getAttribute('height') || '0', 10);
+        
+        if (
+          src === article.imageUrl ||
+          lowerSrc.includes('1x1') ||
+          lowerSrc.includes('pixel') ||
+          lowerSrc.includes('tracker') ||
+          lowerSrc.includes('feedburner') ||
+          lowerSrc.includes('stats') ||
+          lowerSrc.includes('gravatar') ||
+          lowerSrc.includes('avatar') ||
+          lowerSrc.includes('icon') ||
+          lowerSrc.includes('logo') ||
+          lowerSrc.includes('wp-includes/images/smilies') ||
+          lowerSrc.includes('share') ||
+          lowerSrc.includes('button') ||
+          lowerSrc.includes('badge') ||
+          (width > 0 && width <= 50) ||
+          (height > 0 && height <= 50)
+        ) {
+          node.parentNode?.removeChild(node);
+        }
       }
     });
 

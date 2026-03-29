@@ -16,7 +16,6 @@ function MainContent() {
   const mainRef = useRef<HTMLElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const visibleArticlesRef = useRef<Set<string>>(new Set());
-  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const startYRef = useRef<number>(0);
   const isAtTopRef = useRef<boolean>(true);
 
@@ -29,26 +28,11 @@ function MainContent() {
     } else {
       visibleArticlesRef.current.delete(id);
     }
-    
-    // Reset timer whenever visibility changes (scrolling or items appearing/disappearing)
-    if (markReadTimeoutRef.current) {
-      clearTimeout(markReadTimeoutRef.current);
-    }
-    
-    markReadTimeoutRef.current = setTimeout(() => {
-      const visibleIds = Array.from(visibleArticlesRef.current);
-      if (visibleIds.length > 0) {
-        markArticlesAsRead(visibleIds);
-      }
-    }, 5000);
-  }, [markArticlesAsRead]);
+  }, []);
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (markReadTimeoutRef.current) {
-        clearTimeout(markReadTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -70,6 +54,16 @@ function MainContent() {
     }
   }, [filter]);
   
+  // Sync selectedArticle with articles in context
+  useEffect(() => {
+    if (selectedArticle) {
+      const updatedArticle = articles.find(a => a.id === selectedArticle.id);
+      if (updatedArticle && updatedArticle !== selectedArticle) {
+        setSelectedArticle(updatedArticle);
+      }
+    }
+  }, [articles, selectedArticle]);
+
   // Handle Android back button
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {

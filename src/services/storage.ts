@@ -41,14 +41,16 @@ function sanitizeSnippet(input: string): string {
 }
 
 // Helper to extract the best image from HTML content, avoiding tracking pixels and icons
-function extractBestImage(content: string): string | null {
+export function extractBestImage(content: string): string | null {
   if (!content) return null;
   const imgRegex = /<img[^>]+>/gi;
   let match;
   
   while ((match = imgRegex.exec(content)) !== null) {
     const imgTag = match[0];
-    const dataSrcMatch = imgTag.match(/data-src=["']([^"']+)["']/i);
+    const dataSrcMatch = imgTag.match(/data-src=["']([^"']+)["']/i) || 
+                         imgTag.match(/data-lazy-src=["']([^"']+)["']/i) ||
+                         imgTag.match(/data-original=["']([^"']+)["']/i);
     const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
     const url = (dataSrcMatch && dataSrcMatch[1]) || (srcMatch && srcMatch[1]);
     if (!url) continue;
