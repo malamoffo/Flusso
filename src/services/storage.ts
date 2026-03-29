@@ -137,7 +137,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
             mediaType,
             isRead: false,
             isFavorite: false,
-            contentSnippet: decodeHtmlEntities(sanitizeSnippet(item.content || item.description || '')),
+            contentSnippet: sanitizeSnippet(decodeHtmlEntities(item.content || item.description || '')),
           };
         });
 
@@ -195,12 +195,16 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
     
     const entries = Array.from(xmlDoc.getElementsByTagName('entry'));
     const articles: Article[] = entries.map(entry => {
-      const entryTitle = getTagText(entry, ['title', 'dc:title']) || 'Untitled';
+      const content = getTagText(entry, ['content', 'summary', 'description', 'content:encoded']) || '';
+      let entryTitle = getTagText(entry, ['title', 'dc:title']);
+      if (!entryTitle) {
+        const plainText = sanitizeSnippet(decodeHtmlEntities(content));
+        entryTitle = plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
+        if (!entryTitle) entryTitle = 'Untitled';
+      }
       const entryLink = entry.getElementsByTagName('link')[0]?.getAttribute('href') || '';
       const pubDateStr = getTagText(entry, ['published', 'updated', 'pubDate']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
-      
-      const content = getTagText(entry, ['content', 'summary', 'description', 'content:encoded']) || '';
       
       // Try to find an image or media
       let imageUrl = null;
@@ -251,7 +255,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         mediaType,
         isRead: false,
         isFavorite: false,
-        contentSnippet: decodeHtmlEntities(sanitizeSnippet(content)),
+        contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
+        content: content,
       };
     });
 
@@ -278,11 +283,16 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
     const items = Array.from(xmlDoc.getElementsByTagName('item'));
     const articles: Article[] = items.map(item => {
-      const itemTitle = getTagText(item, ['title', 'dc:title']) || 'Untitled';
+      const content = getTagText(item, ['description', 'content:encoded', 'content', 'summary']) || '';
+      let itemTitle = getTagText(item, ['title', 'dc:title']);
+      if (!itemTitle) {
+        const plainText = sanitizeSnippet(decodeHtmlEntities(content));
+        itemTitle = plainText.length > 50 ? plainText.substring(0, 50) + '...' : plainText;
+        if (!itemTitle) itemTitle = 'Untitled';
+      }
       const itemLink = getTagText(item, ['link']) || '';
       const pubDateStr = getTagText(item, ['pubDate', 'published', 'updated']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
-      const content = getTagText(item, ['description', 'content:encoded', 'content', 'summary']) || '';
       
       let imageUrl = null;
       let mediaUrl = null;
@@ -334,9 +344,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         mediaType,
         isRead: false,
         isFavorite: false,
-        contentSnippet: decodeHtmlEntities(
-          sanitizeHtml(content, { allowedTags: [], allowedAttributes: {} }).substring(0, 200)
-        ),
+        contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
+        content: content,
       };
     });
 

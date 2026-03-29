@@ -4,6 +4,7 @@ import { Article, FullArticleContent } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
 import DOMPurify from 'dompurify';
+import he from 'he';
 import { getSafeUrl } from '../lib/utils';
 import { CapacitorHttp } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -158,10 +159,16 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
   }, [article.link, article.id]);
 
   const sanitizedContent = React.useMemo(() => {
-    if (!fullContent?.content) return '';
+    let contentToSanitize = fullContent?.content;
+    
+    if (!contentToSanitize && article.content) {
+      contentToSanitize = he.decode(article.content);
+    }
+    
+    if (!contentToSanitize) return '';
     
     // Clean up superfluous text/empty tags often left by poor formatting
-    let content = fullContent.content;
+    let content = contentToSanitize;
     content = content.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
     content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
     content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
@@ -354,7 +361,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, hasNext, hasPr
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
             <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded w-full mt-6"></div>
           </div>
-        ) : fullContent?.content ? (
+        ) : sanitizedContent ? (
           <div 
             className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden text-justify
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
