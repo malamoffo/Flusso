@@ -42,4 +42,10 @@ public class QueuePlugin extends Plugin {
     public JSArray getQueue() {
         return currentQueue;
     }
+
+    public void triggerPlayRequest(String id) {
+        JSObject data = new JSObject();
+        data.put("id", id);
+        notifyListeners("playRequest", data);
+    }
 }

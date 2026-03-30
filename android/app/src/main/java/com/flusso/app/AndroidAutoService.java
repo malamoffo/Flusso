@@ -20,7 +20,9 @@ import com.capgo.mediasession.MediaSessionService;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 
+import org.json.JSONObject;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,9 +35,11 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
-            MediaSessionService.LocalBinder binder = (MediaSessionService.LocalBinder) service;
-            MediaSessionService mediaSessionService = binder.getService();
             try {
+                Method getServiceMethod = service.getClass().getDeclaredMethod("getService");
+                getServiceMethod.setAccessible(true);
+                MediaSessionService mediaSessionService = (MediaSessionService) getServiceMethod.invoke(service);
+                
                 Field field = MediaSessionService.class.getDeclaredField("mediaSession");
                 field.setAccessible(true);
                 MediaSessionCompat mediaSession = (MediaSessionCompat) field.get(mediaSessionService);
@@ -52,9 +56,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                             // The easiest way is to fire an event through our plugin.
                             QueuePlugin queuePlugin = QueuePlugin.getInstance();
                             if (queuePlugin != null) {
-                                JSObject data = new JSObject();
-                                data.put("id", mediaId);
-                                queuePlugin.notifyListeners("playRequest", data);
+                                queuePlugin.triggerPlayRequest(mediaId);
                             } else {
                                 Log.e(TAG, "QueuePlugin instance is null, cannot send playRequest");
                             }
@@ -112,12 +114,12 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                 if (queue != null) {
                     try {
                         for (int i = 0; i < queue.length(); i++) {
-                            JSObject item = queue.getJSONObject(i);
-                            String id = item.getString("id");
-                            String title = item.getString("title");
-                            String subtitle = item.getString("feedTitle"); // Or whatever makes sense
-                            String imageUrl = item.getString("imageUrl");
-                            String mediaUrl = item.getString("mediaUrl");
+                            JSONObject item = queue.getJSONObject(i);
+                            String id = item.optString("id");
+                            String title = item.optString("title");
+                            String subtitle = item.optString("feedTitle"); // Or whatever makes sense
+                            String imageUrl = item.optString("imageUrl");
+                            String mediaUrl = item.optString("mediaUrl");
 
                             MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
                                     .setMediaId(id)
