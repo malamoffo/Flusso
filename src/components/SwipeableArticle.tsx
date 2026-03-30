@@ -136,21 +136,21 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   const [exitX, setExitX] = React.useState<number | string>(0);
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const threshold = 80;
+    const threshold = 50;
     const isRight = info.offset.x > threshold;
     const isLeft = info.offset.x < -threshold;
 
     if (isRight || isLeft) {
-      const action = isSavedSection ? 'remove' : (isRight ? settings.swipeRightAction : settings.swipeLeftAction);
+      const action = isRight ? settings.swipeRightAction : settings.swipeLeftAction;
       
-      // Snap back for all actions to give the "bounce" feel
-      animate(x, 0, { type: "spring", stiffness: 600, damping: 35, restDelta: 0.5 }).then(() => {
-        if (action === 'remove') {
-          onRemove?.(article.id);
-        }
-      });
+      if (isSavedSection) {
+        // Snap back for all actions to give the "bounce" feel
+        animate(x, 0, { type: "spring", stiffness: 600, damping: 35, restDelta: 0.5 });
+        onRemove?.(article.id);
+      } else {
+        // Snap back for all actions to give the "bounce" feel
+        animate(x, 0, { type: "spring", stiffness: 600, damping: 35, restDelta: 0.5 });
 
-      if (action !== 'remove') {
         if (action === 'toggleRead') {
           toggleRead(article.id);
         } else if (action === 'toggleFavorite') {
@@ -267,11 +267,11 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
       {/* Foreground Draggable Card */}
       <motion.div
         style={{ x, willChange: 'transform' }}
-        drag={isSavedSection ? "x" : (settings.swipeLeftAction === 'none' && settings.swipeRightAction === 'none' ? false : "x")}
+        drag={(isSavedSection || (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={isSavedSection ? 0.5 : { 
-          left: settings.swipeLeftAction === 'none' ? 0 : 0.5, 
-          right: settings.swipeRightAction === 'none' ? 0 : 0.5 
+        dragElastic={{ 
+          left: (isSavedSection || settings.swipeLeftAction !== 'none') ? 0.5 : 0, 
+          right: (isSavedSection || settings.swipeRightAction !== 'none') ? 0.5 : 0 
         }}
         dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
         onDragEnd={handleDragEnd}
@@ -301,7 +301,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5 min-w-0">
-                {domain && (
+                {domain && article.type !== 'podcast' && (
                   <CachedImage 
                     src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
                     alt="" 

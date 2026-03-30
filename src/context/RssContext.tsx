@@ -224,28 +224,28 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleRead = useCallback(async (articleId: string) => {
-    console.log('toggleRead called for:', articleId);
+    let updated: Article[] = [];
     setArticles(prev => {
-      const updatedArticles = prev.map(a => {
+      updated = prev.map(a => {
         if (a.id === articleId) {
           const isNowRead = !a.isRead;
-          console.log('Toggling article', a.id, 'from', a.isRead, 'to', isNowRead);
           return { ...a, isRead: isNowRead, readAt: isNowRead ? Date.now() : undefined };
         }
         return a;
       });
-      storage.saveArticles(updatedArticles);
-      return updatedArticles;
+      return updated;
     });
+    if (updated.length > 0) storage.saveArticles(updated);
   }, []);
 
   const markArticlesAsRead = useCallback(async (articleIds: string[]) => {
     const idsToUpdate = new Set(articleIds);
     const now = Date.now();
+    let updated: Article[] = [];
     
     setArticles(prev => {
       let changed = false;
-      const updatedArticles = prev.map(a => {
+      updated = prev.map(a => {
         if (idsToUpdate.has(a.id) && !a.isRead) {
           changed = true;
           return { ...a, isRead: true, readAt: now };
@@ -254,11 +254,11 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (changed) {
-        storage.saveArticles(updatedArticles);
-        return updatedArticles;
+        return updated;
       }
       return prev;
     });
+    if (updated.length > 0) storage.saveArticles(updated);
   }, []);
 
   const markAsRead = useCallback(async (articleId: string) => {
@@ -267,22 +267,28 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
 
   const markAllAsRead = useCallback(async () => {
     const now = Date.now();
+    let updated: Article[] = [];
     setArticles(prev => {
-      const updatedArticles = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
-      storage.saveArticles(updatedArticles);
-      return updatedArticles;
+      updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
+      return updated;
     });
+    storage.saveArticles(updated);
   }, []);
 
   const toggleFavorite = useCallback(async (articleId: string) => {
+    let updated: Article[] = [];
     setArticles(prev => {
-      const updatedArticles = prev.map(a => 
+      updated = prev.map(a => 
         a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
       );
-      storage.saveArticles(updatedArticles);
+      return updated;
+    });
+    
+    if (updated.length > 0) {
+      storage.saveArticles(updated);
       
       if (Capacitor.isNativePlatform()) {
-        const queueAndFavorites = updatedArticles.filter(a => a.isQueued || a.isFavorite).map(a => ({
+        const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
           id: a.id,
           title: a.title,
           feedTitle: a.feedId,
@@ -291,20 +297,23 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         }));
         QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
       }
-      
-      return updatedArticles;
-    });
+    }
   }, []);
 
   const toggleQueue = useCallback(async (articleId: string) => {
+    let updated: Article[] = [];
     setArticles(prev => {
-      const updatedArticles = prev.map(a => 
+      updated = prev.map(a => 
         a.id === articleId ? { ...a, isQueued: !a.isQueued } : a
       );
-      storage.saveArticles(updatedArticles);
+      return updated;
+    });
+    
+    if (updated.length > 0) {
+      storage.saveArticles(updated);
       
       if (Capacitor.isNativePlatform()) {
-        const queueAndFavorites = updatedArticles.filter(a => a.isQueued || a.isFavorite).map(a => ({
+        const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
           id: a.id,
           title: a.title,
           feedTitle: a.feedId,
@@ -313,9 +322,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         }));
         QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
       }
-      
-      return updatedArticles;
-    });
+    }
   }, []);
 
   const updateArticle = useCallback(async (articleId: string, updates: Partial<Article>) => {

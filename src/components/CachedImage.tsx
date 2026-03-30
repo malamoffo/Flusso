@@ -17,6 +17,7 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    console.log('[CachedImage] src:', src);
     let isMounted = true;
 
     const loadImage = async () => {
@@ -62,7 +63,7 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
       )}
       {...props}
       // If it's already in our "loaded" set, don't lazy load it again to avoid flicker
-      loading={loadedImages.has(src) ? "eager" : "lazy"}
+      loading="eager"
     />
   );
 }

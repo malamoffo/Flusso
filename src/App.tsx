@@ -14,8 +14,11 @@ import { cn } from './lib/utils';
 
 import { App as CapacitorApp } from '@capacitor/app';
 
+import { useInView } from 'react-intersection-observer';
+
 interface ArticleListProps {
   filter: 'inbox' | 'saved';
+  typeFilter: 'all' | 'article' | 'podcast';
   articles: Article[];
   feeds: any[];
   settings: any;
@@ -38,72 +41,59 @@ interface ArticleListProps {
   bottomRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const ArticleList = React.memo(({
-  filter, articles, feeds, settings, currentTrack, searchQuery, isSearchOpen,
+const ArticleList = ({
+  filter, typeFilter, articles, feeds, settings, currentTrack, searchQuery, isSearchOpen,
   searchSourceFilter, searchDateRange, isLoading, forceRefresh,
   onSelectArticle, markAsRead, markArticlesAsRead, toggleFavorite, toggleQueue,
   setIsSettingsModalOpen, setSettingsInitialTab, refreshFeeds, handleVisibilityChange, bottomRef
 }: ArticleListProps) => {
-  const [displayArticles, setDisplayArticles] = useState<Article[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  const prevFilterRef = useRef(filter);
-  const prevTypeFilterRef = useRef('all'); // simplified for this component
-  const prevSearchRef = useRef(searchQuery);
-  const prevSourceFilterRef = useRef(searchSourceFilter);
-  const prevDateRangeRef = useRef(searchDateRange);
-  const prevIsLoadingRef = useRef(isLoading);
-  const prevForceRefreshRef = useRef(forceRefresh);
+  const { ref: bottomInViewRef, inView: bottomInView } = useInView({
+    threshold: 0.1,
+  });
 
-  useEffect(() => {
-    const filterChanged = prevFilterRef.current !== filter;
-    const searchChanged = prevSearchRef.current !== searchQuery;
-    const sourceFilterChanged = prevSourceFilterRef.current !== searchSourceFilter;
-    const dateRangeChanged = prevDateRangeRef.current !== searchDateRange;
-    const refreshFinished = prevIsLoadingRef.current === true && isLoading === false;
-    const forceRefreshTriggered = prevForceRefreshRef.current !== forceRefresh;
-    
-    prevFilterRef.current = filter;
-    prevSearchRef.current = searchQuery;
-    prevSourceFilterRef.current = searchSourceFilter;
-    prevDateRangeRef.current = searchDateRange;
-    prevIsLoadingRef.current = isLoading;
-    prevForceRefreshRef.current = forceRefresh;
-
-    setDisplayArticles(prev => {
-      if (filterChanged || searchChanged || sourceFilterChanged || dateRangeChanged || refreshFinished || forceRefreshTriggered || prev.length === 0) {
-        return articles.filter(article => {
-          if (filter === 'saved' && !article.isFavorite && !article.isQueued) return false;
-          if (isSearchOpen) {
-            if (searchSourceFilter !== 'all' && article.feedId !== searchSourceFilter) return false;
-            if (searchDateRange !== 'all') {
-              const articleDate = new Date(article.pubDate);
-              const now = new Date();
-              const diffTime = Math.abs(now.getTime() - articleDate.getTime());
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              if (searchDateRange === 'today' && diffDays > 1) return false;
-              if (searchDateRange === 'week' && diffDays > 7) return false;
-              if (searchDateRange === 'month' && diffDays > 30) return false;
-            }
-          }
-          if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            return article.title.toLowerCase().includes(query) || 
-                   (article.contentSnippet?.toLowerCase().includes(query) ?? false);
-          }
-          return true;
-        });
-      } else {
-        const currentArticleIds = new Set(articles.map(a => a.id));
-        const articlesMap = new Map(articles.map(a => [a.id, a]));
-        return prev
-          .filter(a => currentArticleIds.has(a.id))
-          .map(a => articlesMap.get(a.id) || a);
+  const displayArticles = useMemo(() => {
+    return articles.filter(article => {
+      if (filter === 'saved' && !article.isFavorite && !article.isQueued) return false;
+      if (typeFilter !== 'all' && article.type !== typeFilter) return false;
+      if (isSearchOpen) {
+        if (searchSourceFilter !== 'all' && article.feedId !== searchSourceFilter) return false;
+        if (searchDateRange !== 'all') {
+          const articleDate = new Date(article.pubDate);
+          const now = new Date();
+          const diffTime = Math.abs(now.getTime() - articleDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (searchDateRange === 'today' && diffDays > 1) return false;
+          if (searchDateRange === 'week' && diffDays > 7) return false;
+          if (searchDateRange === 'month' && diffDays > 30) return false;
+        }
       }
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return article.title.toLowerCase().includes(query) || 
+               (article.contentSnippet?.toLowerCase().includes(query) ?? false);
+      }
+      return true;
     });
-  }, [filter, searchQuery, searchSourceFilter, searchDateRange, isSearchOpen, articles, isLoading, forceRefresh]);
+  }, [filter, typeFilter, searchQuery, searchSourceFilter, searchDateRange, isSearchOpen, articles]);
 
   const feedMap = useMemo(() => new Map(feeds.map(f => [f.id, f])), [feeds]);
+
+  const handleRemove = useCallback((id: string) => {
+    const article = displayArticles.find(a => a.id === id);
+    if (article?.isFavorite) toggleFavorite(id);
+    if (article?.isQueued) toggleQueue(id);
+  }, [displayArticles, toggleFavorite, toggleQueue]);
+
+  useEffect(() => {
+    if (bottomInView && filter === 'inbox' && displayArticles.length > 0) {
+      const unreadIds = displayArticles.filter(a => !a.isRead).map(a => a.id);
+      if (unreadIds.length > 0) {
+        markArticlesAsRead(unreadIds);
+      }
+    }
+  }, [bottomInView, filter, displayArticles, markArticlesAsRead]);
 
   return (
     <div ref={scrollRef} className="absolute inset-0 overflow-y-auto scrollbar-hide will-change-transform" style={{ paddingBottom: currentTrack ? 192 : 144, transform: 'translateZ(0)' }}>
@@ -135,18 +125,22 @@ const ArticleList = React.memo(({
                   toggleRead={() => {}} // simplified
                   toggleFavorite={toggleFavorite}
                   toggleQueue={toggleQueue}
+                  onRemove={handleRemove}
                   isSavedSection={filter === 'saved'}
                   filter={filter}
                 />
               );
             })}
           </AnimatePresence>
-          <div ref={bottomRef} className="h-20" />
+          <div ref={(node) => {
+            if (bottomRef) (bottomRef as any).current = node;
+            bottomInViewRef(node);
+          }} className="h-20" />
         </div>
       )}
     </div>
   );
-});
+};
 
 function MainContent() {
   const bottomRefInbox = useRef<HTMLDivElement>(null);
@@ -162,9 +156,12 @@ function MainContent() {
   const [isMarkAllConfirmOpen, setIsMarkAllConfirmOpen] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(0);
   const [filter, setFilter] = useState<'inbox' | 'saved'>('inbox');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchSourceFilter, setSearchSourceFilter] = useState('all');
   const [searchDateRange, setSearchDateRange] = useState('all');
+
+  const savedCount = useMemo(() => articles.filter(a => a.isFavorite || a.isQueued).length, [articles]);
 
   const handleVisibilityChange = useCallback((id: string, inView: boolean) => {
     if (inView) visibleArticlesRef.current.add(id);
@@ -201,35 +198,57 @@ function MainContent() {
         </div>
       </header>
 
+      <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        <button onClick={() => setTypeFilter('all')} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap", typeFilter === 'all' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700")}>
+          <LayoutGrid className="w-3.5 h-3.5" /> All
+        </button>
+        <button onClick={() => setTypeFilter('article')} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap", typeFilter === 'article' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700")}>
+          <FileText className="w-3.5 h-3.5" /> Articles
+        </button>
+        <button onClick={() => setTypeFilter('podcast')} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap", typeFilter === 'podcast' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700")}>
+          <Headphones className="w-3.5 h-3.5" /> Podcasts
+        </button>
+      </div>
+
       <main className="flex-1 relative z-10 overflow-hidden">
-        <div className={cn("absolute inset-0 transition-transform duration-300 ease-out", filter === 'inbox' ? "translate-x-0" : "-translate-x-full")}>
+        <div className={cn("absolute inset-0 transition-transform duration-300 ease-out", filter === 'inbox' ? "translate-x-0" : "translate-x-full")}>
           <ArticleList 
             filter="inbox" articles={articles} feeds={feeds} settings={settings} currentTrack={currentTrack}
             searchQuery={searchQuery} isSearchOpen={isSearchOpen} searchSourceFilter={searchSourceFilter} searchDateRange={searchDateRange}
             isLoading={isLoading} forceRefresh={forceRefresh} onSelectArticle={handleSelectArticle}
             markAsRead={markAsRead} markArticlesAsRead={markArticlesAsRead} toggleFavorite={toggleFavorite} toggleQueue={toggleQueue}
             setIsSettingsModalOpen={setIsSettingsModalOpen} setSettingsInitialTab={setSettingsInitialTab} refreshFeeds={refreshFeeds}
-            handleVisibilityChange={handleVisibilityChange} bottomRef={bottomRefInbox}
+            handleVisibilityChange={handleVisibilityChange} bottomRef={bottomRefInbox} typeFilter={typeFilter}
           />
         </div>
-        <div className={cn("absolute inset-0 transition-transform duration-300 ease-out", filter === 'saved' ? "translate-x-0" : "translate-x-full")}>
+        <div className={cn("absolute inset-0 transition-transform duration-300 ease-out", filter === 'saved' ? "translate-x-0" : "-translate-x-full")}>
           <ArticleList 
             filter="saved" articles={articles} feeds={feeds} settings={settings} currentTrack={currentTrack}
             searchQuery={searchQuery} isSearchOpen={isSearchOpen} searchSourceFilter={searchSourceFilter} searchDateRange={searchDateRange}
             isLoading={isLoading} forceRefresh={forceRefresh} onSelectArticle={handleSelectArticle}
             markAsRead={markAsRead} markArticlesAsRead={markArticlesAsRead} toggleFavorite={toggleFavorite} toggleQueue={toggleQueue}
             setIsSettingsModalOpen={setIsSettingsModalOpen} setSettingsInitialTab={setSettingsInitialTab} refreshFeeds={refreshFeeds}
-            handleVisibilityChange={handleVisibilityChange} bottomRef={bottomRefSaved}
+            handleVisibilityChange={handleVisibilityChange} bottomRef={bottomRefSaved} typeFilter={typeFilter}
           />
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 flex justify-around pt-3 pb-10 px-3 z-20 bg-black safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 flex justify-around py-1 px-3 z-20 bg-black safe-bottom">
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setFilter('saved')} className={cn("relative p-2", filter === 'saved' ? 'text-[var(--theme-color)]' : 'text-gray-500')}>
           <Star className="w-6 h-6" />
+          {savedCount > 0 && (
+            <span className="absolute top-1 right-1 w-4 h-4 bg-yellow-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center border border-black">
+              {savedCount}
+            </span>
+          )}
         </motion.button>
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setFilter('inbox')} className={cn("relative p-2", filter === 'inbox' ? 'text-[var(--theme-color)]' : 'text-gray-500')}>
           <Inbox className="w-6 h-6" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-black">
+              {unreadCount}
+            </span>
+          )}
         </motion.button>
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setIsSettingsModalOpen(true)} className="text-gray-500 p-2"><SettingsIcon className="w-6 h-6" /></motion.button>
       </div>
