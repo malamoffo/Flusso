@@ -691,35 +691,28 @@ export const storage = {
 
   async parseOpml(opmlText: string): Promise<string[]> {
     console.log('Parsing OPML text, length:', opmlText.length);
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(opmlText, 'application/xml');
-    
-    // If XML parsing fails (common with malformed OPML), treat as invalid and return no URLs
-    const parserError = doc.querySelector('parsererror');
-    if (parserError) {
-      console.warn('OPML XML parsing failed, treating file as invalid:', parserError.textContent);
-      return [];
-    }
 
-    const outlines = doc.querySelectorAll('outline');
-    console.log('Found total outlines:', outlines.length);
     const urls: string[] = [];
-    
-    outlines.forEach((outline, index) => {
-      // OPML attributes can be case-sensitive in XML but case-insensitive in HTML
-      // We check common variations
-      const url = outline.getAttribute('xmlUrl') || 
-                  outline.getAttribute('xmlURL') || 
-                  outline.getAttribute('xmlurl') || 
-                  outline.getAttribute('url');
-                  
+
+    // Use a simple regex-based parser to avoid interpreting untrusted text with DOM APIs.
+    // This looks for <outline ...> tags and extracts common feed URL attributes.
+    const outlineTagRegex = /<outline\b[^>]*>/gi;
+    const attributeRegex = /\b(xmlUrl|xmlURL|xmlurl|url)\s*=\s*(['"])(.*?)\2/;
+
+    const outlineTags = opmlText.match(outlineTagRegex) || [];
+    console.log('Found total outlines:', outlineTags.length);
+
+    outlineTags.forEach((tag, index) => {
+      const attrMatch = tag.match(attributeRegex);
+      const url = attrMatch ? attrMatch[3] : null;
+
       if (url && url.trim().startsWith('http')) {
         urls.push(url.trim());
       } else if (url) {
         console.warn(`Outline ${index} has invalid URL:`, url);
       }
     });
-    
+
     const uniqueUrls = Array.from(new Set(urls));
     console.log('Extracted unique URLs:', uniqueUrls.length);
     return uniqueUrls;
