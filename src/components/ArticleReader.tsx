@@ -396,9 +396,9 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
               }
             >
               {article.type === 'podcast' ? (
-                <ListPlus className={`w-5 h-5 ${isQueued ? 'text-indigo-500' : ''}`} aria-hidden="true" />
+                <ListPlus className={`w-5 h-5 ${isQueued ? 'text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
               ) : (
-                <Star className={`w-5 h-5 ${isFavorite ? 'fill-current text-indigo-500' : ''}`} aria-hidden="true" />
+                <Star className={`w-5 h-5 ${isFavorite ? 'fill-current text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
               )}
             </motion.button>
           </div>

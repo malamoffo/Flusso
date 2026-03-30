@@ -8,7 +8,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { PersistentPlayer } from './components/PersistentPlayer';
 import { Article } from './types';
-import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, LayoutGrid, Star, Plus, FileText, Headphones, ListPlus } from 'lucide-react';
+import { RefreshCw, Rss, Inbox, Settings as SettingsIcon, CheckSquare, Search, X, LayoutGrid, Star, Plus, FileText, Headphones, ListPlus, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
 
@@ -44,7 +44,7 @@ function MainContent() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<'settings' | 'subscriptions' | 'about' | undefined>(undefined);
   const [isMarkAllConfirmOpen, setIsMarkAllConfirmOpen] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'favorites' | 'queue'>('unread');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'saved'>('unread');
   const [typeFilter, setTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchSourceFilter, setSearchSourceFilter] = useState('all');
@@ -150,8 +150,7 @@ function MainContent() {
         // Full re-evaluation on filter/search change, refresh completion, or initial load
         return articles.filter(article => {
           if (filter === 'unread' && article.isRead) return false;
-          if (filter === 'favorites' && !article.isFavorite) return false;
-          if (filter === 'queue' && !article.isQueued) return false;
+          if (filter === 'saved' && !article.isFavorite && !article.isQueued) return false;
           
           if (typeFilter !== 'all' && article.type !== typeFilter) return false;
           
@@ -199,8 +198,7 @@ function MainContent() {
           if (existingIds.has(article.id)) return false;
           
           if (filter === 'unread' && article.isRead) return false;
-          if (filter === 'favorites' && !article.isFavorite) return false;
-          if (filter === 'queue' && !article.isQueued) return false;
+          if (filter === 'saved' && !article.isFavorite && !article.isQueued) return false;
           
           if (typeFilter !== 'all' && article.type !== typeFilter) return false;
           
@@ -281,7 +279,7 @@ function MainContent() {
 
   // Mark all as read when reaching the bottom
   useEffect(() => {
-    if (!bottomRef.current || displayArticles.length === 0) return;
+    if (filter !== 'unread' || !bottomRef.current || displayArticles.length === 0) return;
 
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
@@ -295,7 +293,7 @@ function MainContent() {
 
     observer.observe(bottomRef.current);
     return () => observer.disconnect();
-  }, [displayArticles, markArticlesAsRead]);
+  }, [displayArticles, markArticlesAsRead, filter]);
 
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {
     // We still keep handleScroll for other potential needs, 
@@ -364,8 +362,7 @@ function MainContent() {
         </header>
         
         {/* Type Filters */}
-        {filter !== 'queue' && filter !== 'favorites' && (
-          <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setTypeFilter('all')}
               className={cn(
@@ -403,7 +400,6 @@ function MainContent() {
               Podcasts
             </button>
           </div>
-        )}
 
         {isSearchOpen && (
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
@@ -474,8 +470,8 @@ function MainContent() {
         dragElastic={0.2}
         onDragEnd={(e, info) => {
           const threshold = 100;
-          const filters: ('all' | 'queue' | 'unread' | 'favorites')[] = ['all', 'queue', 'unread', 'favorites'];
-          const currentIndex = filters.indexOf(filter);
+          const filters: ('all' | 'saved' | 'unread')[] = ['all', 'saved', 'unread'];
+          const currentIndex = filters.indexOf(filter as any);
           
           if (info.offset.x > threshold) {
             // Swipe right -> Previous section
@@ -523,24 +519,32 @@ function MainContent() {
           </div>
         ) : (
           <div className="flex-1">
-            {displayArticles.map((article) => {
-              const feed = feedMap.get(article.feedId);
-              return (
-                <SwipeableArticle 
-                  key={article.id} 
-                  article={article} 
-                  feedName={feed?.title || 'Unknown Feed'}
-                  feedImageUrl={feed?.imageUrl}
-                  settings={settings}
-                  onClick={handleSelectArticle}
-                  onMarkAsRead={markAsRead}
-                  onVisibilityChange={handleVisibilityChange}
-                  toggleRead={toggleRead}
-                  toggleFavorite={toggleFavorite}
-                  toggleQueue={toggleQueue}
-                />
-              );
-            })}
+            <AnimatePresence mode="popLayout">
+              {displayArticles.map((article) => {
+                const feed = feedMap.get(article.feedId);
+                return (
+                  <SwipeableArticle 
+                    key={article.id} 
+                    article={article} 
+                    feedName={feed?.title || 'Unknown Feed'}
+                    feedImageUrl={feed?.imageUrl}
+                    settings={settings}
+                    onClick={handleSelectArticle}
+                    onMarkAsRead={markAsRead}
+                    onVisibilityChange={handleVisibilityChange}
+                    toggleRead={toggleRead}
+                    toggleFavorite={toggleFavorite}
+                    toggleQueue={toggleQueue}
+                    isSavedSection={filter === 'saved'}
+                    filter={filter}
+                    onRemove={(id) => {
+                      if (article.isFavorite) toggleFavorite(id);
+                      if (article.isQueued) toggleQueue(id);
+                    }}
+                  />
+                );
+              })}
+            </AnimatePresence>
             <div ref={bottomRef} className="h-20" />
           </div>
         )}
@@ -562,12 +566,17 @@ function MainContent() {
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => setFilter('queue')}
-          className={filter === 'queue' ? 'text-[var(--theme-color)]' : 'text-gray-500'}
-          aria-label="Listening queue"
-          aria-pressed={filter === 'queue'}
+          onClick={() => setFilter('saved')}
+          className={`${filter === 'saved' ? 'text-[var(--theme-color)]' : 'text-gray-500'} relative`}
+          aria-label="Saved articles"
+          aria-pressed={filter === 'saved'}
         >
-          <ListPlus className="w-6 h-6" aria-hidden="true" />
+          <Star className="w-6 h-6" aria-hidden="true" />
+          {articles.filter(a => a.isFavorite || a.isQueued).length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-[var(--theme-color)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-900">
+              {articles.filter(a => a.isFavorite || a.isQueued).length > 99 ? '99+' : articles.filter(a => a.isFavorite || a.isQueued).length}
+            </span>
+          )}
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -582,15 +591,6 @@ function MainContent() {
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setFilter('favorites')}
-          className={filter === 'favorites' ? 'text-[var(--theme-color)]' : 'text-gray-500'}
-          aria-label="Favorite articles"
-          aria-pressed={filter === 'favorites'}
-        >
-          <Star className="w-6 h-6" aria-hidden="true" />
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}

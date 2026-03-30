@@ -223,10 +223,16 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleRead = useCallback(async (articleId: string) => {
+    console.log('toggleRead called for:', articleId);
     setArticles(prev => {
-      const updatedArticles = prev.map(a => 
-        a.id === articleId ? { ...a, isRead: !a.isRead, readAt: !a.isRead ? Date.now() : undefined } : a
-      );
+      const updatedArticles = prev.map(a => {
+        if (a.id === articleId) {
+          const isNowRead = !a.isRead;
+          console.log('Toggling article', a.id, 'from', a.isRead, 'to', isNowRead);
+          return { ...a, isRead: isNowRead, readAt: isNowRead ? Date.now() : undefined };
+        }
+        return a;
+      });
       storage.saveArticles(updatedArticles);
       return updatedArticles;
     });

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { motion, useMotionValue, useTransform, PanInfo, animate } from 'framer-motion';
 import { format, isToday } from 'date-fns';
-import { Check, Trash2, Headphones, ListPlus, FileText, Star } from 'lucide-react';
+import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star } from 'lucide-react';
 import { Article, Settings } from '../types';
 import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -24,6 +24,7 @@ interface SwipeableArticleProps {
   toggleQueue: (id: string) => void;
   onRemove?: (id: string) => void;
   isSavedSection?: boolean;
+  filter?: string;
   style?: React.CSSProperties;
 }
 
@@ -46,6 +47,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   toggleQueue,
   onRemove,
   isSavedSection,
+  filter,
   style
 }: SwipeableArticleProps) {
   const x = useMotionValue(0);
@@ -81,10 +83,11 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   useEffect(() => {
     // Mark as read when the article exits the top of the screen
-    if (!inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
+    // Only apply this logic when in the 'unread' filter section
+    if (filter === 'unread' && !inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
       onMarkAsRead(article.id);
     }
-  }, [inView, entry, article.id, article.isRead, onMarkAsRead]);
+  }, [inView, entry, article.id, article.isRead, onMarkAsRead, filter]);
 
   const handleArticleClick = () => {
     if (!article.isRead) {
@@ -130,22 +133,42 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
     return '';
   };
 
+  const [exitX, setExitX] = React.useState<number | string>(0);
+
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 80;
+    const isUnreadSection = !isSavedSection && filter === 'unread';
+    
     if (info.offset.x > threshold) {
       // Swiped right
-      if (isSavedSection) {
-        onRemove?.(article.id);
-      } else if (settings.swipeRightAction === 'toggleRead') toggleRead(article.id);
-      else if (settings.swipeRightAction === 'toggleFavorite') {
+      const action = isSavedSection ? 'remove' : settings.swipeRightAction;
+      
+      if (action === 'remove' || (isUnreadSection && action === 'toggleRead' && !article.isRead)) {
+        const targetX = window.innerWidth;
+        setExitX(targetX);
+        animate(x, targetX, { duration: 0.15, ease: "easeOut" });
+        
+        if (action === 'remove') onRemove?.(article.id);
+        else toggleRead(article.id);
+      } else if (action === 'toggleRead') {
+        toggleRead(article.id);
+      } else if (action === 'toggleFavorite') {
         article.type === 'podcast' ? toggleQueue(article.id) : toggleFavorite(article.id);
       }
     } else if (info.offset.x < -threshold) {
       // Swiped left
-      if (isSavedSection) {
-        onRemove?.(article.id);
-      } else if (settings.swipeLeftAction === 'toggleRead') toggleRead(article.id);
-      else if (settings.swipeLeftAction === 'toggleFavorite') {
+      const action = isSavedSection ? 'remove' : settings.swipeLeftAction;
+      
+      if (action === 'remove' || (isUnreadSection && action === 'toggleRead' && !article.isRead)) {
+        const targetX = -window.innerWidth;
+        setExitX(targetX);
+        animate(x, targetX, { duration: 0.15, ease: "easeOut" });
+        
+        if (action === 'remove') onRemove?.(article.id);
+        else toggleRead(article.id);
+      } else if (action === 'toggleRead') {
+        toggleRead(article.id);
+      } else if (action === 'toggleFavorite') {
         article.type === 'podcast' ? toggleQueue(article.id) : toggleFavorite(article.id);
       }
     }
@@ -191,17 +214,31 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   return (
     <motion.div 
+      layout="position"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ 
+        opacity: 0, 
+        height: 0,
+        transition: { duration: 0.2, ease: "easeInOut" } 
+      }}
+      transition={{ layout: { duration: 0.2, ease: "easeInOut" } }}
       ref={(node) => {
         ref(node);
         prefetchRef(node);
       }} 
-      style={{ ...style, background }}
       className={cn(
         "relative w-full overflow-hidden border-b border-gray-800"
       )}
     >
+      {/* Background Action Color */}
+      <motion.div 
+        className="absolute inset-0 z-0"
+        style={{ background }}
+      />
+
       {/* Background Actions */}
-      <div className="absolute inset-0 flex items-center justify-between px-6 z-0">
+      <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
         <div className="flex items-center text-white font-medium">
           {isSavedSection ? (
             <Trash2 className="w-6 h-6 mr-2" />
@@ -242,8 +279,10 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
         onDragEnd={handleDragEnd}
         onClick={handleArticleClick}
+        exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-10 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black"
+          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black",
+          "opacity-100"
         )}
       >
         <div className={cn(
@@ -277,7 +316,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
                   />
                 )}
                 {article.type === 'podcast' ? (
-                  <Headphones className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  <Headphones className="w-3.5 h-3.5 text-[var(--theme-color)]" />
                 ) : (
                   <FileText className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                 )}
@@ -287,10 +326,10 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               </div>
               <div className="flex items-center gap-1.5 ml-2">
                 {article.isFavorite && (
-                  <Star className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />
+                  <Star className="w-3.5 h-3.5 text-[var(--theme-color)] fill-[var(--theme-color)]" />
                 )}
                 {article.isQueued && (
-                  <ListPlus className="w-3.5 h-3.5 text-indigo-500" />
+                  <ListPlus className="w-3.5 h-3.5 text-[var(--theme-color)]" />
                 )}
                 <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {article.type === 'podcast' 
