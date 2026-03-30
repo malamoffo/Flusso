@@ -31,9 +31,9 @@ export default function App() {
           {/* Struttura base per ospitare la logica di lettura */}
           <SwipeableArticle />
           <div className="hidden">
-            {/* Passiamo un oggetto strutturato anziché null per evitare il crash "article is undefined" */}
+            {/* Passiamo un oggetto strutturato con valori numerici e forziamo il tipo per evitare errori TS e crash a runtime */}
             <ArticleReader 
-              article={{ id: 'placeholder', title: '', link: '', pubDate: '' }} 
+              article={{ id: 0, title: '', link: '', pubDate: 0 } as any} 
               onClose={() => {}} 
             />
           </div>
