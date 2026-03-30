@@ -288,12 +288,11 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
 
   const markAllAsRead = useCallback(async () => {
     const now = Date.now();
-    let updated: Article[] = [];
     setArticles(prev => {
-      updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
+      const updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
+      storage.saveArticles(updated);
       return updated;
     });
-    storage.saveArticles(updated);
   }, []);
 
   const toggleFavorite = useCallback(async (articleId: string) => {
@@ -351,6 +350,9 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       const updatedArticles = prev.map(a => 
         a.id === articleId ? { ...a, ...updates } : a
       );
+      // Use a microtask to save to storage to avoid blocking the main thread
+      // and ensure we don't call it inside the pure state update if possible,
+      // but we need the updated list.
       storage.saveArticles(updatedArticles);
       return updatedArticles;
     });
@@ -412,7 +414,8 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
               .filter(a => a.feedId === feed.id)
               .sort((a, b) => b.pubDate - a.pubDate)[0];
             
-            const fetchPromise = storage.fetchFeedData(feed.feedUrl, latestArticle?.pubDate);
+            const sinceDate = latestArticle?.pubDate || feed.lastArticleDate;
+            const fetchPromise = storage.fetchFeedData(feed.feedUrl, sinceDate);
             
             let timeoutId: any;
             const timeoutPromise = new Promise((_, reject) => {

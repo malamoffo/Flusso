@@ -23,6 +23,7 @@ export interface Feed {
   feedUrl: string;
   imageUrl?: string;
   lastFetched?: number;
+  lastArticleDate?: number;
   error?: string;
 }
 

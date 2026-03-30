@@ -117,7 +117,20 @@ export function SettingsModal({
                   <label className="block text-sm font-medium text-gray-300 mb-1">URL</label>
                   <input value={selectedFeed.feedUrl} readOnly className="w-full p-2 rounded-lg border border-gray-600 bg-gray-700 text-white opacity-70" />
                 </div>
-                <button onClick={() => saveEdit(selectedFeed.id)} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Save Changes</button>
+                <div className="flex gap-2">
+                  <button onClick={() => saveEdit(selectedFeed.id)} className="flex-1 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Save Changes</button>
+                  {selectedFeed.link && (
+                    <a 
+                      href={selectedFeed.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors flex items-center justify-center"
+                      title="Go to source"
+                    >
+                      <ExternalLink className="w-5 h-5" />
+                    </a>
+                  )}
+                </div>
                 <button onClick={() => { removeFeed(selectedFeed.id); setSelectedFeedId(null); }} className="w-full p-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl font-medium transition-colors">Remove Feed</button>
               </div>
             ) : activeTab === 'settings' ? (
@@ -250,7 +263,7 @@ export function SettingsModal({
                   {feeds.map(feed => (
                     <div 
                       key={feed.id} 
-                      className="flex items-center justify-between p-4 rounded-2xl bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer" 
+                      className="group flex items-center justify-between p-4 rounded-2xl bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer" 
                       onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); }}
                     >
                       <div className="min-w-0 flex-1">
@@ -259,7 +272,21 @@ export function SettingsModal({
                           {feed.error ? 'Error' : feed.lastFetched ? `Updated ${new Date(feed.lastFetched).toLocaleDateString()}` : 'Never updated'}
                         </span>
                       </div>
-                      <span className={`w-2 h-2 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                      <div className="flex items-center gap-3">
+                        {feed.link && (
+                          <a 
+                            href={feed.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 bg-gray-900 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition-all opacity-0 group-hover:opacity-100"
+                            title="Go to source"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                        <span className={`w-2 h-2 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                      </div>
                     </div>
                   ))}
                 </div>

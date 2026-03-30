@@ -263,6 +263,50 @@ function MainContent() {
       </div>
 
       <SettingsModal isOpen={isSettingsModalOpen} initialTab={settingsInitialTab} onClose={() => { setIsSettingsModalOpen(false); setSettingsInitialTab(undefined); }} />
+      
+      <AnimatePresence>
+        {isMarkAllConfirmOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMarkAllConfirmOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-gray-900 border border-gray-800 rounded-[32px] p-8 w-full max-w-sm shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <CheckSquare className="w-8 h-8 text-indigo-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white text-center mb-2">Mark all as read?</h3>
+              <p className="text-gray-400 text-center mb-8">This will mark all articles in your inbox as read. This action cannot be undone.</p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    markAllAsRead();
+                    setIsMarkAllConfirmOpen(false);
+                  }}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-colors shadow-lg shadow-indigo-500/20"
+                >
+                  Yes, mark all as read
+                </button>
+                <button 
+                  onClick={() => setIsMarkAllConfirmOpen(false)}
+                  className="w-full py-4 bg-gray-800 hover:bg-gray-700 text-white rounded-2xl font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {selectedArticle && (
           <ArticleReader 

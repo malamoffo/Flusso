@@ -35,6 +35,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressRef = useRef<number>(0);
   const lastSavedProgressRef = useRef<number>(0);
   const currentTrackRef = useRef<Article | null>(null);
 
@@ -61,6 +62,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     
     const handleTimeUpdate = () => {
       setProgress(audio.currentTime);
+      progressRef.current = audio.currentTime;
       setIsBuffering(false);
       
       // Update position state for media session
@@ -135,7 +137,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (isPlaying && currentTrack && duration > 0) {
       const interval = setInterval(() => {
-        const currentProgress = progress / duration;
+        const currentProgress = progressRef.current / duration;
         // Save if progress changed significantly (more than 1%)
         if (Math.abs(currentProgress - lastSavedProgressRef.current) > 0.01) {
           updateArticle(currentTrack.id, { progress: currentProgress });
@@ -144,7 +146,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }, 5000); // Every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [isPlaying, currentTrack, progress, duration, updateArticle]);
+  }, [isPlaying, currentTrack, duration, updateArticle]);
 
   const play = useCallback((track: Article) => {
     if (!audioRef.current) return;
