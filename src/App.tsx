@@ -18,8 +18,6 @@ function MainContent() {
   const mainRef = useRef<HTMLElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const visibleArticlesRef = useRef<Set<string>>(new Set());
-  const startYRef = useRef<number>(0);
-  const isAtTopRef = useRef<boolean>(true);
 
   const { articles, feeds, settings, isLoading, progress, error, refreshFeeds, toggleRead, markAsRead, markArticlesAsRead, markAllAsRead, searchQuery, setSearchQuery, unreadCount, toggleFavorite, toggleQueue } = useRss();
   const { currentTrack } = useAudioState();
@@ -54,7 +52,6 @@ function MainContent() {
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
-      isAtTopRef.current = true;
     }
     // Reset type filter to 'all' when switching sections
     setTypeFilter('all');
@@ -64,7 +61,6 @@ function MainContent() {
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
-      isAtTopRef.current = true;
     }
   }, [typeFilter]);
   
@@ -108,11 +104,6 @@ function MainContent() {
   // State for articles currently being displayed to allow deferred removal of read items
   const [displayArticles, setDisplayArticles] = useState<Article[]>([]);
   
-  // Pull to refresh state
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
-  const PULL_THRESHOLD = 80;
-
   const prevFilterRef = useRef(filter);
   const prevTypeFilterRef = useRef(typeFilter);
   const prevSearchRef = useRef(searchQuery);
@@ -234,43 +225,6 @@ function MainContent() {
     });
   }, [filter, typeFilter, searchQuery, searchSourceFilter, searchDateRange, isSearchOpen, articles, isLoading, forceRefresh]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const scrollTop = mainRef.current?.scrollTop || 0;
-    isAtTopRef.current = scrollTop <= 0;
-    startYRef.current = e.touches[0].clientY;
-    
-    if (isAtTopRef.current && !isSettingsModalOpen && filter === 'inbox') {
-      setIsPulling(true);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPulling || !isAtTopRef.current) return;
-    
-    const touch = e.touches[0];
-    const distance = touch.clientY - startYRef.current;
-    
-    // If user moves up (scrolling down), cancel pulling
-    if (distance < 0) {
-      setIsPulling(false);
-      setPullDistance(0);
-      return;
-    }
-    
-    // Apply resistance
-    if (distance > 0) {
-      setPullDistance(Math.min(distance * 0.4, PULL_THRESHOLD + 30));
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (isPulling && pullDistance >= PULL_THRESHOLD) {
-      refreshFeeds();
-    }
-    setIsPulling(false);
-    setPullDistance(0);
-  };
-
   // Mark all as read when reaching the bottom
   useEffect(() => {
     if (filter !== 'inbox' || !bottomRef.current || displayArticles.length === 0) return;
@@ -292,8 +246,6 @@ function MainContent() {
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {
     // We still keep handleScroll for other potential needs, 
     // but the bottom detection is now handled by IntersectionObserver
-    const scrollTop = e.currentTarget.scrollTop;
-    isAtTopRef.current = scrollTop <= 0;
   };
 
   // ⚡ Bolt: Memoize handleSelectArticle to keep reference stable for SwipeableArticle
@@ -311,9 +263,6 @@ function MainContent() {
     <div 
       className="h-[100dvh] overflow-hidden flex flex-col bg-black font-sans"
       style={{ '--theme-color': settings.themeColor } as React.CSSProperties}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
       {/* Sticky Header Group */}
       <div className="sticky top-0 z-20 shadow-sm transition-colors bg-black">
@@ -442,20 +391,6 @@ function MainContent() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Pull to refresh banner (background) */}
-        <div 
-          className="absolute top-0 left-0 right-0 bg-[#22c55e] flex items-center justify-center z-0 overflow-hidden"
-          style={{ 
-            height: pullDistance,
-            opacity: pullDistance > 0 ? 1 : 0
-          }}
-        >
-          <RefreshCw className={cn(
-            "w-6 h-6 text-white",
-            pullDistance >= PULL_THRESHOLD ? "animate-spin" : ""
-          )} />
-        </div>
       <motion.main 
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
@@ -478,8 +413,7 @@ function MainContent() {
           }
         }}
         animate={{ 
-          paddingBottom: currentTrack ? 192 : 128,
-          y: pullDistance 
+          paddingBottom: currentTrack ? 192 : 128
         }}
         transition={{ type: "spring", stiffness: 600, damping: 40 }}
         className="flex-1 overflow-y-auto relative z-10"
@@ -544,7 +478,6 @@ function MainContent() {
           </motion.div>
         )}
       </motion.main>
-      </div>
 
 
       {/* Bottom Navigation Bar */}
@@ -592,6 +525,21 @@ function MainContent() {
         "fixed right-6 flex flex-col gap-4 z-30 items-center transition-all duration-300",
         currentTrack ? "bottom-44" : "bottom-28"
       )}>
+        {filter === 'inbox' && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => refreshFeeds()}
+            disabled={isLoading}
+            className={cn(
+              "w-10 h-10 bg-gray-800 text-indigo-400 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-all",
+              isLoading ? "animate-spin opacity-50" : ""
+            )}
+            title="Refresh feeds"
+            aria-label="Refresh feeds"
+          >
+            <RefreshCw className="w-5 h-5" aria-hidden="true" />
+          </motion.button>
+        )}
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsMarkAllConfirmOpen(true)}

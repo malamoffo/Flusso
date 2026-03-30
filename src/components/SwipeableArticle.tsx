@@ -223,6 +223,11 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
       className={cn(
         "relative w-full overflow-hidden border-b border-gray-800"
       )}
+      style={{
+        contentVisibility: 'auto',
+        containIntrinsicSize: '0 120px', // Rough estimate of article height
+        ...style
+      } as React.CSSProperties}
     >
       {/* Background Action Color */}
       <motion.div 
@@ -260,7 +265,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
       {/* Foreground Draggable Card */}
       <motion.div
-        style={{ x }}
+        style={{ x, willChange: 'transform' }}
         drag={isSavedSection ? "x" : (settings.swipeLeftAction === 'none' && settings.swipeRightAction === 'none' ? false : "x")}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={isSavedSection ? 0.5 : { 
