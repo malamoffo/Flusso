@@ -290,7 +290,6 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     setArticles(prev => {
       const updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
-      storage.saveArticles(updated);
       return updated;
     });
   }, []);
@@ -350,13 +349,17 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       const updatedArticles = prev.map(a => 
         a.id === articleId ? { ...a, ...updates } : a
       );
-      // Use a microtask to save to storage to avoid blocking the main thread
-      // and ensure we don't call it inside the pure state update if possible,
-      // but we need the updated list.
-      storage.saveArticles(updatedArticles);
+      // We'll save to storage in a separate effect or after the update
       return updatedArticles;
     });
   }, []);
+
+  // Sync articles to storage when they change (debounced or after updates)
+  useEffect(() => {
+    if (!isInitialLoad && articles.length > 0) {
+      storage.saveArticles(articles);
+    }
+  }, [articles, isInitialLoad]);
 
   const removeFeed = useCallback(async (feedId: string) => {
     setFeeds(prev => {

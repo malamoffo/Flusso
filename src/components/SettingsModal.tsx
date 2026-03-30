@@ -21,6 +21,7 @@ export function SettingsModal({
   const [activeTab, setActiveTab] = useState<'settings' | 'subscriptions' | 'about'>('settings');
   const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editUrl, setEditUrl] = useState('');
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
   
   React.useEffect(() => {
@@ -37,7 +38,7 @@ export function SettingsModal({
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
 
   const saveEdit = async (feedId: string) => {
-    await updateFeed(feedId, { title: editTitle });
+    await updateFeed(feedId, { title: editTitle, feedUrl: editUrl });
     setEditingFeedId(null);
     setSelectedFeedId(null);
   };
@@ -115,7 +116,7 @@ export function SettingsModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">URL</label>
-                  <input value={selectedFeed.feedUrl} readOnly className="w-full p-2 rounded-lg border border-gray-600 bg-gray-700 text-white opacity-70" />
+                  <input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="w-full p-2 rounded-lg border border-gray-600 bg-gray-800 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => saveEdit(selectedFeed.id)} className="flex-1 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Save Changes</button>
@@ -264,7 +265,7 @@ export function SettingsModal({
                     <div 
                       key={feed.id} 
                       className="group flex items-center justify-between p-4 rounded-2xl bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer" 
-                      onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); }}
+                      onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); setEditUrl(feed.feedUrl); }}
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-medium text-white truncate block" title={feed.title}>{feed.title}</span>
