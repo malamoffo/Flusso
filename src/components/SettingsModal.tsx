@@ -112,11 +112,21 @@ export function SettingsModal({
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
-                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full p-2 rounded-lg border border-gray-600 bg-gray-800 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" />
+                  <input 
+                    value={editTitle} 
+                    onChange={(e) => setEditTitle(e.target.value)} 
+                    className="w-full p-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">URL</label>
-                  <input value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="w-full p-2 rounded-lg border border-gray-600 bg-gray-800 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all" />
+                  <input 
+                    type="url"
+                    inputMode="url"
+                    value={editUrl} 
+                    onChange={(e) => setEditUrl(e.target.value)} 
+                    className="w-full p-3 rounded-lg border border-gray-700 bg-gray-800 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all relative z-[60]" 
+                  />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => saveEdit(selectedFeed.id)} className="flex-1 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Save Changes</button>

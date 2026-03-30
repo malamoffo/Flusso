@@ -455,7 +455,6 @@ export const storage = {
     // Favorites and queued articles are ALWAYS kept.
     const validArticles = articles.filter(a => {
       if (a.isFavorite || a.isQueued) return true;
-      const articleTime = a.readAt || a.pubDate;
       
       // If unread, be more generous (14 days for articles, 30 for podcasts)
       // If read, follow the user's requested limits (3 days for articles, 7 for podcasts)
@@ -466,7 +465,9 @@ export const storage = {
         limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
       }
       
-      return (now - articleTime) <= limit;
+      // Use pubDate for filtering unread articles, and readAt for read articles if available
+      const referenceTime = (a.isRead && a.readAt) ? a.readAt : a.pubDate;
+      return (now - referenceTime) <= limit;
     }).map(a => ({
       ...a,
       type: a.type || (a.mediaType?.startsWith('audio/') ? 'podcast' : 'article'),

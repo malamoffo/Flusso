@@ -53,6 +53,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const lastRefreshRef = React.useRef<number>(Date.now());
 
   const checkUpdates = useCallback(async (manual = false) => {
@@ -90,13 +91,19 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     
     loadData().then((data) => {
-      if (mounted) {
-        if (data && data.loadedFeeds.length > 0) {
+      if (mounted && data) {
+        // Only auto-refresh on startup if it's been more than 30 minutes
+        // This avoids unnecessary re-downloads and flickering on every app open
+        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+        const shouldRefresh = !data.loadedArticles.length || 
+                            data.loadedFeeds.some(f => !f.lastFetched || f.lastFetched < thirtyMinutesAgo);
+
+        if (data.loadedFeeds.length > 0 && shouldRefresh) {
           refreshFeeds(data.loadedFeeds, data.loadedArticles);
         }
         
         // Check for updates on startup if enabled
-        if (data && data.loadedSettings.autoCheckUpdates) {
+        if (data.loadedSettings.autoCheckUpdates) {
           checkUpdates();
         }
       }
@@ -127,9 +134,11 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       const loadedFeeds = await storage.getFeeds();
       const loadedArticles = await storage.getArticles();
       const loadedSettings = await storage.getSettings();
+      
       setFeeds(loadedFeeds);
       setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
       setSettings(loadedSettings);
+      setIsInitialLoad(false);
       
       // Sync queue and favorites with native plugin on load
       if (Capacitor.isNativePlatform()) {
@@ -147,6 +156,7 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setError('Failed to load data');
       console.error(err);
+      setIsInitialLoad(false);
       return null;
     } finally {
       setIsLoading(false);
@@ -245,28 +255,24 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleRead = useCallback(async (articleId: string) => {
-    let updated: Article[] = [];
     setArticles(prev => {
-      updated = prev.map(a => {
+      return prev.map(a => {
         if (a.id === articleId) {
           const isNowRead = !a.isRead;
           return { ...a, isRead: isNowRead, readAt: isNowRead ? Date.now() : undefined };
         }
         return a;
       });
-      return updated;
     });
-    if (updated.length > 0) storage.saveArticles(updated);
   }, []);
 
   const markArticlesAsRead = useCallback(async (articleIds: string[]) => {
     const idsToUpdate = new Set(articleIds);
     const now = Date.now();
-    let updated: Article[] = [];
     
     setArticles(prev => {
       let changed = false;
-      updated = prev.map(a => {
+      const updated = prev.map(a => {
         if (idsToUpdate.has(a.id) && !a.isRead) {
           changed = true;
           return { ...a, isRead: true, readAt: now };
@@ -274,12 +280,8 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         return a;
       });
 
-      if (changed) {
-        return updated;
-      }
-      return prev;
+      return changed ? updated : prev;
     });
-    if (updated.length > 0) storage.saveArticles(updated);
   }, []);
 
   const markAsRead = useCallback(async (articleId: string) => {
@@ -295,16 +297,10 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleFavorite = useCallback(async (articleId: string) => {
-    let updated: Article[] = [];
     setArticles(prev => {
-      updated = prev.map(a => 
+      const updated = prev.map(a => 
         a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
       );
-      return updated;
-    });
-    
-    if (updated.length > 0) {
-      storage.saveArticles(updated);
       
       if (Capacitor.isNativePlatform()) {
         const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
@@ -316,20 +312,15 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         }));
         QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
       }
-    }
+      return updated;
+    });
   }, []);
 
   const toggleQueue = useCallback(async (articleId: string) => {
-    let updated: Article[] = [];
     setArticles(prev => {
-      updated = prev.map(a => 
+      const updated = prev.map(a => 
         a.id === articleId ? { ...a, isQueued: !a.isQueued } : a
       );
-      return updated;
-    });
-    
-    if (updated.length > 0) {
-      storage.saveArticles(updated);
       
       if (Capacitor.isNativePlatform()) {
         const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
@@ -341,7 +332,8 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
         }));
         QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
       }
-    }
+      return updated;
+    });
   }, []);
 
   const updateArticle = useCallback(async (articleId: string, updates: Partial<Article>) => {
@@ -354,9 +346,11 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Sync articles to storage when they change (debounced or after updates)
+  // Sync articles to storage when they change
   useEffect(() => {
-    if (!isInitialLoad && articles.length > 0) {
+    if (!isInitialLoad) {
+      // We allow saving empty articles array to support clearing data,
+      // but only after the initial load is complete to avoid overwriting with []
       storage.saveArticles(articles);
     }
   }, [articles, isInitialLoad]);
