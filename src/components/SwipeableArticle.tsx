@@ -83,8 +83,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   useEffect(() => {
     // Mark as read when the article exits the top of the screen
-    // Only apply this logic when in the 'unread' filter section
-    if (filter === 'unread' && !inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
+    // Only apply this logic when in the 'inbox' filter section
+    if (filter === 'inbox' && !inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
       onMarkAsRead(article.id);
     }
   }, [inView, entry, article.id, article.isRead, onMarkAsRead, filter]);
@@ -203,7 +203,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   return (
     <motion.div 
-      layout="position"
+      layout
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
@@ -211,7 +211,11 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         height: 0,
         transition: { duration: 0.2, ease: "easeInOut" } 
       }}
-      transition={{ layout: { duration: 0.2, ease: "easeInOut" } }}
+      transition={{ 
+        layout: { type: "spring", stiffness: 600, damping: 40 },
+        opacity: { duration: 0.2 },
+        height: { duration: 0.2 }
+      }}
       ref={(node) => {
         ref(node);
         prefetchRef(node);
@@ -281,7 +285,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               src={getSafeUrl(article.imageUrl || feedImageUrl!)}
               alt="" 
               className={cn(
-                "rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800 transition-opacity",
+                "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
                 (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full h-auto max-h-[70vh] mb-3 object-cover aspect-video' : 
                 (article.type === 'podcast' ? 'h-16 w-auto max-w-[100px] object-cover' : 'w-20 h-20 object-cover aspect-square')
               )}
@@ -305,9 +309,9 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
                 {article.type === 'podcast' ? (
                   <Headphones className="w-3.5 h-3.5 text-[var(--theme-color)]" />
                 ) : (
-                  <FileText className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  <FileText className="w-3.5 h-3.5 text-gray-500" />
                 )}
-                <span className={`text-xs font-medium truncate text-indigo-600 dark:text-indigo-400`}>
+                <span className={`text-xs font-medium truncate text-indigo-400`}>
                   {feedName}
                 </span>
               </div>
@@ -318,7 +322,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
                 {article.isQueued && (
                   <ListPlus className="w-3.5 h-3.5 text-[var(--theme-color)]" />
                 )}
-                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <span className="text-xs text-gray-400 whitespace-nowrap">
                   {article.type === 'podcast' 
                     ? format(article.pubDate, 'dd/MM/yy')
                     : (isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy'))}
@@ -326,14 +330,14 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               </div>
             </div>
             <h3 
-              className={`${getTitleSize()} font-semibold leading-tight mb-1 ${article.isRead ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}
+              className={`${getTitleSize()} font-semibold leading-tight mb-1 ${article.isRead ? 'text-gray-400' : 'text-gray-100'}`}
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
             />
             {article.type === 'podcast' ? (
               <div className="mt-2">
-                <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400">
                   <span className="w-8 text-left">{formatTime(currentSeconds)}</span>
-                  <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-indigo-500 transition-all duration-300" 
                       style={{ width: `${progressPercent}%` }} 
@@ -345,7 +349,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
             ) : (
               article.contentSnippet && article.contentSnippet.trim() !== '' && (
                 <p 
-                  className={`${getSnippetSize()} text-gray-500 dark:text-gray-400 mt-1 line-clamp-3 text-justify`}
+                  className={`${getSnippetSize()} text-gray-400 mt-1 line-clamp-3 text-justify`}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.contentSnippet, { FORBID_ATTR: ['id', 'name'] }) }}
                 />
               )

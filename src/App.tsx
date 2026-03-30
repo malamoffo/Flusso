@@ -113,12 +113,6 @@ function MainContent() {
   const [isPulling, setIsPulling] = useState(false);
   const PULL_THRESHOLD = 80;
 
-  useEffect(() => {
-    const isDark = settings.theme === 'dark' || (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', isDark);
-    document.documentElement.classList.toggle('pure-black', isDark && settings.pureBlack);
-  }, [settings.theme, settings.pureBlack]);
-
   const prevFilterRef = useRef(filter);
   const prevTypeFilterRef = useRef(typeFilter);
   const prevSearchRef = useRef(searchQuery);
@@ -245,7 +239,7 @@ function MainContent() {
     isAtTopRef.current = scrollTop <= 0;
     startYRef.current = e.touches[0].clientY;
     
-    if (isAtTopRef.current && !isSettingsModalOpen) {
+    if (isAtTopRef.current && !isSettingsModalOpen && filter === 'inbox') {
       setIsPulling(true);
     }
   };
@@ -315,45 +309,29 @@ function MainContent() {
 
   return (
     <div 
-      className={`h-[100dvh] overflow-hidden flex flex-col transition-colors ${
-        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-gray-50 dark:bg-gray-950'
-      } font-sans`}
+      className="h-[100dvh] overflow-hidden flex flex-col bg-black font-sans"
       style={{ '--theme-color': settings.themeColor } as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Pull to refresh indicator */}
-      <div 
-        className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50"
-        style={{ transform: `translateY(${pullDistance - 40}px)`, opacity: pullDistance / PULL_THRESHOLD }}
-      >
-        <div className={`rounded-full p-2 shadow-lg border transition-colors ${
-          settings.theme === 'dark' && settings.pureBlack ? 'bg-gray-900 border-gray-800' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
-        }`}>
-          <RefreshCw className={`w-6 h-6 text-indigo-600 dark:text-indigo-400 ${pullDistance >= PULL_THRESHOLD ? 'animate-spin' : ''}`} />
-        </div>
-      </div>
-
       {/* Sticky Header Group */}
-      <div className={`sticky top-0 z-20 shadow-sm transition-colors ${
-        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
-      }`}>
+      <div className="sticky top-0 z-20 shadow-sm transition-colors bg-black">
         {/* Top App Bar */}
         <header className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center shadow-inner relative">
-              <Rss className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <div className="w-10 h-10 bg-indigo-900/50 rounded-2xl flex items-center justify-center shadow-inner relative">
+              <Rss className="w-6 h-6 text-indigo-400" />
             </div>
             <div className="flex items-baseline gap-4">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
+              <h1 className="text-xl font-bold text-white tracking-tight">flusso</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <HeaderWidgets />
             <button 
               onClick={() => setIsSearchOpen(true)} 
-              className="p-2 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300"
+              className="p-2 rounded-full hover:bg-indigo-900/30 text-gray-300"
               aria-label="Open search"
             >
               <Search className="w-5 h-5" aria-hidden="true" />
@@ -369,7 +347,7 @@ function MainContent() {
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
                 typeFilter === 'all' 
                   ? "bg-indigo-600 text-white shadow-sm" 
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -381,7 +359,7 @@ function MainContent() {
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
                 typeFilter === 'article' 
                   ? "bg-indigo-600 text-white shadow-sm" 
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -393,7 +371,7 @@ function MainContent() {
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
                 typeFilter === 'podcast' 
                   ? "bg-indigo-600 text-white shadow-sm" 
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
             >
               <Headphones className="w-3.5 h-3.5" />
@@ -402,7 +380,7 @@ function MainContent() {
           </div>
 
         {isSearchOpen && (
-          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
+          <div className="px-4 py-3 border-t border-gray-800 flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Search className="w-5 h-5 text-gray-400" aria-hidden="true" />
               <input 
@@ -410,7 +388,7 @@ function MainContent() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search articles..."
-                className="flex-1 bg-transparent text-gray-900 dark:text-white focus:outline-none"
+                className="flex-1 bg-transparent text-white focus:outline-none"
                 aria-label="Search articles"
                 autoFocus
               />
@@ -426,7 +404,7 @@ function MainContent() {
               <select
                 value={searchSourceFilter}
                 onChange={(e) => setSearchSourceFilter(e.target.value)}
-                className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
+                className="text-xs bg-gray-800 text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
               >
                 <option value="all">All Sources</option>
                 {feeds.map(feed => (
@@ -436,7 +414,7 @@ function MainContent() {
               <select
                 value={searchDateRange}
                 onChange={(e) => setSearchDateRange(e.target.value)}
-                className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
+                className="text-xs bg-gray-800 text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
               >
                 <option value="all">Any Time</option>
                 <option value="today">Past 24 Hours</option>
@@ -449,7 +427,7 @@ function MainContent() {
 
         {/* Progress Indicator */}
         {progress && (
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 text-sm text-indigo-800 dark:text-indigo-300 flex items-center justify-between border-t border-indigo-100 dark:border-indigo-900/30">
+          <div className="bg-indigo-900/20 px-4 py-2 text-sm text-indigo-300 flex items-center justify-between border-t border-indigo-900/30">
             <span>Updating feeds...</span>
             <span className="font-medium">{progress.current} / {progress.total}</span>
           </div>
@@ -457,13 +435,27 @@ function MainContent() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-800 dark:text-red-300 border-t border-red-100 dark:border-red-900/30">
+          <div className="bg-red-900/20 px-4 py-2 text-sm text-red-300 border-t border-red-900/30">
             {error}
           </div>
         )}
       </div>
 
-      {/* Article List */}
+      {/* Main Content Area */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Pull to refresh banner (background) */}
+        <div 
+          className="absolute top-0 left-0 right-0 bg-[#22c55e] flex items-center justify-center z-0 overflow-hidden"
+          style={{ 
+            height: pullDistance,
+            opacity: pullDistance > 0 ? 1 : 0
+          }}
+        >
+          <RefreshCw className={cn(
+            "w-6 h-6 text-white",
+            pullDistance >= PULL_THRESHOLD ? "animate-spin" : ""
+          )} />
+        </div>
       <motion.main 
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
@@ -485,17 +477,19 @@ function MainContent() {
             }
           }
         }}
-        className={cn(
-          "flex-1 overflow-y-auto transition-all duration-300",
-          currentTrack ? "pb-48" : "pb-32"
-        )}
+        animate={{ 
+          paddingBottom: currentTrack ? 192 : 128,
+          y: pullDistance 
+        }}
+        transition={{ type: "spring", stiffness: 600, damping: 40 }}
+        className="flex-1 overflow-y-auto relative z-10"
         ref={mainRef}
         onScroll={handleScroll}
       >
         {displayArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
-            <Inbox className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
+          <div className="flex flex-col items-center justify-center h-64 text-gray-400 px-6 text-center">
+            <Inbox className="w-16 h-16 mb-4 text-gray-600" />
+            <p className="text-lg font-medium text-white mb-1">No articles found</p>
             <div className="text-sm">
               {feeds.length === 0 ? (
                 <div className="space-y-4">
@@ -518,7 +512,7 @@ function MainContent() {
             </div>
           </div>
         ) : (
-          <div className="flex-1">
+          <motion.div layout className="flex-1">
             <AnimatePresence mode="popLayout">
               {displayArticles.map((article) => {
                 const feed = feedMap.get(article.feedId);
@@ -547,15 +541,14 @@ function MainContent() {
               })}
             </AnimatePresence>
             <div ref={bottomRef} className="h-20" />
-          </div>
+          </motion.div>
         )}
       </motion.main>
+      </div>
 
 
       {/* Bottom Navigation Bar */}
-      <div className={`fixed bottom-0 left-0 right-0 border-t border-gray-100 dark:border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20 transition-colors ${
-        settings.theme === 'dark' && settings.pureBlack ? 'bg-black' : 'bg-white dark:bg-gray-900'
-      }`}>
+      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20 bg-black transition-colors">
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => setFilter('saved')}
@@ -565,7 +558,7 @@ function MainContent() {
         >
           <Star className="w-6 h-6" aria-hidden="true" />
           {articles.filter(a => a.isFavorite || a.isQueued).length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-[#f59e0b] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-900">
+            <span className="absolute -top-1 -right-1 bg-[#f59e0b] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-gray-900">
               {articles.filter(a => a.isFavorite || a.isQueued).length > 99 ? '99+' : articles.filter(a => a.isFavorite || a.isQueued).length}
             </span>
           )}
@@ -579,7 +572,7 @@ function MainContent() {
         >
           <Inbox className="w-6 h-6" aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white dark:border-gray-900">
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-gray-900">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -602,7 +595,7 @@ function MainContent() {
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsMarkAllConfirmOpen(true)}
-          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
+          className="w-14 h-14 bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-600 active:scale-95 transition-transform"
           title="Mark all as read"
           aria-label="Mark all as read"
         >
@@ -618,17 +611,14 @@ function MainContent() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className={cn(
-                "w-full max-w-sm p-6 rounded-2xl shadow-2xl bg-white dark:bg-gray-900",
-                settings.pureBlack && "bg-black"
-              )}
+              className="w-full max-w-sm p-6 rounded-2xl shadow-2xl bg-gray-900"
             >
-              <h3 className="text-lg font-bold mb-2 text-gray-900 dark:text-gray-100">Mark all as read?</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">This will mark all articles in the current view as read.</p>
+              <h3 className="text-lg font-bold mb-2 text-gray-100">Mark all as read?</h3>
+              <p className="text-gray-400 mb-6">This will mark all articles in the current view as read.</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsMarkAllConfirmOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-gray-800 text-gray-100"
                 >
                   Cancel
                 </button>

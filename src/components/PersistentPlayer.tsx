@@ -28,8 +28,8 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
         exit={{ y: 100, opacity: 0 }}
         onClick={() => onNavigate?.(currentTrack)}
         className={cn(
-          "fixed bottom-16 left-0 right-0 z-40 mx-2 mb-2 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 backdrop-blur-md transition-colors cursor-pointer",
-          "bg-white/90 dark:bg-gray-900/90"
+          "fixed bottom-16 left-0 right-0 z-40 mx-2 mb-2 rounded-xl shadow-lg border border-gray-800 backdrop-blur-md transition-colors cursor-pointer",
+          "bg-gray-900/90"
         )}
       >
         <div className="px-4 py-3 flex items-center gap-3">
@@ -45,12 +45,12 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
           
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+            <h4 className="text-sm font-bold text-white truncate">
               {currentTrack.title}
             </h4>
-            <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 mt-1">
+            <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400 mt-1">
               <span className="w-8 text-left">{formatTime(progress)}</span>
-              <div className="flex-1 h-1 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+              <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-indigo-500 transition-all duration-200" 
                   style={{ width: `${progressPercent}%` }} 
@@ -64,7 +64,7 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
           <div className="flex items-center gap-2">
             <button 
               onClick={(e) => { e.stopPropagation(); seek(Math.max(0, progress - 10)); }}
-              className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
             >
               <SkipBack className="w-4 h-4 fill-current" />
             </button>
@@ -88,14 +88,14 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
             
             <button 
               onClick={(e) => { e.stopPropagation(); seek(Math.min(duration, progress + 30)); }}
-              className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
             >
               <SkipForward className="w-4 h-4 fill-current" />
             </button>
             
             <button 
               onClick={(e) => { e.stopPropagation(); stop(); }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="p-1.5 text-gray-400 hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>

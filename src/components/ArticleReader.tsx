@@ -297,10 +297,10 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onClose}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+          className="p-2 rounded-full hover:bg-gray-800"
           aria-label="Close article"
         >
-          <X className="w-6 h-6 text-gray-800 dark:text-gray-200" aria-hidden="true" />
+          <X className="w-6 h-6 text-gray-200" aria-hidden="true" />
         </motion.button>
       </div>
 
@@ -315,11 +315,11 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
           />
         )}
 
-        <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        <div className="text-sm text-gray-400 mb-3">
           {formattedDate} • {readTime}m read
         </div>
 
-        <h1 className={`${getTitleSize()} font-bold text-gray-900 dark:text-white mb-4 leading-tight`}>
+        <h1 className={`${getTitleSize()} font-bold text-white mb-4 leading-tight`}>
           <a 
             href={getSafeUrl(article.link)}
             target="_blank" 
@@ -330,7 +330,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
         </h1>
 
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-full">
             {article.link && (
               <CachedImage 
                 src={`https://icons.duckduckgo.com/ip3/${(() => {
@@ -348,10 +348,10 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                 }}
               />
             )}
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feed?.title || 'Unknown Source'}</span>
+            <span className="text-sm font-medium text-gray-300">{feed?.title || 'Unknown Source'}</span>
           </div>
 
-          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-4 text-gray-400">
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={async () => {
@@ -372,7 +372,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                   }
                 }
               }}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="hover:text-white transition-colors"
               aria-label="Share article"
             >
               <Share2 className="w-5 h-5" aria-hidden="true" />
@@ -388,7 +388,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                   toggleFavorite(article.id);
                 }
               }}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="hover:text-white transition-colors"
               aria-label={
                 article.type === 'podcast' 
                   ? (isQueued ? "Remove from queue" : "Add to queue")
@@ -404,16 +404,16 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
           </div>
         </div>
 
-        <hr className="border-gray-200 dark:border-gray-800 mb-6" />
+        <hr className="border-gray-800 mb-6" />
 
         {article.type === 'podcast' && article.mediaUrl && (
-          <div className="mb-8 p-6 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
             <div className="flex flex-col gap-6">
               {/* Progress Info */}
-              <div className="flex items-center gap-4 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              <div className="flex items-center gap-4 text-xs font-bold text-indigo-400">
                 <span className="w-10 text-left">{formatTime(currentSeconds)}</span>
                 <div 
-                  className="relative flex-1 h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden cursor-pointer"
+                  className="relative flex-1 h-2 bg-gray-800 rounded-full overflow-hidden cursor-pointer"
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left;
@@ -440,7 +440,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                       onSelectArticle?.(prevInQueue);
                     }
                   }}
-                  className={`p-2 rounded-full transition-colors ${prevInQueue ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800' : 'text-gray-300 dark:text-gray-700'}`}
+                  className={`p-2 rounded-full transition-colors ${prevInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
                   aria-label="Previous in queue"
                 >
                   <SkipBack className="w-6 h-6 fill-current" />
@@ -449,7 +449,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={() => seek(Math.max(0, currentSeconds - 15))}
-                  className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  className="p-2 text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
                   aria-label="Back 15 seconds"
                 >
                   <div className="relative">
@@ -482,7 +482,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={() => seek(Math.min(totalSeconds, currentSeconds + 15))}
-                  className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
+                  className="p-2 text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
                   aria-label="Forward 15 seconds"
                 >
                   <div className="relative">
@@ -500,7 +500,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                       onSelectArticle?.(nextInQueue);
                     }
                   }}
-                  className={`p-2 rounded-full transition-colors ${nextInQueue ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800' : 'text-gray-300 dark:text-gray-700'}`}
+                  className={`p-2 rounded-full transition-colors ${nextInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
                   aria-label="Next in queue"
                 >
                   <SkipForward className="w-6 h-6 fill-current" />
@@ -512,31 +512,31 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
 
         {isLoading ? (
           <div className="space-y-4 animate-pulse mt-8">
-            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-            <div className="h-40 bg-gray-200 dark:bg-gray-800 rounded w-full mt-6"></div>
+            <div className="h-4 bg-gray-800 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-800 rounded w-full"></div>
+            <div className="h-4 bg-gray-800 rounded w-5/6"></div>
+            <div className="h-4 bg-gray-800 rounded w-full"></div>
+            <div className="h-40 bg-gray-800 rounded w-full mt-6"></div>
           </div>
         ) : sanitizedContent ? (
           <div 
-            className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden text-justify
+            className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-justify
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
-              prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-headings:font-bold
+              prose-a:text-indigo-400 prose-headings:font-bold
               prose-pre:max-w-full prose-pre:overflow-x-auto`}
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         ) : (
-          <div className={`prose ${getProseSize()} prose-indigo dark:prose-invert max-w-full overflow-hidden text-center py-8`}>
-            <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">
+          <div className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-center py-8`}>
+            <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">
               We couldn't load the full content of this article.
             </p>
             <a 
               href={getSafeUrl(article.link)}
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors no-underline"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline"
             >
               Read original article
             </a>

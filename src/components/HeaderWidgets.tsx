@@ -86,7 +86,7 @@ export function HeaderWidgets() {
   };
 
   return (
-    <div className="flex items-baseline gap-3 text-xl font-bold text-gray-400 dark:text-gray-500 tracking-tight">
+    <div className="flex items-baseline gap-3 text-xl font-bold text-gray-500 tracking-tight">
       <div className="flex items-center">
         <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
