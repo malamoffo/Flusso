@@ -1,485 +1,232 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Feed, Article, Settings } from '../types';
-import { storage, defaultSettings } from '../services/storage';
-import { imagePersistence } from '../utils/imagePersistence';
-import QueuePlugin from '../plugins/QueuePlugin';
-import { Capacitor } from '@capacitor/core';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Feed, Article } from '../types';
+import { fetchFeed } from '../fetch-feed';
+import { storage } from '../services/storage';
 
 interface RssContextType {
   feeds: Feed[];
   articles: Article[];
-  settings: Settings;
   isLoading: boolean;
-  progress: { current: number; total: number; status?: string } | null;
-  error: string | null;
+  isRefreshing: boolean;
   addFeed: (url: string) => Promise<void>;
-  importOpml: (file: File, append?: boolean) => Promise<void>;
-  toggleRead: (articleId: string) => Promise<void>;
-  markAsRead: (articleId: string) => Promise<void>;
-  markArticlesAsRead: (articleIds: string[]) => Promise<void>;
-  toggleFavorite: (articleId: string) => Promise<void>;
-  toggleQueue: (articleId: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-  refreshFeeds: (currentFeeds?: Feed[], currentArticles?: Article[]) => Promise<void>;
-  removeFeed: (feedId: string) => Promise<void>;
-  updateFeed: (feedId: string, updates: Partial<Feed>) => Promise<void>;
-  updateArticle: (articleId: string, updates: Partial<Article>) => Promise<void>;
-  updateSettings: (newSettings: Partial<Settings>) => Promise<void>;
-  exportFeeds: () => Promise<string>;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  unreadCount: number;
-  updateInfo: UpdateCheckResult | null;
-  checkUpdates: (manual?: boolean) => Promise<void>;
-}
-
-interface LoadedData {
-  loadedFeeds: Feed[];
-  loadedArticles: Article[];
-  loadedSettings: Settings;
+  removeFeed: (id: string) => Promise<void>;
+  refreshFeeds: () => Promise<void>;
+  toggleRead: (id: string) => void;
+  toggleStar: (id: string) => void;
+  toggleQueue: (id: string) => void;
+  updateArticleContent: (id: string, content: string, textContent: string) => void;
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
 
-import { App as CapacitorApp } from '@capacitor/app';
-import { updateService, UpdateCheckResult } from '../services/updateService';
-
-export function RssProvider({ children }: { children: React.ReactNode }) {
+export const RssProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
-  const [progress, setProgress] = useState<{ current: number; total: number; status?: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const lastRefreshRef = React.useRef<number>(Date.now());
-
-  const checkUpdates = useCallback(async (manual = false) => {
-    try {
-      const result = await updateService.checkForUpdates();
-      if (result.hasUpdate || manual) {
-        setUpdateInfo(result);
-      }
-    } catch (err) {
-      console.error('Update check failed', err);
-    }
-  }, []);
-
-  const prefetchImages = useCallback(async (articlesToPrefetch: Article[]) => {
-    if (!Capacitor.isNativePlatform()) return;
-    
-    // Sort by pubDate descending to prioritize most recent
-    const sorted = [...articlesToPrefetch].sort((a, b) => b.pubDate - a.pubDate);
-    
-    // Limit to top 50 to avoid excessive background work
-    const topArticles = sorted.slice(0, 50);
-    
-    for (const article of topArticles) {
-      if (article.imageUrl) {
-        try {
-          await imagePersistence.getLocalUrl(article.imageUrl);
-        } catch (e) {
-          // Ignore prefetch errors
-        }
-      }
-    }
-  }, []);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Usiamo una ref per avere sempre l'ultimo stato degli articoli all'interno
+  // delle funzioni asincrone senza problemi di closure "vecchie".
+  const articlesRef = useRef<Article[]>([]);
 
   useEffect(() => {
-    let mounted = true;
+    articlesRef.current = articles;
+  }, [articles]);
+
+  const refreshFeeds = async (currentFeeds: Feed[] = feeds, isBackground = false) => {
+    if (currentFeeds.length === 0) return;
+
+    if (!isBackground) setIsRefreshing(true);
     
-    loadData().then((data) => {
-      if (mounted && data) {
-        // Only auto-refresh on startup if it's been more than 30 minutes
-        // This avoids unnecessary re-downloads and flickering on every app open
-        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-        const shouldRefresh = !data.loadedArticles.length || 
-                            data.loadedFeeds.some(f => !f.lastFetched || f.lastFetched < thirtyMinutesAgo);
+    try {
+      const newArticles: Article[] = [];
+      const existingUrls = new Set(articlesRef.current.map(a => a.url));
+      let hasNewItems = false;
 
-        if (data.loadedFeeds.length > 0 && shouldRefresh) {
-          refreshFeeds(data.loadedFeeds, data.loadedArticles);
-        }
-        
-        // Check for updates on startup if enabled
-        if (data.loadedSettings.autoCheckUpdates) {
-          checkUpdates();
+      for (const feed of currentFeeds) {
+        try {
+          const fetchedArticles = await fetchFeed(feed.url);
+          
+          // Troviamo la data dell'articolo più recente che abbiamo già scaricato per questo feed.
+          // Questo ci permette di scartare subito gli articoli vecchi.
+          const currentNewestDate = articlesRef.current
+            .filter(a => a.feedId === feed.id)
+            .reduce((max, a) => Math.max(max, a.pubDate), 0);
+
+          const parsedArticles = fetchedArticles.map(article => ({
+            ...article,
+            feedId: feed.id,
+            feedTitle: feed.title,
+            isRead: false,
+            isStarred: false,
+            isInQueue: false,
+          }));
+
+          // Filtriamo tenendo SOLO gli articoli pubblicati DOPO il nostro più recente
+          // E che non siano già nei nostri url (misura di sicurezza aggiuntiva)
+          const trulyNewArticles = parsedArticles.filter(
+            article => article.pubDate > currentNewestDate && !existingUrls.has(article.url)
+          );
+
+          if (trulyNewArticles.length > 0) {
+            newArticles.push(...trulyNewArticles);
+            hasNewItems = true;
+          }
+        } catch (error) {
+          console.error(`Error refreshing feed ${feed.url}:`, error);
         }
       }
-    });
 
-    // Handle background to foreground transitions
-    const stateListener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) {
-        // When the app is opened/resumed, check if we should refresh
-        const now = Date.now();
-        // Reduced threshold to 5 minutes for better responsiveness on resume
-        if (now - lastRefreshRef.current > 5 * 60 * 1000) {
-          console.log('App resumed after 5+ mins, refreshing feeds...');
-          refreshFeeds();
-        }
-      }
-    });
-
-    return () => { 
-      mounted = false; 
-      stateListener.then(l => l.remove());
-    };
-  }, []);
-
-  const loadData = async (): Promise<LoadedData | null> => {
-    try {
-      setIsLoading(true);
-      const loadedFeeds = await storage.getFeeds();
-      const loadedArticles = await storage.getArticles();
-      const loadedSettings = await storage.getSettings();
-      
-      setFeeds(loadedFeeds);
-      setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
-      setSettings(loadedSettings);
-      setIsInitialLoad(false);
-      
-      // Sync queue and favorites with native plugin on load
-      if (Capacitor.isNativePlatform()) {
-        const queueAndFavorites = loadedArticles.filter(a => a.isQueued || a.isFavorite).map(a => ({
-          id: a.id,
-          title: a.title,
-          feedTitle: a.feedId, // We might want to look up the actual feed title here if possible
-          imageUrl: a.imageUrl || '',
-          mediaUrl: a.mediaUrl || ''
-        }));
-        QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
-      }
-      
-      return { loadedFeeds, loadedArticles, loadedSettings };
-    } catch (err) {
-      setError('Failed to load data');
-      console.error(err);
-      setIsInitialLoad(false);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      storage.saveSettings(updated);
-      return updated;
-    });
-  }, []);
-
-  const addFeed = useCallback(async (url: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await storage.addFeed(url);
-      await loadData();
-    } catch (err) {
-      setError('Failed to add feed. Please check the URL.');
-      console.error(err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const importOpml = async (file: File, append: boolean = true) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      let text;
-      if (typeof file.text === 'function') {
-        text = await file.text();
-      } else {
-        text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(reader.error);
-          reader.readAsText(file);
+      // Aggiorniamo lo stato e lo storage SOLO se abbiamo trovato novità reali
+      if (hasNewItems) {
+        setArticles(prev => {
+          const updatedList = [...newArticles, ...prev].sort((a, b) => b.pubDate - a.pubDate);
+          storage.saveArticles(updatedList);
+          return updatedList;
         });
       }
-
-      const urls = await storage.parseOpml(text);
-      
-      if (urls.length === 0) {
-        setError('No valid feed URLs found in the OPML file.');
-        return;
-      }
-
-      if (!append) {
-        // Clear existing feeds and articles if not appending
-        await storage.saveFeeds([]);
-        await storage.saveArticles([]);
-        setFeeds([]);
-        setArticles([]);
-      }
-
-      let successCount = 0;
-      let failCount = 0;
-      setProgress({ current: 0, total: urls.length, status: 'Starting import...' });
-      
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        try {
-          setProgress({ current: i, total: urls.length, status: `Importing: ${url}` });
-          await storage.addFeed(url);
-          successCount++;
-        } catch (e) {
-          console.error(`Failed to import ${url}`, e);
-          failCount++;
-        }
-        setProgress({ current: i + 1, total: urls.length, status: `Imported ${i + 1}/${urls.length}` });
-        
-        if (i < urls.length - 1) {
-          await new Promise(r => setTimeout(r, 100));
-        }
-      }
-      
-      await loadData();
-      if (failCount > 0) {
-        console.warn(`Import completed with warnings: ${successCount} feeds imported, ${failCount} failed.`);
-      } else {
-        setError(null);
-      }
-    } catch (err) {
-      setError('Failed to parse OPML file.');
-      console.error(err);
+    } catch (error) {
+      console.error('Error refreshing feeds:', error);
     } finally {
-      setIsLoading(false);
-      setProgress(null);
+      if (!isBackground) setIsRefreshing(false);
     }
   };
 
-  const toggleRead = useCallback(async (articleId: string) => {
-    setArticles(prev => {
-      return prev.map(a => {
-        if (a.id === articleId) {
-          const isNowRead = !a.isRead;
-          return { ...a, isRead: isNowRead, readAt: isNowRead ? Date.now() : undefined };
-        }
-        return a;
-      });
-    });
-  }, []);
-
-  const markArticlesAsRead = useCallback(async (articleIds: string[]) => {
-    const idsToUpdate = new Set(articleIds);
-    const now = Date.now();
-    
-    setArticles(prev => {
-      let changed = false;
-      const updated = prev.map(a => {
-        if (idsToUpdate.has(a.id) && !a.isRead) {
-          changed = true;
-          return { ...a, isRead: true, readAt: now };
-        }
-        return a;
-      });
-
-      return changed ? updated : prev;
-    });
-  }, []);
-
-  const markAsRead = useCallback(async (articleId: string) => {
-    await markArticlesAsRead([articleId]);
-  }, [markArticlesAsRead]);
-
-  const markAllAsRead = useCallback(async () => {
-    const now = Date.now();
-    setArticles(prev => {
-      const updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
-      return updated;
-    });
-  }, []);
-
-  const toggleFavorite = useCallback(async (articleId: string) => {
-    setArticles(prev => {
-      const updated = prev.map(a => 
-        a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
-      );
-      
-      if (Capacitor.isNativePlatform()) {
-        const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
-          id: a.id,
-          title: a.title,
-          feedTitle: a.feedId,
-          imageUrl: a.imageUrl || '',
-          mediaUrl: a.mediaUrl || ''
-        }));
-        QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
-      }
-      return updated;
-    });
-  }, []);
-
-  const toggleQueue = useCallback(async (articleId: string) => {
-    setArticles(prev => {
-      const updated = prev.map(a => 
-        a.id === articleId ? { ...a, isQueued: !a.isQueued } : a
-      );
-      
-      if (Capacitor.isNativePlatform()) {
-        const queueAndFavorites = updated.filter(a => a.isQueued || a.isFavorite).map(a => ({
-          id: a.id,
-          title: a.title,
-          feedTitle: a.feedId,
-          imageUrl: a.imageUrl || '',
-          mediaUrl: a.mediaUrl || ''
-        }));
-        QueuePlugin.setQueue({ queue: queueAndFavorites }).catch(console.error);
-      }
-      return updated;
-    });
-  }, []);
-
-  const updateArticle = useCallback(async (articleId: string, updates: Partial<Article>) => {
-    setArticles(prev => {
-      const updatedArticles = prev.map(a => 
-        a.id === articleId ? { ...a, ...updates } : a
-      );
-      // We'll save to storage in a separate effect or after the update
-      return updatedArticles;
-    });
-  }, []);
-
-  // Sync articles to storage when they change
   useEffect(() => {
-    if (!isInitialLoad) {
-      // We allow saving empty articles array to support clearing data,
-      // but only after the initial load is complete to avoid overwriting with []
-      storage.saveArticles(articles);
-    }
-  }, [articles, isInitialLoad]);
-
-  const removeFeed = useCallback(async (feedId: string) => {
-    setFeeds(prev => {
-      const updatedFeeds = prev.filter(f => f.id !== feedId);
-      storage.saveFeeds(updatedFeeds);
-      return updatedFeeds;
-    });
-    setArticles(prev => {
-      const updatedArticles = prev.filter(a => a.feedId !== feedId);
-      storage.saveArticles(updatedArticles);
-      return updatedArticles;
-    });
-  }, []);
-
-  const updateFeed = useCallback(async (feedId: string, updates: Partial<Feed>) => {
-    setFeeds(prev => {
-      const updatedFeeds = prev.map(f => f.id === feedId ? { ...f, ...updates } : f);
-      storage.saveFeeds(updatedFeeds);
-      return updatedFeeds;
-    });
-  }, []);
-
-  const exportFeeds = useCallback(async () => {
-    return await storage.exportOpml();
-  }, []);
-
-  const refreshFeeds = useCallback(async (currentFeeds?: Feed[], currentArticles?: Article[]) => {
-    try {
+    const loadInitialData = async () => {
       setIsLoading(true);
-      const feedsToUse = currentFeeds || await storage.getFeeds();
-      const articlesToUse = currentArticles || await storage.getArticles();
-      
-      if (feedsToUse.length === 0) {
-        setIsLoading(false);
-        return;
-      }
-      
-      setProgress({ current: 0, total: feedsToUse.length });
-      
-      const FEED_TIMEOUT = 120000; // 120 seconds max per feed
-      const CONCURRENCY_LIMIT = 25;
+      const storedFeeds = await storage.getFeeds();
+      const storedArticles = await storage.getArticles();
 
-      const successfulResults: { feed: Feed; articles: Article[] }[] = [];
-      let completed = 0;
-      
-      // Use a sliding window for concurrency
-      const pool = [...feedsToUse];
-      const workers = Array(Math.min(CONCURRENCY_LIMIT, pool.length)).fill(null).map(async () => {
-        while (pool.length > 0) {
-          const feed = pool.shift();
-          if (!feed) break;
-          
-          try {
-            const latestArticle = articlesToUse
-              .filter(a => a.feedId === feed.id)
-              .sort((a, b) => b.pubDate - a.pubDate)[0];
-            
-            const sinceDate = latestArticle?.pubDate || feed.lastArticleDate;
-            const fetchPromise = storage.fetchFeedData(feed.feedUrl, sinceDate);
-            
-            let timeoutId: any;
-            const timeoutPromise = new Promise((_, reject) => {
-              timeoutId = setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_TIMEOUT);
-            });
-
-            // Prevent unhandled rejection
-            timeoutPromise.catch(() => {});
-
-            const data = await Promise.race([fetchPromise, timeoutPromise]) as { feed: Feed; articles: Article[] };
-            clearTimeout(timeoutId);
-            
-            if (data) successfulResults.push(data);
-          } catch (error) {
-            console.error(`Failed to refresh feed ${feed.feedUrl}`, error);
-          } finally {
-            completed++;
-            setProgress(prev => prev ? { ...prev, current: completed } : { current: completed, total: feedsToUse.length });
-          }
+      if (storedFeeds.length > 0) {
+        setFeeds(storedFeeds);
+        if (storedArticles.length > 0) {
+          setArticles(storedArticles);
         }
-      });
-
-      await Promise.all(workers);
-      
-      if (successfulResults.length > 0) {
-        setProgress(prev => prev ? { ...prev, status: 'Saving articles...' } : null);
-        await storage.saveAllFeedData(successfulResults);
       }
-      
-      setProgress(prev => prev ? { ...prev, status: 'Finalizing...' } : null);
-      const finalData = await loadData();
-      lastRefreshRef.current = Date.now();
-
-      // Prefetch images for the newest articles in the background
-      if (finalData && finalData.loadedArticles.length > 0) {
-        prefetchImages(finalData.loadedArticles).catch(err => console.error('Prefetch failed', err));
-      }
-    } catch (err) {
-      setError('Failed to refresh feeds');
-    } finally {
       setIsLoading(false);
-      setProgress(null);
-    }
+
+      // Ritardiamo il refresh in background in modo che l'UI si renderizzi immediatamente.
+      // Eseguiamo il refresh in background (isBackground = true) così non mostriamo lo spinner.
+      if (storedFeeds.length > 0) {
+        setTimeout(() => {
+          refreshFeeds(storedFeeds, true);
+        }, 1500);
+      }
+    };
+
+    loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⚡ Bolt: Memoize unread count to prevent re-calculating on every render
-  // unless the articles array itself has changed.
-  const unreadCount = React.useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
+  const addFeed = async (url: string) => {
+    try {
+      const feedItems = await fetchFeed(url);
+      if (feedItems.length === 0) throw new Error('No items found in feed');
 
-  // ⚡ Bolt: Stabilize the context value to prevent unnecessary re-renders of all
-  // consumer components when unrelated parent state changes.
-  const value = React.useMemo(() => ({
-    feeds, articles, settings, isLoading, progress, error,
-    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, toggleQueue, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateArticle, updateSettings,
-    exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
-  }), [
-    feeds, articles, settings, isLoading, progress, error,
-    addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead, toggleFavorite, toggleQueue, markAllAsRead, refreshFeeds, removeFeed, updateFeed, updateArticle, updateSettings,
-    exportFeeds, searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
-  ]);
+      const newFeed: Feed = {
+        id: crypto.randomUUID(),
+        url,
+        title: feedItems[0].feedTitle || new URL(url).hostname,
+      };
+
+      const newFeeds = [...feeds, newFeed];
+      setFeeds(newFeeds);
+      await storage.saveFeeds(newFeeds);
+
+      // Initial fetch for the new feed
+      const parsedArticles = feedItems.map(article => ({
+        ...article,
+        feedId: newFeed.id,
+        feedTitle: newFeed.title,
+        isRead: false,
+        isStarred: false,
+        isInQueue: false,
+      }));
+
+      setArticles(prev => {
+        const newArticles = [...parsedArticles, ...prev].sort((a, b) => b.pubDate - a.pubDate);
+        storage.saveArticles(newArticles);
+        return newArticles;
+      });
+    } catch (error) {
+      console.error('Error adding feed:', error);
+      throw error;
+    }
+  };
+
+  const removeFeed = async (id: string) => {
+    const newFeeds = feeds.filter(f => f.id !== id);
+    setFeeds(newFeeds);
+    await storage.saveFeeds(newFeeds);
+
+    setArticles(prev => {
+      const newArticles = prev.filter(a => a.feedId !== id);
+      storage.saveArticles(newArticles);
+      return newArticles;
+    });
+  };
+
+  const toggleRead = useCallback((id: string) => {
+    setArticles(prev => {
+      const newArticles = prev.map(a => 
+        a.id === id ? { ...a, isRead: !a.isRead } : a
+      );
+      storage.saveArticles(newArticles);
+      return newArticles;
+    });
+  }, []);
+
+  const toggleStar = useCallback((id: string) => {
+    setArticles(prev => {
+      const newArticles = prev.map(a => 
+        a.id === id ? { ...a, isStarred: !a.isStarred } : a
+      );
+      storage.saveArticles(newArticles);
+      return newArticles;
+    });
+  }, []);
+
+  const toggleQueue = useCallback((id: string) => {
+    setArticles(prev => {
+      const newArticles = prev.map(a => 
+        a.id === id ? { ...a, isInQueue: !a.isInQueue } : a
+      );
+      storage.saveArticles(newArticles);
+      return newArticles;
+    });
+  }, []);
+
+  const updateArticleContent = useCallback((id: string, content: string, textContent: string) => {
+    setArticles(prev => {
+      const newArticles = prev.map(a => 
+        a.id === id ? { ...a, content, textContent, isRead: true } : a
+      );
+      // Non salviamo tutti gli articoli ogni volta che se ne apre uno per
+      // evitare rallentamenti durante la lettura.
+      storage.saveArticles(newArticles);
+      return newArticles;
+    });
+  }, []);
 
   return (
-    <RssContext.Provider value={value}>
+    <RssContext.Provider value={{
+      feeds,
+      articles,
+      isLoading,
+      isRefreshing,
+      addFeed,
+      removeFeed,
+      refreshFeeds,
+      toggleRead,
+      toggleStar,
+      toggleQueue,
+      updateArticleContent
+    }}>
       {children}
     </RssContext.Provider>
   );
-}
+};
 
 export const useRss = () => {
   const context = useContext(RssContext);
