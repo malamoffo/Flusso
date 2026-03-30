@@ -445,16 +445,18 @@ export const storage = {
 
   async getArticles(): Promise<Article[]> {
     const articles = (await get<Article[]>(ARTICLES_KEY)) || [];
-    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     
     // Filter out articles older than their respective limits
     // to prevent storage saturation as requested by the user.
-    // Podcasts get 7 days, articles get 3 days.
+    // Podcasts get 60 days, articles get 30 days.
+    // Favorites and queued articles are ALWAYS kept.
     const validArticles = articles.filter(a => {
+      if (a.isFavorite || a.isQueued) return true;
       const articleTime = a.readAt || a.pubDate;
-      const limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
+      const limit = a.type === 'podcast' ? SIXTY_DAYS : THIRTY_DAYS;
       return (now - articleTime) <= limit;
     }).map(a => ({
       ...a,
@@ -516,11 +518,11 @@ export const storage = {
           const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
           const { feed, articles } = parseRssXml(dataString, feedUrl);
           
-          const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-          const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+          const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+          const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
 
           const filteredArticles = articles.filter(a => {
-            const limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
+            const limit = a.type === 'podcast' ? SIXTY_DAYS : THIRTY_DAYS;
             return (Date.now() - a.pubDate) <= limit && 
                    (!sinceDate || a.pubDate > sinceDate);
           });
@@ -540,11 +542,11 @@ export const storage = {
       const xmlString = await fetchWithProxy(feedUrl);
       const { feed, articles } = parseRssXml(xmlString, feedUrl);
       
-      const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
 
       const filteredArticles = articles.filter(a => {
-        const limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
+        const limit = a.type === 'podcast' ? SIXTY_DAYS : THIRTY_DAYS;
         return (Date.now() - a.pubDate) <= limit && 
                (!sinceDate || a.pubDate > sinceDate);
       });
@@ -691,28 +693,35 @@ export const storage = {
 
   async parseOpml(opmlText: string): Promise<string[]> {
     console.log('Parsing OPML text, length:', opmlText.length);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(opmlText, 'application/xml');
+    
+    // If XML parsing fails (common with malformed OPML), treat as invalid and return no URLs
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) {
+      console.warn('OPML XML parsing failed, treating file as invalid:', parserError.textContent);
+      return [];
+    }
 
+    const outlines = doc.querySelectorAll('outline');
+    console.log('Found total outlines:', outlines.length);
     const urls: string[] = [];
-
-    // Use a simple regex-based parser to avoid interpreting untrusted text with DOM APIs.
-    // This looks for <outline ...> tags and extracts common feed URL attributes.
-    const outlineTagRegex = /<outline\b[^>]*>/gi;
-    const attributeRegex = /\b(xmlUrl|xmlURL|xmlurl|url)\s*=\s*(['"])(.*?)\2/;
-
-    const outlineTags = opmlText.match(outlineTagRegex) || [];
-    console.log('Found total outlines:', outlineTags.length);
-
-    outlineTags.forEach((tag, index) => {
-      const attrMatch = tag.match(attributeRegex);
-      const url = attrMatch ? attrMatch[3] : null;
-
+    
+    outlines.forEach((outline, index) => {
+      // OPML attributes can be case-sensitive in XML but case-insensitive in HTML
+      // We check common variations
+      const url = outline.getAttribute('xmlUrl') || 
+                  outline.getAttribute('xmlURL') || 
+                  outline.getAttribute('xmlurl') || 
+                  outline.getAttribute('url');
+                  
       if (url && url.trim().startsWith('http')) {
         urls.push(url.trim());
       } else if (url) {
         console.warn(`Outline ${index} has invalid URL:`, url);
       }
     });
-
+    
     const uniqueUrls = Array.from(new Set(urls));
     console.log('Extracted unique URLs:', uniqueUrls.length);
     return uniqueUrls;

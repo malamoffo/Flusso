@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Feed, Article, Settings } from '../types';
 import { storage, defaultSettings } from '../services/storage';
+import { imagePersistence } from '../utils/imagePersistence';
 import QueuePlugin from '../plugins/QueuePlugin';
 import { Capacitor } from '@capacitor/core';
 
@@ -62,6 +63,26 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error('Update check failed', err);
+    }
+  }, []);
+
+  const prefetchImages = useCallback(async (articlesToPrefetch: Article[]) => {
+    if (!Capacitor.isNativePlatform()) return;
+    
+    // Sort by pubDate descending to prioritize most recent
+    const sorted = [...articlesToPrefetch].sort((a, b) => b.pubDate - a.pubDate);
+    
+    // Limit to top 50 to avoid excessive background work
+    const topArticles = sorted.slice(0, 50);
+    
+    for (const article of topArticles) {
+      if (article.imageUrl) {
+        try {
+          await imagePersistence.getLocalUrl(article.imageUrl);
+        } catch (e) {
+          // Ignore prefetch errors
+        }
+      }
     }
   }, []);
 
@@ -422,8 +443,13 @@ export function RssProvider({ children }: { children: React.ReactNode }) {
       }
       
       setProgress(prev => prev ? { ...prev, status: 'Finalizing...' } : null);
-      await loadData();
+      const finalData = await loadData();
       lastRefreshRef.current = Date.now();
+
+      // Prefetch images for the newest articles in the background
+      if (finalData && finalData.loadedArticles.length > 0) {
+        prefetchImages(finalData.loadedArticles).catch(err => console.error('Prefetch failed', err));
+      }
     } catch (err) {
       setError('Failed to refresh feeds');
     } finally {

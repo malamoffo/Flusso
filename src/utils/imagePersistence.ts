@@ -38,7 +38,7 @@ export const imagePersistence = {
       // Check if file exists
       const result = await Filesystem.readFile({
         path,
-        directory: Directory.Cache
+        directory: Directory.Data
       });
       
       // On some platforms, result.data is already a base64 string or a blob URL
@@ -47,7 +47,7 @@ export const imagePersistence = {
         // For simplicity and speed in <img> tags, we use the local file URI if possible.
         const uriResult = await Filesystem.getUri({
           path,
-          directory: Directory.Cache
+          directory: Directory.Data
         });
         return Capacitor.convertFileSrc(uriResult.uri);
       }
@@ -67,7 +67,7 @@ export const imagePersistence = {
           try {
             await Filesystem.mkdir({
               path: CACHE_DIR,
-              directory: Directory.Cache,
+              directory: Directory.Data,
               recursive: true
             });
           } catch (dirErr) {
@@ -77,12 +77,12 @@ export const imagePersistence = {
           await Filesystem.writeFile({
             path,
             data: base64Data,
-            directory: Directory.Cache
+            directory: Directory.Data
           });
 
           const uriResult = await Filesystem.getUri({
             path,
-            directory: Directory.Cache
+            directory: Directory.Data
           });
           return Capacitor.convertFileSrc(uriResult.uri);
         }
