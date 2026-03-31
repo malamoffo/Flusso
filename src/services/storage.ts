@@ -141,7 +141,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
             link: getSafeUrl(item.link),
             pubDate,
             imageUrl: imageUrl ? getSafeUrl(imageUrl) : undefined,
-            mediaUrl: getSafeUrl(mediaUrl, null as any),
+            mediaUrl: getSafeUrl(mediaUrl, undefined),
             mediaType,
             isRead: false,
             isFavorite: false,
@@ -279,7 +279,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         pubDate,
         imageUrl: imageUrl ? getSafeUrl(imageUrl) : undefined,
         duration,
-        mediaUrl: getSafeUrl(mediaUrl, null as any),
+        mediaUrl: getSafeUrl(mediaUrl, undefined),
         mediaType,
         isRead: false,
         isFavorite: false,
@@ -387,7 +387,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         pubDate,
         imageUrl: imageUrl ? getSafeUrl(imageUrl) : undefined,
         duration,
-        mediaUrl: getSafeUrl(mediaUrl, null as any),
+        mediaUrl: getSafeUrl(mediaUrl, undefined),
         mediaType,
         isRead: false,
         isFavorite: false,
@@ -456,11 +456,18 @@ export const storage = {
     const validArticles = articles.filter(a => {
       if (a.isFavorite || a.isQueued) return true;
       
-      // Strict retention as requested: 3 days for articles, 7 for podcasts
-      const limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
+      // If unread, be more generous (14 days for articles, 30 for podcasts)
+      // If read, follow the user's requested limits (3 days for articles, 7 for podcasts)
+      let limit;
+      if (!a.isRead) {
+        limit = a.type === 'podcast' ? 30 * 24 * 60 * 60 * 1000 : 14 * 24 * 60 * 60 * 1000;
+      } else {
+        limit = a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS;
+      }
       
-      // Use pubDate as the reference for retention
-      return (now - a.pubDate) <= limit;
+      // Use pubDate for filtering unread articles, and readAt for read articles if available
+      const referenceTime = (a.isRead && a.readAt) ? a.readAt : a.pubDate;
+      return (now - referenceTime) <= limit;
     }).map(a => ({
       ...a,
       type: a.type || (a.mediaType?.startsWith('audio/') ? 'podcast' : 'article'),
@@ -529,7 +536,7 @@ export const storage = {
             // articles missed during a weekend or short break.
             const limit = a.type === 'podcast' ? 14 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
             return (Date.now() - a.pubDate) <= limit && 
-                   (!sinceDate || a.pubDate >= sinceDate);
+                   (!sinceDate || a.pubDate > sinceDate);
           });
 
           return { feed, articles: filteredArticles };
@@ -555,7 +562,7 @@ export const storage = {
         // articles missed during a weekend or short break.
         const limit = a.type === 'podcast' ? 14 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
         return (Date.now() - a.pubDate) <= limit && 
-               (!sinceDate || a.pubDate >= sinceDate);
+               (!sinceDate || a.pubDate > sinceDate);
       });
 
       return { feed, articles: filteredArticles };

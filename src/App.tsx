@@ -26,7 +26,7 @@ export default function App() {
     articles, feeds, settings, isLoading, progress, error,
     refreshFeeds, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, searchQuery, setSearchQuery, unreadCount,
-    toggleFavorite, toggleQueue
+    toggleFavorite, toggleQueue, removeFromSaved
   } = useRss();
 
   const { currentTrack } = useAudioPlayer();
@@ -209,12 +209,18 @@ export default function App() {
     }
   }, [markAsRead]);
 
-  const handleRemoveArticle = useCallback((id: string, isFavorite: boolean, isQueued: boolean) => {
-    if (isFavorite) toggleFavorite(id);
-    if (isQueued) toggleQueue(id);
-  }, [toggleFavorite, toggleQueue]);
+  const handleRemoveArticle = useCallback((id: string) => {
+    removeFromSaved(id);
+  }, [removeFromSaved]);
 
   const feedsMap = useMemo(() => new Map(feeds.map(f => [f.id, f])), [feeds]);
+
+  const scrollToTop = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      isAtTop.current = true;
+    }
+  };
 
   return (
     <div 
@@ -236,7 +242,10 @@ export default function App() {
 
       <div className="sticky top-0 z-20 shadow-sm transition-colors bg-black">
         <header className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity"
+            onClick={scrollToTop}
+          >
             <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center shadow-inner relative">
               <Rss className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>

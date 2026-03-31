@@ -30,6 +30,7 @@ interface RssContextType {
   markAllAsRead: () => void;
   toggleFavorite: (id: string) => void;
   toggleQueue: (id: string) => void;
+  removeFromSaved: (id: string) => void;
   updateFeed: (id: string, updates: Partial<Feed>) => void;
   updateArticle: (id: string, updates: Partial<Article>) => void;
   updateSettings: (updates: Partial<Settings>) => void;
@@ -222,6 +223,14 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
+  const removeFromSaved = useCallback(async (id: string) => {
+    setArticles(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, isFavorite: false, isQueued: false } : a);
+      storage.saveArticles(updated);
+      return updated;
+    });
+  }, []);
+
   const updateArticle = useCallback(async (id: string, updates: Partial<Article>) => {
     setArticles(prev => {
       const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
@@ -319,13 +328,13 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const value = useMemo(() => ({
     feeds, articles, settings, isLoading, progress, error,
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
-    toggleFavorite, toggleQueue, markAllAsRead, refreshFeeds, removeFeed,
+    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
   }), [
     feeds, articles, settings, isLoading, progress, error,
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
-    toggleFavorite, toggleQueue, markAllAsRead, refreshFeeds, removeFeed,
+    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, updateInfo, checkUpdates
   ]);

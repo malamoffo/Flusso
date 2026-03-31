@@ -3,7 +3,7 @@ import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play
 import { Article, FullArticleContent } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
-import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
 import DOMPurify from 'dompurify';
 import he from 'he';
 import { CachedImage } from './CachedImage';
@@ -33,14 +33,10 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
   const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
   const { settings, feeds, articles, toggleFavorite, toggleQueue, toggleRead, updateArticle } = useRss();
   const feed = feeds.find(f => f.id === article.feedId);
-  const { play, currentTrack, isPlaying, isBuffering, toggle, progress, duration, seek } = useAudioPlayer();
+  const { play, currentTrack, isPlaying, isBuffering, toggle, seek } = useAudioState();
   
   const isCurrentTrack = currentTrack?.id === article.id;
   const isLoadingAudio = isCurrentTrack && isBuffering;
-  const totalSeconds = isCurrentTrack ? duration : parseDurationToSeconds(article.duration);
-  const currentSeconds = isCurrentTrack ? progress : (article.progress ? article.progress * totalSeconds : 0);
-  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
-  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
 
   // Get queue for navigation
   const queue = articles.filter(a => a.isQueued);
@@ -409,25 +405,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
         {article.type === 'podcast' && article.mediaUrl && (
           <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
             <div className="flex flex-col gap-6">
-              {/* Progress Info */}
-              <div className="flex items-center gap-4 text-xs font-bold text-indigo-400">
-                <span className="w-10 text-left">{formatTime(currentSeconds)}</span>
-                <div 
-                  className="relative flex-1 h-2 bg-gray-800 rounded-full overflow-hidden cursor-pointer"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percent = x / rect.width;
-                    seek(percent * totalSeconds);
-                  }}
-                >
-                  <div 
-                    className="h-full bg-indigo-500 transition-all duration-300" 
-                    style={{ width: `${progressPercent}%` }} 
-                  />
-                </div>
-                <span className="w-10 text-right">{formatTime(remainingSeconds)}</span>
-              </div>
+              <ReaderProgressBar article={article} isCurrentTrack={isCurrentTrack} />
 
               {/* Controls */}
               <div className="flex items-center justify-between">
@@ -446,17 +424,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                   <SkipBack className="w-6 h-6 fill-current" />
                 </motion.button>
 
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => seek(Math.max(0, currentSeconds - 15))}
-                  className="p-2 text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
-                  aria-label="Back 15 seconds"
-                >
-                  <div className="relative">
-                    <RotateCcw className="w-6 h-6" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold mt-0.5">15</span>
-                  </div>
-                </motion.button>
+                <SeekButtonReader direction="backward" article={article} isCurrentTrack={isCurrentTrack} />
 
                 <motion.button
                   whileTap={{ scale: 0.95 }}
@@ -479,17 +447,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
                   )}
                 </motion.button>
 
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => seek(Math.min(totalSeconds, currentSeconds + 15))}
-                  className="p-2 text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
-                  aria-label="Forward 15 seconds"
-                >
-                  <div className="relative">
-                    <RotateCw className="w-6 h-6" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold mt-0.5">15</span>
-                  </div>
-                </motion.button>
+                <SeekButtonReader direction="forward" article={article} isCurrentTrack={isCurrentTrack} />
 
                 <motion.button
                   whileTap={{ scale: 0.9 }}
@@ -545,5 +503,99 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
       </div>
 
     </motion.div>
+  );
+}
+
+/**
+ * ⚡ Bolt: Isolated progress bar for the article reader.
+ */
+const ReaderProgressBar = React.memo(function ReaderProgressBar({ article, isCurrentTrack }: { article: Article, isCurrentTrack: boolean }) {
+  if (isCurrentTrack) {
+    return <LiveReaderProgressBar article={article} />;
+  }
+
+  const totalSeconds = parseDurationToSeconds(article.duration);
+  const currentSeconds = article.progress ? article.progress * totalSeconds : 0;
+  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
+  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-4 text-xs font-bold text-indigo-400">
+      <span className="w-10 text-left">{formatTime(currentSeconds)}</span>
+      <div className="relative flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-indigo-500 transition-all duration-300" 
+          style={{ width: `${progressPercent}%` }} 
+        />
+      </div>
+      <span className="w-10 text-right">{formatTime(remainingSeconds)}</span>
+    </div>
+  );
+});
+
+const LiveReaderProgressBar = ({ article }: { article: Article }) => {
+  const { progress, duration } = useAudioProgress();
+  const { seek } = useAudioState();
+  
+  const totalSeconds = duration > 0 ? duration : parseDurationToSeconds(article.duration);
+  const currentSeconds = progress;
+  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
+  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-4 text-xs font-bold text-indigo-400">
+      <span className="w-10 text-left">{formatTime(currentSeconds)}</span>
+      <div 
+        className="relative flex-1 h-2 bg-gray-800 rounded-full overflow-hidden cursor-pointer"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const percent = x / rect.width;
+          seek(percent * totalSeconds);
+        }}
+      >
+        <div 
+          className="h-full bg-indigo-500 transition-all duration-300" 
+          style={{ width: `${progressPercent}%` }} 
+        />
+      </div>
+      <span className="w-10 text-right">{formatTime(remainingSeconds)}</span>
+    </div>
+  );
+}
+
+/**
+ * ⚡ Bolt: Isolated seek buttons for the article reader.
+ */
+function SeekButtonReader({ direction, article, isCurrentTrack }: { direction: 'forward' | 'backward', article: Article, isCurrentTrack: boolean }) {
+  const { seek } = useAudioState();
+  const { progress, duration } = useAudioProgress();
+
+  const handleSeek = () => {
+    if (!isCurrentTrack) return;
+    
+    if (direction === 'backward') {
+      seek(Math.max(0, progress - 15));
+    } else {
+      seek(Math.min(duration, progress + 15));
+    }
+  };
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={handleSeek}
+      disabled={!isCurrentTrack}
+      className={cn(
+        "p-2 rounded-full transition-colors",
+        isCurrentTrack ? "text-gray-300 hover:bg-gray-800" : "text-gray-700"
+      )}
+      aria-label={direction === 'backward' ? "Back 15 seconds" : "Forward 15 seconds"}
+    >
+      <div className="relative">
+        {direction === 'backward' ? <RotateCcw className="w-6 h-6" /> : <RotateCw className="w-6 h-6" />}
+        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold mt-0.5">15</span>
+      </div>
+    </motion.button>
   );
 }

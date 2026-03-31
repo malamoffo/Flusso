@@ -39,7 +39,9 @@ export function isSafeUrl(url: string | null | undefined): boolean {
 /**
  * Returns the URL if it is safe, otherwise returns the fallback.
  */
-export function getSafeUrl(url: string | null | undefined, fallback: string = ''): string {
+export function getSafeUrl(url: string | null | undefined): string;
+export function getSafeUrl<T>(url: string | null | undefined, fallback: T): string | T;
+export function getSafeUrl(url: string | null | undefined, fallback: any = ''): any {
   if (!url) return fallback;
   return isSafeUrl(url) ? url : fallback;
 }

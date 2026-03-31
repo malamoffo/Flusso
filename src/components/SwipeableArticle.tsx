@@ -7,7 +7,7 @@ import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
 import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
-import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
 import DOMPurify from 'dompurify';
 
 interface SwipeableArticleProps {
@@ -22,7 +22,7 @@ interface SwipeableArticleProps {
   toggleRead: (id: string) => void;
   toggleFavorite: (id: string) => void;
   toggleQueue: (id: string) => void;
-  onRemove?: (id: string, isFavorite: boolean, isQueued: boolean) => void;
+  onRemove?: (id: string) => void;
   isSavedSection?: boolean;
   filter?: string;
   style?: React.CSSProperties;
@@ -133,6 +133,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
     return '';
   };
 
+  const [exitX, setExitX] = React.useState<number | string>(0);
+
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 50;
     const isRight = info.offset.x > threshold;
@@ -142,11 +144,10 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
       const action = isRight ? settings.swipeRightAction : settings.swipeLeftAction;
       
       if (isSavedSection) {
-        // Slide out completely before removing
-        const direction = info.offset.x > 0 ? 1 : -1;
-        animate(x, direction * 500, { type: "spring", stiffness: 600, damping: 35 }).then(() => {
-          onRemove?.(article.id, article.isFavorite, article.isQueued);
-        });
+        // Set exit direction for AnimatePresence
+        setExitX(isRight ? '100%' : '-100%');
+        console.log(`[SWIPE] Removing article ${article.id} from saved section`);
+        onRemove?.(article.id);
       } else {
         // Snap back for all actions to give the "bounce" feel
         animate(x, 0, { type: "spring", stiffness: 600, damping: 35, restDelta: 0.5 });
@@ -193,13 +194,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   const domain = getDomain(article.link);
 
-  const { currentTrack, progress: liveProgress, duration: liveDuration } = useAudioPlayer();
-
+  const { currentTrack } = useAudioState();
   const isCurrentTrack = currentTrack?.id === article.id;
-  const totalSeconds = isCurrentTrack ? liveDuration : parseDurationToSeconds(article.duration);
-  const currentSeconds = isCurrentTrack ? liveProgress : (article.progress ? article.progress * totalSeconds : 0);
-  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
-  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
 
   return (
     <motion.div 
@@ -207,6 +203,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
+        opacity: 0, 
         height: 0,
         transition: { duration: 0.2, ease: "easeInOut" } 
       }}
@@ -220,7 +217,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         prefetchRef(node);
       }} 
       className={cn(
-        "relative w-full overflow-hidden border-b border-gray-800 will-change-transform bg-black"
+        "relative w-full overflow-hidden border-b border-gray-800 will-change-transform"
       )}
       style={{
         contentVisibility: 'auto',
@@ -275,8 +272,9 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
         onDragEnd={handleDragEnd}
         onClick={handleArticleClick}
+        exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black dark:bg-black",
+          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black",
           "opacity-100"
         )}
       >
@@ -338,18 +336,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
             />
             {article.type === 'podcast' ? (
-              <div className="mt-2">
-                <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400">
-                  <span className="w-8 text-left">{formatTime(currentSeconds)}</span>
-                  <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-indigo-500 transition-all duration-300" 
-                      style={{ width: `${progressPercent}%` }} 
-                    />
-                  </div>
-                  <span className="w-8 text-right">{formatTime(remainingSeconds)}</span>
-                </div>
-              </div>
+              <PodcastProgressBar article={article} isCurrentTrack={isCurrentTrack} />
             ) : (
               article.contentSnippet && article.contentSnippet.trim() !== '' && (
                 <p 
@@ -364,3 +351,57 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
     </motion.div>
   );
 });
+
+/**
+ * ⚡ Bolt: Isolated progress bar component to localize high-frequency re-renders.
+ * Only the currently playing track's progress bar will re-render every second.
+ */
+const PodcastProgressBar = React.memo(({ article, isCurrentTrack }: { article: Article, isCurrentTrack: boolean }) => {
+  if (isCurrentTrack) {
+    return <LivePodcastProgressBar article={article} />;
+  }
+
+  const totalSeconds = parseDurationToSeconds(article.duration);
+  const currentSeconds = article.progress ? article.progress * totalSeconds : 0;
+  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
+  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400">
+        <span className="w-8 text-left">{formatTime(currentSeconds)}</span>
+        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-indigo-500 transition-all duration-300" 
+            style={{ width: `${progressPercent}%` }} 
+          />
+        </div>
+        <span className="w-8 text-right">{formatTime(remainingSeconds)}</span>
+      </div>
+    </div>
+  );
+});
+
+const LivePodcastProgressBar = ({ article }: { article: Article }) => {
+  const { progress: liveProgress, duration: liveDuration } = useAudioProgress();
+  
+  const totalSeconds = liveDuration > 0 ? liveDuration : parseDurationToSeconds(article.duration);
+  const currentSeconds = liveProgress;
+  const remainingSeconds = Math.max(0, totalSeconds - currentSeconds);
+  const progressPercent = totalSeconds > 0 ? (currentSeconds / totalSeconds) * 100 : 0;
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400">
+        <span className="w-8 text-left">{formatTime(currentSeconds)}</span>
+        <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-indigo-500 transition-all duration-300" 
+            style={{ width: `${progressPercent}%` }} 
+          />
+        </div>
+        <span className="w-8 text-right">{formatTime(remainingSeconds)}</span>
+      </div>
+    </div>
+  );
+};

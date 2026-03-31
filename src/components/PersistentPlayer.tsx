@@ -1,24 +1,16 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, X, SkipBack, SkipForward, RefreshCw } from 'lucide-react';
-import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
 import { Article } from '../types';
-import { cn } from '../lib/utils';
+import { cn, formatTime } from '../lib/utils';
 
 export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Article) => void }) {
-  const { currentTrack, isPlaying, isBuffering, progress, duration, toggle, seek, stop } = useAudioPlayer();
+  const { currentTrack, isPlaying, isBuffering, toggle, seek, stop } = useAudioState();
 
   if (!currentTrack) return null;
 
   const isLoadingAudio = isBuffering;
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const progressPercent = (progress / duration) * 100 || 0;
 
   return (
     <AnimatePresence>
@@ -48,26 +40,12 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
             <h4 className="text-sm font-bold text-white truncate">
               {currentTrack.title}
             </h4>
-            <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400 mt-1">
-              <span className="w-8 text-left">{formatTime(progress)}</span>
-              <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-indigo-500 transition-all duration-200" 
-                  style={{ width: `${progressPercent}%` }} 
-                />
-              </div>
-              <span className="w-8 text-right">{formatTime(Math.max(0, duration - progress))}</span>
-            </div>
+            <PlayerProgressBar />
           </div>
           
           {/* Controls */}
           <div className="flex items-center gap-2">
-            <button 
-              onClick={(e) => { e.stopPropagation(); seek(Math.max(0, progress - 10)); }}
-              className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
-            >
-              <SkipBack className="w-4 h-4 fill-current" />
-            </button>
+            <SeekButton direction="backward" />
             
             <motion.button 
               whileTap={{ scale: 0.9 }}
@@ -86,12 +64,7 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
               )}
             </motion.button>
             
-            <button 
-              onClick={(e) => { e.stopPropagation(); seek(Math.min(duration, progress + 30)); }}
-              className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
-            >
-              <SkipForward className="w-4 h-4 fill-current" />
-            </button>
+            <SeekButton direction="forward" />
             
             <button 
               onClick={(e) => { e.stopPropagation(); stop(); }}
@@ -103,5 +76,56 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
         </div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+/**
+ * ⚡ Bolt: Isolated progress bar to prevent the whole player from re-rendering every second.
+ */
+const PlayerProgressBar = React.memo(function PlayerProgressBar() {
+  const { progress, duration } = useAudioProgress();
+  const progressPercent = (progress / duration) * 100 || 0;
+
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400 mt-1">
+      <span className="w-8 text-left">{formatTime(progress)}</span>
+      <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-indigo-500 transition-all duration-200" 
+          style={{ width: `${progressPercent}%` }} 
+        />
+      </div>
+      <span className="w-8 text-right">{formatTime(Math.max(0, duration - progress))}</span>
+    </div>
+  );
+});
+
+/**
+ * ⚡ Bolt: Isolated seek buttons to prevent unnecessary re-renders.
+ */
+function SeekButton({ direction }: { direction: 'forward' | 'backward' }) {
+  const { seek } = useAudioState();
+  const { progress, duration } = useAudioProgress();
+
+  const handleSeek = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (direction === 'backward') {
+      seek(Math.max(0, progress - 10));
+    } else {
+      seek(Math.min(duration, progress + 30));
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleSeek}
+      className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
+    >
+      {direction === 'backward' ? (
+        <SkipBack className="w-4 h-4 fill-current" />
+      ) : (
+        <SkipForward className="w-4 h-4 fill-current" />
+      )}
+    </button>
   );
 }
