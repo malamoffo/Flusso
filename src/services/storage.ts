@@ -318,7 +318,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       }
       
       if (!imageUrl) {
-        imageUrl = extractBestImage(content);
+        imageUrl = extractBestImage(sanitizeHtml(content));
       }
 
       let duration = getSingleTagText(tagDict, ['itunes:duration', 'duration', 'media:duration']);
