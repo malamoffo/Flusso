@@ -304,6 +304,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
       <div className="relative z-10 flex-1 px-4 pt-6 pb-12 max-w-3xl mx-auto w-full">
         {(article.imageUrl || (article.type === 'podcast' && feed?.imageUrl)) && (
           <CachedImage 
+            key={`${article.id}-${article.imageUrl}`}
             src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feed?.imageUrl : '') || '')}
             alt="" 
             className="w-full h-auto rounded-2xl mb-4 object-contain max-h-[80vh]"
