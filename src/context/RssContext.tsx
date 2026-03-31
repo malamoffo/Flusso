@@ -122,7 +122,10 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       setIsLoading(true);
       setError(null);
-      await storage.addFeed(url);
+      const result = await storage.addFeed(url);
+      if (!result) {
+        throw new Error("Could not fetch feed. Please check the URL and try again.");
+      }
       await loadData();
     } catch (err) {
       setError("Failed to add feed. Please check the URL.");
@@ -170,8 +173,13 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const url = urls[i];
         try {
           setProgress({ current: i, total: urls.length, status: `Importing: ${url}` });
-          await storage.addFeed(url);
-          successCount++;
+          const result = await storage.addFeed(url);
+          if (result) {
+            successCount++;
+          } else {
+            console.warn(`Failed to fetch feed during import: ${url}`);
+            failCount++;
+          }
         } catch (e) {
           console.error(`Failed to import ${url}`, e);
           failCount++;

@@ -601,7 +601,7 @@ export const storage = {
     await set(ARTICLES_KEY, articles);
   },
 
-  async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] }> {
+  async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] } | null> {
     // Check if we are on a native platform (Android/iOS)
     const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
     
@@ -624,9 +624,6 @@ export const storage = {
           const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
           const { feed, articles } = parseRssXml(dataString, feedUrl);
           
-          const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-          const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-
           const filteredArticles = articles.filter(a => {
             // When fetching, we use a slightly more generous limit to catch 
             // articles missed during a weekend or short break.
@@ -637,11 +634,12 @@ export const storage = {
 
           return { feed, articles: filteredArticles };
         } else {
-          throw new Error(`Feed fetch failed with status ${response.status}`);
+          console.warn(`Feed fetch failed with status ${response.status} for ${feedUrl}`);
+          return null;
         }
       } catch (e) {
-        console.error(`[STORAGE] Native direct fetch failed for ${feedUrl}:`, e);
-        throw e;
+        console.warn(`[STORAGE] Native direct fetch failed for ${feedUrl}:`, e);
+        return null;
       }
     }
 
@@ -650,9 +648,6 @@ export const storage = {
       const xmlString = await fetchWithProxy(feedUrl);
       const { feed, articles } = parseRssXml(xmlString, feedUrl);
       
-      const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-
       const filteredArticles = articles.filter(a => {
         // When fetching, we use a slightly more generous limit to catch 
         // articles missed during a weekend or short break.
@@ -663,8 +658,8 @@ export const storage = {
 
       return { feed, articles: filteredArticles };
     } catch (e) {
-      console.error(`[STORAGE] Web fetch error for ${feedUrl}:`, e);
-      throw e;
+      console.warn(`[STORAGE] Web fetch error for ${feedUrl}:`, e);
+      return null;
     }
   },
 
@@ -800,14 +795,11 @@ export const storage = {
     }
   },
 
-  async addFeed(url: string, append: boolean = true): Promise<{ feed: Feed; articles: Article[] }> {
+  async addFeed(url: string, append: boolean = true): Promise<{ feed: Feed; articles: Article[] } | null> {
     const discoveredUrl = await this.discoverFeedUrl(url);
     const data = await this.fetchFeedData(discoveredUrl);
-    if (!append) {
-      // If not appending, we might want to clear existing feeds, 
-      // but usually "Import from scratch" means replace the whole list.
-      // This is handled in saveAllFeedData if we pass a flag or clear first.
-    }
+    if (!data) return null;
+    
     await this.saveFeedData(data.feed, data.articles);
     return data;
   },

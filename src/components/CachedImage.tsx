@@ -13,7 +13,7 @@ type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 export function CachedImage({ src, className, fallback, ...props }: CachedImageProps) {
-  const [currentSrc, setCurrentSrc] = useState<string>(src);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(src || null);
   const [isLoaded, setIsLoaded] = useState(loadedImages.has(src));
   const [error, setError] = useState(false);
 
@@ -28,9 +28,9 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
     // If it's a new src, we might want to clear currentSrc to avoid showing the old image
     // but only if it's not already loaded to avoid flicker
     if (!alreadyLoaded) {
-      setCurrentSrc('');
+      setCurrentSrc(null);
     } else {
-      setCurrentSrc(src);
+      setCurrentSrc(src || null);
     }
 
     const loadImage = async () => {
@@ -93,7 +93,7 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
 
   return (
     <img
-      src={currentSrc}
+      src={currentSrc || undefined}
       className={cn(
         className,
         !isLoaded && "opacity-0",
