@@ -145,6 +145,8 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                             try { actionCallbackMethod.invoke(plugin, "stop"); } catch (Exception e) { Log.e(TAG, "Error invoking stop", e); }
                         }
                     });
+                        }
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to get MediaSession via reflection", e);
