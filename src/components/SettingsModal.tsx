@@ -6,7 +6,7 @@ import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
 import packageJson from '../../package.json';
 
-export function SettingsModal({
+export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
   onClose,
   initialTab
@@ -423,4 +423,4 @@ export function SettingsModal({
       )}
     </AnimatePresence>
   );
-}
+});

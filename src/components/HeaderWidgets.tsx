@@ -55,7 +55,7 @@ const WeatherWidget = memo(({ loading, weather }: { loading: boolean, weather: W
   );
 });
 
-export function HeaderWidgets() {
+export const HeaderWidgets = memo(function HeaderWidgets() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -119,4 +119,4 @@ export function HeaderWidgets() {
       <WeatherWidget loading={loading} weather={weather} />
     </div>
   );
-}
+});

@@ -5,7 +5,7 @@ import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
 import { Article } from '../types';
 import { cn, formatTime } from '../lib/utils';
 
-export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Article) => void }) {
+export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Article) => void }) {
   const { currentTrack, isPlaying, isBuffering, toggle, seek, stop } = useAudioState();
 
   if (!currentTrack) return null;
@@ -86,7 +86,7 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
       </motion.div>
     </AnimatePresence>
   );
-}
+});
 
 /**
  * ⚡ Bolt: Isolated progress bar to prevent the whole player from re-rendering every second.

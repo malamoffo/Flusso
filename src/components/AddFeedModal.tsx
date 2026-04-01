@@ -3,7 +3,7 @@ import { Plus, Upload, X, Rss, RefreshCw } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [url, setUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,4 +165,4 @@ export function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       )}
     </AnimatePresence>
   );
-}
+});

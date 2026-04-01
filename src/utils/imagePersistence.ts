@@ -35,16 +35,13 @@ export const imagePersistence = {
     const path = `${CACHE_DIR}/${filename}`;
 
     try {
-      // Check if file exists
-      const result = await Filesystem.readFile({
+      // Check if file exists and has content
+      const stat = await Filesystem.stat({
         path,
         directory: Directory.Data
       });
       
-      // On some platforms, result.data is already a base64 string or a blob URL
-      if (result.data) {
-        // Return a data URL or convert as needed. 
-        // For simplicity and speed in <img> tags, we use the local file URI if possible.
+      if (stat.size > 0) {
         const uriResult = await Filesystem.getUri({
           path,
           directory: Directory.Data
@@ -52,43 +49,45 @@ export const imagePersistence = {
         return Capacitor.convertFileSrc(uriResult.uri);
       }
     } catch (e) {
-      // File doesn't exist, download and cache it
-      try {
-        const downloadResult = await CapacitorHttp.get({
-          url,
-          responseType: 'arraybuffer'
+      // File doesn't exist or is empty, proceed to download and cache it
+    }
+
+    // Download and cache
+    try {
+      const downloadResult = await CapacitorHttp.get({
+        url,
+        responseType: 'arraybuffer'
+      });
+
+      if (downloadResult.status === 200) {
+        // Convert arraybuffer to base64
+        const base64Data = this.arrayBufferToBase64(downloadResult.data);
+        
+        // Ensure directory exists
+        try {
+          await Filesystem.mkdir({
+            path: CACHE_DIR,
+            directory: Directory.Data,
+            recursive: true
+          });
+        } catch (dirErr) {
+          // Directory might already exist
+        }
+
+        await Filesystem.writeFile({
+          path,
+          data: base64Data,
+          directory: Directory.Data
         });
 
-        if (downloadResult.status === 200) {
-          // Convert arraybuffer to base64
-          const base64Data = this.arrayBufferToBase64(downloadResult.data);
-          
-          // Ensure directory exists
-          try {
-            await Filesystem.mkdir({
-              path: CACHE_DIR,
-              directory: Directory.Data,
-              recursive: true
-            });
-          } catch (dirErr) {
-            // Directory might already exist
-          }
-
-          await Filesystem.writeFile({
-            path,
-            data: base64Data,
-            directory: Directory.Data
-          });
-
-          const uriResult = await Filesystem.getUri({
-            path,
-            directory: Directory.Data
-          });
-          return Capacitor.convertFileSrc(uriResult.uri);
-        }
-      } catch (downloadErr) {
-        console.error('[IMAGE_CACHE] Failed to download/cache image:', url, downloadErr);
+        const uriResult = await Filesystem.getUri({
+          path,
+          directory: Directory.Data
+        });
+        return Capacitor.convertFileSrc(uriResult.uri);
       }
+    } catch (downloadErr) {
+      console.error('[IMAGE_CACHE] Failed to download/cache image:', url, downloadErr);
     }
 
     return url;

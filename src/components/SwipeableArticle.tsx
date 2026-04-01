@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, PanInfo, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star } from 'lucide-react';
 import { Article, Settings } from '../types';
@@ -187,22 +187,23 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   const domain = getDomain(article.link);
 
   const { currentTrack } = useAudioState();
+  const shouldReduceMotion = useReducedMotion();
   const isCurrentTrack = currentTrack?.id === article.id;
 
   return (
     <motion.div 
-      layout
+      layout={shouldReduceMotion ? false : "position"}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
         opacity: 0, 
         height: 0,
-        transition: { duration: 0.2, ease: "easeInOut" } 
+        transition: { duration: shouldReduceMotion ? 0 : 0.2, ease: "easeInOut" } 
       }}
       transition={{ 
         layout: { type: "spring", stiffness: 600, damping: 40 },
-        opacity: { duration: 0.2 },
-        height: { duration: 0.2 }
+        opacity: { duration: shouldReduceMotion ? 0 : 0.2 },
+        height: { duration: shouldReduceMotion ? 0 : 0.2 }
       }}
       ref={(node) => {
         ref(node);
@@ -267,7 +268,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         onClick={handleArticleClick}
         exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black",
+          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black select-none",
           "opacity-100"
         )}
       >

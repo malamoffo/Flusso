@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useRss } from './context/RssContext';
 import { useAudioState } from './context/AudioPlayerContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
@@ -7,13 +7,24 @@ import { AddFeedModal } from './components/AddFeedModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, Play, Pause, SkipBack, SkipForward, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { Article } from './types';
 import { App as CapacitorApp } from '@capacitor/app';
 
 const PAGE_SIZE = 30;
+
+const ProgressBanner = memo(() => {
+  const { progress } = useRss();
+  if (!progress) return null;
+  return (
+    <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 text-sm text-indigo-800 dark:text-indigo-300 flex items-center justify-between border-t border-indigo-100 dark:border-indigo-900/30">
+      <span>Updating feeds...</span>
+      <span className="font-medium">{progress.current} / {progress.total}</span>
+    </div>
+  );
+});
 
 export default function App() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,7 +34,7 @@ export default function App() {
   const isAtTop = useRef(true);
 
   const {
-    articles, feeds, settings, isLoading, progress, error,
+    articles, feeds, settings, isLoading, error,
     refreshFeeds, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, searchQuery, setSearchQuery, unreadCount,
     toggleFavorite, toggleQueue, removeFromSaved
@@ -50,9 +61,11 @@ export default function App() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<string>('all');
   
-  const [pullProgress, setPullProgress] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
   const PULL_THRESHOLD = 80;
+  const pullProgress = useMotionValue(0);
+  const pullProgressTransform = useTransform(pullProgress, v => v - 40);
+  const pullOpacity = useTransform(pullProgress, v => v / PULL_THRESHOLD);
+  const [isPulling, setIsPulling] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -162,21 +175,28 @@ export default function App() {
     const deltaY = e.touches[0].clientY - touchStartY.current;
     if (deltaY < 0) {
       setIsPulling(false);
-      setPullProgress(0);
+      pullProgress.set(0);
       return;
     }
     if (deltaY > 0) {
-      setPullProgress(Math.min(deltaY * 0.4, PULL_THRESHOLD + 30));
+      pullProgress.set(Math.min(deltaY * 0.4, PULL_THRESHOLD + 30));
     }
   };
 
   const handleTouchEnd = () => {
-    if (isPulling && pullProgress >= PULL_THRESHOLD) {
+    if (isPulling && pullProgress.get() >= PULL_THRESHOLD) {
       refreshFeeds();
+    } else {
+      animate(pullProgress, 0, { duration: 0.2 });
     }
     setIsPulling(false);
-    setPullProgress(0);
   };
+
+  useEffect(() => {
+    if (!isLoading) {
+      animate(pullProgress, 0, { duration: 0.2 });
+    }
+  }, [isLoading, pullProgress]);
 
   useEffect(() => {
     if (!bottomRef.current || visibleArticles.length === 0) return;
@@ -231,14 +251,14 @@ export default function App() {
       onTouchEnd={handleTouchEnd}
     >
       {/* Pull to refresh indicator */}
-      <div 
-        className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50"
-        style={{ transform: `translateY(${pullProgress - 40}px)`, opacity: pullProgress / PULL_THRESHOLD }}
+      <motion.div 
+        className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50 will-change-transform"
+        style={{ y: pullProgressTransform, opacity: pullOpacity, z: 0 }}
       >
         <div className="rounded-full p-2 shadow-lg border transition-colors bg-gray-900 border-gray-800">
-          <RefreshCw className={`w-6 h-6 text-indigo-600 dark:text-indigo-400 ${pullProgress >= PULL_THRESHOLD ? 'animate-spin' : ''}`} />
+          <RefreshCw className={twMerge("w-6 h-6 text-indigo-600 dark:text-indigo-400", isLoading ? "animate-spin" : "")} />
         </div>
-      </div>
+      </motion.div>
 
       <div className="sticky top-0 z-20 shadow-sm transition-colors bg-black">
         <header className="px-4 py-3 flex items-center justify-between">
@@ -346,12 +366,7 @@ export default function App() {
           </div>
         )}
 
-        {progress && (
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 text-sm text-indigo-800 dark:text-indigo-300 flex items-center justify-between border-t border-indigo-100 dark:border-indigo-900/30">
-            <span>Updating feeds...</span>
-            <span className="font-medium">{progress.current} / {progress.total}</span>
-          </div>
-        )}
+        <ProgressBanner />
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-800 dark:text-red-300 border-t border-red-100 dark:border-red-900/30">
             {error}
@@ -360,22 +375,11 @@ export default function App() {
       </div>
 
       <motion.main
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(e, info) => {
-          const filters: ('inbox' | 'saved')[] = ['saved', 'inbox'];
-          const currentIndex = filters.indexOf(filter);
-          if (info.offset.x > 100 && currentIndex > 0) {
-            setFilter(filters[currentIndex - 1]);
-          } else if (info.offset.x < -100 && currentIndex < filters.length - 1) {
-            setFilter(filters[currentIndex + 1]);
-          }
-        }}
         className={twMerge(
-          "flex-1 overflow-y-auto transition-all duration-300",
+          "flex-1 overflow-y-auto transition-all duration-300 will-change-transform",
           currentTrack ? "pb-48" : "pb-32"
         )}
+        style={{ z: 0 }}
         ref={scrollRef}
         onScroll={handleScroll}
       >
@@ -402,7 +406,7 @@ export default function App() {
           </div>
         ) : (
           <div className="flex-1">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="popLayout" initial={false}>
               {visibleArticles.map(article => {
                 const feed = feedsMap.get(article.feedId);
                 return (

@@ -6,8 +6,6 @@ import { FileText } from 'lucide-react';
 
 // Global set to track images that have already been loaded in this session
 const loadedImages = new Set<string>();
-// Global map to cache resolved local URLs to avoid redundant async calls
-const resolvedUrls = new Map<string, string>();
 
 type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   src: string;
@@ -15,7 +13,7 @@ type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 export function CachedImage({ src, className, fallback, ...props }: CachedImageProps) {
-  const [currentSrc, setCurrentSrc] = useState<string | null>(resolvedUrls.get(src) || src || null);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(src || null);
   const [isLoaded, setIsLoaded] = useState(loadedImages.has(src));
   const [error, setError] = useState(false);
 
@@ -30,21 +28,14 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
       return;
     }
 
-    // If we already have this src loaded and resolved, we might not need to do anything
-    // but we still run the logic to ensure consistency, just more carefully.
-    
     const loadImage = async () => {
       let finalSrc = src;
       
-      // Check global cache first
-      if (resolvedUrls.has(src)) {
-        finalSrc = resolvedUrls.get(src)!;
-      } else if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform()) {
         try {
           const localUrl = await imagePersistence.getLocalUrl(src);
           if (localUrl) {
             finalSrc = localUrl;
-            resolvedUrls.set(src, localUrl);
           }
         } catch (e) {
           // Fallback to original src
@@ -128,6 +119,7 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
     <img
       key={src}
       src={currentSrc || undefined}
+      draggable={false}
       className={cn(
         className,
         !isLoaded && "opacity-0",

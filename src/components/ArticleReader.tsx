@@ -27,7 +27,7 @@ interface ArticleReaderProps {
   hasPrev?: boolean;
 }
 
-export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticle, hasNext, hasPrev }: ArticleReaderProps) {
+export const ArticleReader = React.memo(function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticle, hasNext, hasPrev }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
@@ -505,7 +505,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
 
     </motion.div>
   );
-}
+});
 
 /**
  * ⚡ Bolt: Isolated progress bar for the article reader.
