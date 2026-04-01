@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Article } from '../types';
 import { useRss } from './RssContext';
-import { parseDurationToSeconds } from '../lib/utils';
+import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import QueuePlugin from '../plugins/QueuePlugin';
 import { Capacitor } from '@capacitor/core';
@@ -40,14 +40,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const currentTrackRef = useRef<Article | null>(null);
 
   // Get the current queue: favorited podcasts
-  const queue = articles.filter(a => a.isFavorite && a.type === 'podcast');
+  const queue = articles.filter(a => a.isQueued && a.type === 'podcast');
+  const recentPodcasts = articles
+    .filter(a => a.type === 'podcast')
+    .sort((a, b) => b.pubDate - a.pubDate)
+    .slice(0, 20);
+  const favoritePodcasts = articles.filter(a => a.isFavorite && a.type === 'podcast');
+  
   const queueRef = useRef<Article[]>([]);
   const { feeds } = useRss();
   
   useEffect(() => {
     queueRef.current = queue;
     if (Capacitor.isNativePlatform()) {
-      const queueData = queue.map(a => {
+      const mapTrack = (a: Article) => {
         const feed = feeds.find(f => f.id === a.feedId);
         return {
           id: a.id,
@@ -56,10 +62,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           album: 'Flusso',
           artwork: a.imageUrl || feed?.imageUrl
         };
-      });
-      QueuePlugin.setQueue({ queue: queueData }).catch(console.error);
+      };
+
+      QueuePlugin.setQueue({ 
+        queue: queue.map(mapTrack),
+        recent: recentPodcasts.map(mapTrack),
+        favorites: favoritePodcasts.map(mapTrack)
+      }).catch(console.error);
     }
-  }, [queue, feeds]);
+  }, [queue, recentPodcasts, favoritePodcasts, feeds]);
 
   const playNextRef = useRef<() => void>(() => {});
 
@@ -71,7 +82,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Initialize audio element once
   useEffect(() => {
     const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
+    // ⚡ Bolt: Removed crossOrigin = 'anonymous' to improve compatibility with podcast servers
+    // that don't support CORS. This is safe as we don't use the Web Audio API or Canvas with audio.
     audioRef.current = audio;
     
     const handleTimeUpdate = () => {
@@ -167,10 +179,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const play = useCallback((track: Article) => {
     if (!audioRef.current) return;
 
+    const safeMediaUrl = getSafeUrl(track.mediaUrl, '');
+    if (!safeMediaUrl) {
+      console.error("No valid media URL for track:", track.id);
+      return;
+    }
+
     if (currentTrack?.id !== track.id) {
       setCurrentTrack(track);
-      audioRef.current.src = track.mediaUrl || '';
-      audioRef.current.load();
+      audioRef.current.src = safeMediaUrl;
+      try {
+        audioRef.current.load();
+      } catch (e) {
+        console.error("Error loading audio:", e);
+      }
       
       // Resume from saved progress if available
       if (track.progress && track.progress > 0) {

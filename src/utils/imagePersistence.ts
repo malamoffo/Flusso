@@ -12,16 +12,17 @@ export const imagePersistence = {
    */
   getFilename(url: string): string {
     try {
-      // Use a simple hash-like string to avoid btoa issues with non-latin1 chars
       let hash = 0;
       for (let i = 0; i < url.length; i++) {
         const char = url.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+        hash = hash & hash;
       }
-      return `img_${Math.abs(hash)}_${url.split('/').pop()?.split('?')[0].substring(0, 30) || 'image'}`;
+      // Use only hash and a safe extension to avoid filesystem issues
+      const ext = url.split('.').pop()?.split('?')[0].substring(0, 4) || 'img';
+      return `cache_${Math.abs(hash)}.${ext}`;
     } catch (e) {
-      return 'fallback_name_' + Math.random().toString(36).substring(7);
+      return 'fallback_' + Math.random().toString(36).substring(7);
     }
   },
 
@@ -61,7 +62,7 @@ export const imagePersistence = {
 
       if (downloadResult.status === 200) {
         // Convert arraybuffer to base64
-        const base64Data = this.arrayBufferToBase64(downloadResult.data);
+        const base64Data = await this.arrayBufferToBase64(downloadResult.data);
         
         // Ensure directory exists
         try {
@@ -94,16 +95,18 @@ export const imagePersistence = {
   },
 
   /**
-   * Helper to convert ArrayBuffer to Base64 efficiently.
+   * Helper to convert ArrayBuffer to Base64 efficiently and safely using FileReader.
    */
-  arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunk_size = 0x8000;
-    
-    for (let i = 0; i < bytes.length; i += chunk_size) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk_size) as unknown as number[]);
-    }
-    return btoa(binary);
-  }
+  async arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([buffer]);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
 };

@@ -477,29 +477,38 @@ export default function App() {
         </motion.button>
       </div>
 
-      <div className={twMerge(
-        "fixed right-6 flex flex-col gap-4 z-30 items-center transition-all duration-300",
-        currentTrack ? "bottom-44" : "bottom-28"
-      )}>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => refreshFeeds()}
-          className="w-10 h-10 bg-gray-800 text-indigo-400 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-transform"
-          title="Refresh feeds"
-          aria-label="Refresh feeds"
-        >
-          <RefreshCw className={twMerge("w-5 h-5", isLoading ? "animate-spin" : "")} aria-hidden="true" />
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsMarkAllReadOpen(true)}
-          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
-          title="Mark all as read"
-          aria-label="Mark all as read"
-        >
-          <Check className="w-6 h-6" aria-hidden="true" />
-        </motion.button>
-      </div>
+      <AnimatePresence>
+        {filter === 'inbox' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8, x: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: 20 }}
+            className={twMerge(
+              "fixed right-6 flex flex-col gap-4 z-30 items-center transition-all duration-300",
+              currentTrack ? "bottom-44" : "bottom-28"
+            )}
+          >
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => refreshFeeds()}
+              className="w-10 h-10 bg-gray-800 text-indigo-400 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-transform"
+              title="Refresh feeds"
+              aria-label="Refresh feeds"
+            >
+              <RefreshCw className={twMerge("w-5 h-5", isLoading ? "animate-spin" : "")} aria-hidden="true" />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setIsMarkAllReadOpen(true)}
+              className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
+              title="Mark all as read"
+              aria-label="Mark all as read"
+            >
+              <Check className="w-6 h-6" aria-hidden="true" />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isMarkAllReadOpen && (

@@ -58,4 +58,15 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Responsive embedded videos in prose */
+  .prose iframe, 
+  .prose video {
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 16 / 9;
+    height: auto !important;
+    border-radius: 0.75rem;
+    border: 0;
+  }
 }

@@ -8,8 +8,9 @@ import DOMPurify from 'dompurify';
 import he from 'he';
 import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
-import { CapacitorHttp } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { imagePersistence } from '../utils/imagePersistence';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -191,82 +192,115 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
     fetchFullContent();
   }, [article.link, article.id]);
 
-  const sanitizedContent = React.useMemo(() => {
-    let contentToSanitize = fullContent?.content;
-    
-    if (!contentToSanitize && article.content) {
-      contentToSanitize = he.decode(article.content);
-    }
-    
-    if (!contentToSanitize) return '';
-    
-    // Clean up superfluous text/empty tags often left by poor formatting
-    let content = contentToSanitize;
-    
-    content = content.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
-    content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
-    content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
-    
-    // Create a local instance of DOMPurify to be thread-safe in React
-    const purifier = DOMPurify();
+  const [sanitizedContent, setSanitizedContent] = useState<string>('');
 
-    // Security enhancement: Add hooks to ensure all links and iframes are safe
-    purifier.addHook('afterSanitizeAttributes', (node) => {
-      // Force rel="nofollow noopener noreferrer" on all links
-      if (node.tagName === 'A') {
-        node.setAttribute('rel', 'nofollow noopener noreferrer');
+  useEffect(() => {
+    const processContent = async () => {
+      let contentToSanitize = fullContent?.content;
+      
+      if (!contentToSanitize && article.content) {
+        contentToSanitize = he.decode(article.content);
       }
+      
+      if (!contentToSanitize) {
+        setSanitizedContent('');
+        return;
+      }
+      
+      // Clean up superfluous text/empty tags
+      let content = contentToSanitize;
+      content = content.replace(/<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>/gi, '');
+      content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
+      content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
+      
+      const purifier = DOMPurify();
 
-      // Force sandbox on iframes to prevent them from breaking the app
-      if (node.tagName === 'IFRAME') {
-        node.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-      }
-
-      // Sanitized protocols for src and href
-      if (node.hasAttribute('src')) {
-        node.setAttribute('src', getSafeUrl(node.getAttribute('src'), ''));
-      }
-      if (node.hasAttribute('href')) {
-        node.setAttribute('href', getSafeUrl(node.getAttribute('href'), ''));
-      }
-
-      // Remove tracking pixels, avatars, small icons, and the main image (to avoid duplication)
-      if (node.tagName === 'IMG') {
-        const src = node.getAttribute('src') || '';
-        const lowerSrc = src.toLowerCase();
-        const width = parseInt(node.getAttribute('width') || '0', 10);
-        const height = parseInt(node.getAttribute('height') || '0', 10);
-        
-        if (
-          src === article.imageUrl ||
-          lowerSrc.includes('1x1') ||
-          lowerSrc.includes('pixel') ||
-          lowerSrc.includes('tracker') ||
-          lowerSrc.includes('feedburner') ||
-          lowerSrc.includes('stats') ||
-          lowerSrc.includes('gravatar') ||
-          lowerSrc.includes('avatar') ||
-          lowerSrc.includes('favicon') ||
-          lowerSrc.includes('icon') ||
-          lowerSrc.includes('logo') ||
-          lowerSrc.includes('wp-includes/images/smilies') ||
-          lowerSrc.includes('share') ||
-          lowerSrc.includes('button') ||
-          lowerSrc.includes('badge') ||
-          (width > 0 && width <= 50) ||
-          (height > 0 && height <= 50)
-        ) {
-          node.parentNode?.removeChild(node);
+      purifier.addHook('afterSanitizeAttributes', (node) => {
+        if (node.tagName === 'A') {
+          node.setAttribute('rel', 'nofollow noopener noreferrer');
         }
-      }
-    });
+        if (node.tagName === 'IFRAME') {
+          node.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+        }
+        if (node.hasAttribute('src')) {
+          node.setAttribute('src', getSafeUrl(node.getAttribute('src'), ''));
+        }
+        if (node.hasAttribute('href')) {
+          node.setAttribute('href', getSafeUrl(node.getAttribute('href'), ''));
+        }
+        if (node.tagName === 'IMG') {
+          const src = node.getAttribute('src') || '';
+          const lowerSrc = src.toLowerCase();
+          const width = parseInt(node.getAttribute('width') || '0', 10);
+          const height = parseInt(node.getAttribute('height') || '0', 10);
+          
+          if (
+            src === article.imageUrl ||
+            lowerSrc.includes('1x1') ||
+            lowerSrc.includes('pixel') ||
+            lowerSrc.includes('tracker') ||
+            lowerSrc.includes('feedburner') ||
+            lowerSrc.includes('stats') ||
+            lowerSrc.includes('gravatar') ||
+            lowerSrc.includes('avatar') ||
+            lowerSrc.includes('favicon') ||
+            lowerSrc.includes('icon') ||
+            lowerSrc.includes('logo') ||
+            lowerSrc.includes('wp-includes/images/smilies') ||
+            lowerSrc.includes('share') ||
+            lowerSrc.includes('button') ||
+            lowerSrc.includes('badge') ||
+            (width > 0 && width <= 50) ||
+            (height > 0 && height <= 50)
+          ) {
+            node.parentNode?.removeChild(node);
+          }
+        }
+      });
 
-    return purifier.sanitize(content, {
-      ADD_ATTR: ['style', 'allowfullscreen', 'frameborder', 'scrolling', 'controls', 'src', 'alt', 'width', 'height', 'srcset', 'sizes', 'sandbox'],
-      ADD_TAGS: ['video', 'audio', 'source', 'iframe', 'img'],
-      FORBID_ATTR: ['id', 'name'],
-    });
-  }, [fullContent?.content]);
+      const sanitized = purifier.sanitize(content, {
+        ADD_ATTR: ['style', 'allow', 'allowfullscreen', 'frameborder', 'scrolling', 'controls', 'src', 'alt', 'width', 'height', 'srcset', 'sizes', 'sandbox', 'poster', 'preload'],
+        ADD_TAGS: ['video', 'audio', 'source', 'iframe', 'img', 'figure', 'figcaption'],
+        FORBID_ATTR: ['id', 'name'],
+      });
+
+      const doc = new DOMParser().parseFromString(sanitized, 'text/html');
+      const videos = doc.querySelectorAll('video, iframe');
+      
+      // Ensure videos are responsive
+      videos.forEach(v => {
+        v.setAttribute('width', '100%');
+        if (v.tagName === 'VIDEO') {
+          v.setAttribute('height', 'auto');
+        } else if (v.tagName === 'IFRAME') {
+          // For iframes, we often need a fixed aspect ratio or it collapses
+          // The CSS aspect-video class handles this, but we ensure width is 100%
+          v.removeAttribute('height');
+        }
+      });
+
+      // Now resolve images to local URLs if on native
+      if (Capacitor.isNativePlatform()) {
+        const imgs = doc.querySelectorAll('img');
+        const promises = Array.from(imgs).map(async (img) => {
+          const src = img.getAttribute('src');
+          if (src && src.startsWith('http')) {
+            try {
+              const localUrl = await imagePersistence.getLocalUrl(src);
+              if (localUrl) img.setAttribute('src', localUrl);
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+        });
+        await Promise.all(promises);
+      }
+      
+      setSanitizedContent(doc.body.innerHTML);
+    };
+
+    processContent();
+  }, [fullContent?.content, article.content, article.imageUrl]);
 
   const hasMedia = !!article.mediaUrl;
 
@@ -481,6 +515,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           <div 
             className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-justify
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
+              prose-video:w-full prose-video:rounded-xl
+              [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
               prose-a:text-indigo-400 prose-headings:font-bold
               prose-pre:max-w-full prose-pre:overflow-x-auto`}
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}

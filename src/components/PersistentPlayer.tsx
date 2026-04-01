@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, X, SkipBack, SkipForward, RefreshCw } from 'lucide-react';
+import { Play, Pause, X, RotateCcw, RotateCw, RefreshCw } from 'lucide-react';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
 import { Article } from '../types';
 import { cn, formatTime } from '../lib/utils';
@@ -24,7 +24,7 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
           "bg-gray-900/90"
         )}
       >
-        <div className="px-4 py-3 flex items-center gap-3">
+        <div className="px-3 py-2.5 flex items-center gap-2">
           {/* Thumbnail */}
           {currentTrack.imageUrl && (
             <img 
@@ -53,23 +53,23 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
           </div>
           
           {/* Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <SeekButton direction="backward" />
             
             <motion.button 
               whileTap={{ scale: 0.9 }}
               onClick={(e) => { e.stopPropagation(); toggle(); }}
               className={cn(
-                "p-2 bg-indigo-600 text-white rounded-full shadow-sm hover:bg-indigo-700 transition-colors relative",
+                "p-1.5 bg-indigo-600 text-white rounded-full shadow-sm hover:bg-indigo-700 transition-colors relative",
                 isLoadingAudio && "animate-pulse"
               )}
             >
               {isLoadingAudio ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin" />
               ) : isPlaying ? (
-                <Pause className="w-5 h-5 fill-current" />
+                <Pause className="w-4 h-4 fill-current" />
               ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" />
+                <Play className="w-4 h-4 fill-current ml-0.5" />
               )}
             </motion.button>
             
@@ -77,7 +77,7 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
             
             <button 
               onClick={(e) => { e.stopPropagation(); stop(); }}
-              className="p-1.5 text-gray-400 hover:text-gray-200"
+              className="p-1 text-gray-400 hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -96,15 +96,15 @@ const PlayerProgressBar = React.memo(function PlayerProgressBar() {
   const progressPercent = (progress / duration) * 100 || 0;
 
   return (
-    <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400 mt-1">
-      <span className="w-14 flex-shrink-0 text-left whitespace-nowrap">{formatTime(progress)}</span>
+    <div className="flex items-center gap-1.5 text-[9px] font-medium text-indigo-400 mt-0.5 tabular-nums">
+      <span className="w-11 flex-shrink-0 text-left whitespace-nowrap">{formatTime(progress)}</span>
       <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
         <div 
           className="h-full bg-indigo-500 transition-all duration-200" 
           style={{ width: `${progressPercent}%` }} 
         />
       </div>
-      <span className="w-14 flex-shrink-0 text-right whitespace-nowrap">{formatTime(Math.max(0, duration - progress))}</span>
+      <span className="w-11 flex-shrink-0 text-right whitespace-nowrap">{formatTime(Math.max(0, duration - progress))}</span>
     </div>
   );
 });
@@ -119,9 +119,9 @@ function SeekButton({ direction }: { direction: 'forward' | 'backward' }) {
   const handleSeek = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (direction === 'backward') {
-      seek(Math.max(0, progress - 10));
+      seek(Math.max(0, progress - 15));
     } else {
-      seek(Math.min(duration, progress + 30));
+      seek(Math.min(duration, progress + 15));
     }
   };
 
@@ -131,9 +131,15 @@ function SeekButton({ direction }: { direction: 'forward' | 'backward' }) {
       className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
     >
       {direction === 'backward' ? (
-        <SkipBack className="w-4 h-4 fill-current" />
+        <div className="relative">
+          <RotateCcw className="w-4 h-4" />
+          <span className="absolute inset-0 flex items-center justify-center text-[6px] font-bold mt-0.5">15</span>
+        </div>
       ) : (
-        <SkipForward className="w-4 h-4 fill-current" />
+        <div className="relative">
+          <RotateCw className="w-4 h-4" />
+          <span className="absolute inset-0 flex items-center justify-center text-[6px] font-bold mt-0.5">15</span>
+        </div>
       )}
     </button>
   );

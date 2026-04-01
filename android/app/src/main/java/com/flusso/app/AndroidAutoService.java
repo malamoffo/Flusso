@@ -30,44 +30,74 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
 
     private static final String TAG = "AndroidAutoService";
     private static final String ROOT_ID = "root";
+    private static final String QUEUE_ID = "queue";
+    private static final String RECENT_ID = "recent";
+    private static final String FAVORITES_ID = "favorites";
     private boolean isBound = false;
 
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
             try {
+                // Get the MediaSessionService instance from the binder
                 Method getServiceMethod = service.getClass().getDeclaredMethod("getService");
                 getServiceMethod.setAccessible(true);
-                MediaSessionService mediaSessionService = (MediaSessionService) getServiceMethod.invoke(service);
+                Object mediaSessionService = getServiceMethod.invoke(service);
                 
-                Field field = MediaSessionService.class.getDeclaredField("mediaSession");
-                field.setAccessible(true);
-                MediaSessionCompat mediaSession = (MediaSessionCompat) field.get(mediaSessionService);
-                if (mediaSession != null) {
-                    setSessionToken(mediaSession.getSessionToken());
-                    Log.d(TAG, "Successfully attached MediaSessionToken");
+                // Helper to find field in hierarchy
+                Field field = null;
+                Class<?> current = mediaSessionService.getClass();
+                while (current != null && field == null) {
+                    try {
+                        field = current.getDeclaredField("mediaSession");
+                    } catch (NoSuchFieldException e) {
+                        current = current.getSuperclass();
+                    }
+                }
+                
+                if (field != null) {
+                    field.setAccessible(true);
+                    MediaSessionCompat mediaSession = (MediaSessionCompat) field.get(mediaSessionService);
                     
-                    // We need to delegate standard callbacks to the original ones so standard controls (play/pause) keep working.
-                    Field pluginField = MediaSessionService.class.getDeclaredField("plugin");
-                    pluginField.setAccessible(true);
-                    final Object plugin = pluginField.get(mediaSessionService);
-                    
-                    final Method actionCallbackMethod = plugin.getClass().getDeclaredMethod("actionCallback", String.class);
-                    actionCallbackMethod.setAccessible(true);
+                    if (mediaSession != null) {
+                        setSessionToken(mediaSession.getSessionToken());
+                        Log.d(TAG, "Successfully attached MediaSessionToken");
+                        
+                        // Get the plugin instance to delegate callbacks
+                        Field pluginField = null;
+                        current = mediaSessionService.getClass();
+                        while (current != null && pluginField == null) {
+                            try {
+                                pluginField = current.getDeclaredField("plugin");
+                            } catch (NoSuchFieldException e) {
+                                current = current.getSuperclass();
+                            }
+                        }
 
-                    final Method actionCallbackWithDataMethod = plugin.getClass().getDeclaredMethod("actionCallback", String.class, JSObject.class);
-                    actionCallbackWithDataMethod.setAccessible(true);
+                        if (pluginField != null) {
+                            pluginField.setAccessible(true);
+                            final Object plugin = pluginField.get(mediaSessionService);
+                            
+                            final Method actionCallbackMethod = plugin.getClass().getDeclaredMethod("actionCallback", String.class);
+                            actionCallbackMethod.setAccessible(true);
 
-                    // Add a callback to handle play from media id and delegate others
-                    mediaSession.setCallback(new MediaSessionCompat.Callback() {
+                            final Method actionCallbackWithDataMethod = plugin.getClass().getDeclaredMethod("actionCallback", String.class, JSObject.class);
+                            actionCallbackWithDataMethod.setAccessible(true);
+
+                            // Add a callback to handle play from media id and delegate others
+                            mediaSession.setCallback(new MediaSessionCompat.Callback() {
                         @Override
                         public void onPlayFromMediaId(String mediaId, Bundle extras) {
                             super.onPlayFromMediaId(mediaId, extras);
+                            Log.d(TAG, "onPlayFromMediaId: " + mediaId);
                             QueuePlugin queuePlugin = QueuePlugin.getInstance();
                             if (queuePlugin != null) {
                                 queuePlugin.triggerPlayRequest(mediaId);
                             } else {
-                                Log.e(TAG, "QueuePlugin instance is null, cannot send playRequest");
+                                Log.e(TAG, "QueuePlugin instance is null, cannot send playRequest directly, but queue is static");
+                                // We can't notify listeners if the plugin isn't loaded, 
+                                // but we could potentially store the request or use another way.
+                                // However, usually the plugin IS loaded if the app is running.
                             }
                         }
 
@@ -174,45 +204,69 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
         List<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
 
         if (ROOT_ID.equals(parentId)) {
-            // Fetch queue from our custom plugin
-            QueuePlugin queuePlugin = QueuePlugin.getInstance();
-            if (queuePlugin != null) {
-                Log.d(TAG, "QueuePlugin is not null");
-                JSArray queue = queuePlugin.getQueue();
-                if (queue != null) {
-                    Log.d(TAG, "Queue size: " + queue.length());
-                    try {
-                        for (int i = 0; i < queue.length(); i++) {
-                            JSONObject item = queue.getJSONObject(i);
-                            String id = item.optString("id");
-                            String title = item.optString("title");
-                            String subtitle = item.optString("feedTitle"); // Or whatever makes sense
-                            String imageUrl = item.optString("imageUrl");
-                            String mediaUrl = item.optString("mediaUrl");
+            // Add folders at the root
+            mediaItems.add(new MediaBrowserCompat.MediaItem(
+                    new MediaDescriptionCompat.Builder()
+                            .setMediaId(QUEUE_ID)
+                            .setTitle("Coda di riproduzione")
+                            .setSubtitle("I tuoi podcast in coda")
+                            .build(), 
+                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+            
+            mediaItems.add(new MediaBrowserCompat.MediaItem(
+                    new MediaDescriptionCompat.Builder()
+                            .setMediaId(RECENT_ID)
+                            .setTitle("Recenti")
+                            .setSubtitle("Ultimi episodi pubblicati")
+                            .build(), 
+                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
 
-                            MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
-                                    .setMediaId(id)
-                                    .setTitle(title)
-                                    .setSubtitle(subtitle);
+            mediaItems.add(new MediaBrowserCompat.MediaItem(
+                    new MediaDescriptionCompat.Builder()
+                            .setMediaId(FAVORITES_ID)
+                            .setTitle("Preferiti")
+                            .setSubtitle("I tuoi podcast preferiti")
+                            .build(), 
+                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+        } else if (QUEUE_ID.equals(parentId) || RECENT_ID.equals(parentId) || FAVORITES_ID.equals(parentId)) {
+            // Fetch queue from our custom plugin using the static method
+            JSArray queue = null;
+            if (QUEUE_ID.equals(parentId)) {
+                queue = QueuePlugin.getStaticQueue();
+            } else if (RECENT_ID.equals(parentId)) {
+                queue = QueuePlugin.getStaticRecent();
+            } else if (FAVORITES_ID.equals(parentId)) {
+                queue = QueuePlugin.getStaticFavorites();
+            }
+            
+            if (queue != null) {
+                Log.d(TAG, "Queue size for " + parentId + ": " + queue.length());
+                try {
+                    for (int i = 0; i < queue.length(); i++) {
+                        JSONObject item = queue.getJSONObject(i);
+                        String id = item.optString("id");
+                        String title = item.optString("title");
+                        String subtitle = item.optString("artist"); // Use artist for subtitle
+                        String imageUrl = item.optString("artwork"); // Use artwork for icon
+                        String mediaUrl = item.optString("mediaUrl");
 
-                            if (imageUrl != null && !imageUrl.isEmpty()) {
-                                descriptionBuilder.setIconUri(Uri.parse(imageUrl));
-                            }
-                            if (mediaUrl != null && !mediaUrl.isEmpty()) {
-                                descriptionBuilder.setMediaUri(Uri.parse(mediaUrl));
-                            }
+                        MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
+                                .setMediaId(id)
+                                .setTitle(title)
+                                .setSubtitle(subtitle);
 
-                            MediaDescriptionCompat description = descriptionBuilder.build();
-                            mediaItems.add(new MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE));
+                        if (imageUrl != null && !imageUrl.isEmpty()) {
+                            descriptionBuilder.setIconUri(Uri.parse(imageUrl));
                         }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error parsing queue", e);
+                        
+                        MediaDescriptionCompat description = descriptionBuilder.build();
+                        mediaItems.add(new MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE));
                     }
-                } else {
-                    Log.d(TAG, "Queue is null");
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing queue", e);
                 }
             } else {
-                Log.d(TAG, "QueuePlugin is null");
+                Log.d(TAG, "Queue is null");
             }
         }
         

@@ -28,8 +28,11 @@ export function isSafeUrl(url: string | null | undefined): boolean {
   try {
     // Use the URL constructor for robust protocol validation
     const parsed = new URL(trimmed);
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol);
+    return ['http:', 'https:', 'mailto:', 'tel:', 'capacitor:', 'blob:', 'data:'].includes(parsed.protocol);
   } catch (e) {
+    // If it's a protocol-relative URL, it's safe
+    if (trimmed.startsWith('//')) return true;
+    
     // If URL parsing fails and it's not a relative path we handle above,
     // we return false to be safe.
     return false;
@@ -43,7 +46,14 @@ export function getSafeUrl(url: string | null | undefined): string;
 export function getSafeUrl<T>(url: string | null | undefined, fallback: T): string | T;
 export function getSafeUrl(url: string | null | undefined, fallback: any = ''): any {
   if (!url) return fallback;
-  return isSafeUrl(url) ? url : fallback;
+  if (!isSafeUrl(url)) return fallback;
+  
+  // Ensure protocol-relative URLs are converted to https
+  if (url.startsWith('//')) {
+    return `https:${url}`;
+  }
+  
+  return url;
 }
 
 /**

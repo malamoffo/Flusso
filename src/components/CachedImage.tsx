@@ -6,6 +6,8 @@ import { FileText } from 'lucide-react';
 
 // Global set to track images that have already been loaded in this session
 const loadedImages = new Set<string>();
+// Cache for already resolved local URLs to avoid repeated filesystem calls
+const resolvedLocalUrls = new Map<string, string>();
 
 type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   src: string;
@@ -13,14 +15,13 @@ type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 export function CachedImage({ src, className, fallback, ...props }: CachedImageProps) {
-  const [currentSrc, setCurrentSrc] = useState<string | null>(src || null);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(resolvedLocalUrls.get(src) || src || null);
   const [isLoaded, setIsLoaded] = useState(loadedImages.has(src));
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     
-    // If src is empty, do nothing
     if (!src) {
       setIsLoaded(false);
       setError(false);
@@ -31,26 +32,33 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
     const loadImage = async () => {
       let finalSrc = src;
       
+      // Check if we already have a resolved local URL for this src
       if (Capacitor.isNativePlatform()) {
-        try {
-          const localUrl = await imagePersistence.getLocalUrl(src);
-          if (localUrl) {
-            finalSrc = localUrl;
+        if (resolvedLocalUrls.has(src)) {
+          finalSrc = resolvedLocalUrls.get(src)!;
+        } else {
+          try {
+            const localUrl = await imagePersistence.getLocalUrl(src);
+            if (localUrl) {
+              finalSrc = localUrl;
+              resolvedLocalUrls.set(src, localUrl);
+            }
+          } catch (e) {
+            // Fallback to original src
           }
-        } catch (e) {
-          // Fallback to original src
         }
       }
 
       if (!isMounted) return;
 
-      // If the finalSrc is different from what we're currently showing, update it
+      // Update currentSrc if it's different from what we're showing
       if (finalSrc !== currentSrc) {
         setCurrentSrc(finalSrc);
       }
 
       // If already marked as loaded globally, just set local state
-      if (loadedImages.has(src)) {
+      // BUT only if we are showing the same URL that was loaded
+      if (loadedImages.has(src) && finalSrc === currentSrc) {
         setIsLoaded(true);
         return;
       }
@@ -70,8 +78,9 @@ export function CachedImage({ src, className, fallback, ...props }: CachedImageP
       
       img.onerror = () => {
         if (isMounted) {
-          // If native cache failed, try the original URL as a last resort if we haven't already
+          // If native cache failed, try the original URL as a last resort
           if (finalSrc !== src) {
+            console.warn(`[IMAGE_CACHE] Local URL failed, falling back to remote: ${src}`);
             setCurrentSrc(src);
             const retryImg = new Image();
             if (props.referrerPolicy) retryImg.referrerPolicy = props.referrerPolicy as ReferrerPolicy;
