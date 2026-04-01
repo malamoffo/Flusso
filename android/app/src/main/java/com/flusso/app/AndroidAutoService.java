@@ -33,6 +33,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     private static final String QUEUE_ID = "queue";
     private static final String RECENT_ID = "recent";
     private static final String FAVORITES_ID = "favorites";
+    private MediaSessionCompat proxySession;
     private boolean isBound = false;
 
     private ServiceConnection connection = new ServiceConnection() {
@@ -60,10 +61,32 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                     MediaSessionCompat mediaSession = (MediaSessionCompat) field.get(mediaSessionService);
                     
                     if (mediaSession != null) {
-                        setSessionToken(mediaSession.getSessionToken());
-                        Log.d(TAG, "Successfully attached MediaSessionToken");
+                        Log.d(TAG, "Found Capgo MediaSession");
                         
-                        // Get the plugin instance to delegate callbacks
+                        // Sync state from Capgo session to our proxy session
+                        try {
+                            android.support.v4.media.session.MediaControllerCompat controller = 
+                                new android.support.v4.media.session.MediaControllerCompat(AndroidAutoService.this, mediaSession.getSessionToken());
+                            
+                            // Initial sync
+                            proxySession.setPlaybackState(controller.getPlaybackState());
+                            proxySession.setMetadata(controller.getMetadata());
+                            
+                            // Listen for changes
+                            controller.registerCallback(new android.support.v4.media.session.MediaControllerCompat.Callback() {
+                                @Override
+                                public void onPlaybackStateChanged(PlaybackStateCompat state) {
+                                    proxySession.setPlaybackState(state);
+                                }
+                                @Override
+                                public void onMetadataChanged(MediaMetadataCompat metadata) {
+                                    proxySession.setMetadata(metadata);
+                                }
+                            });
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to create MediaControllerCompat", e);
+                        }
+                        
                         Field pluginField = null;
                         current = mediaSessionService.getClass();
                         while (current != null && pluginField == null) {
@@ -84,67 +107,64 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                             final Method actionCallbackWithDataMethod = plugin.getClass().getDeclaredMethod("actionCallback", String.class, JSObject.class);
                             actionCallbackWithDataMethod.setAccessible(true);
 
-                            // Add a callback to handle play from media id and delegate others
-                            mediaSession.setCallback(new MediaSessionCompat.Callback() {
-                        @Override
-                        public void onPlayFromMediaId(String mediaId, Bundle extras) {
-                            super.onPlayFromMediaId(mediaId, extras);
-                            Log.d(TAG, "onPlayFromMediaId: " + mediaId);
-                            QueuePlugin queuePlugin = QueuePlugin.getInstance();
-                            if (queuePlugin != null) {
-                                queuePlugin.triggerPlayRequest(mediaId);
-                            } else {
-                                Log.e(TAG, "QueuePlugin instance is null, cannot send playRequest directly, but queue is static");
-                                // We can't notify listeners if the plugin isn't loaded, 
-                                // but we could potentially store the request or use another way.
-                                // However, usually the plugin IS loaded if the app is running.
-                            }
-                        }
+                            // Set callback on our proxy session to forward to plugin
+                            proxySession.setCallback(new MediaSessionCompat.Callback() {
+                                @Override
+                                public void onPlayFromMediaId(String mediaId, Bundle extras) {
+                                    super.onPlayFromMediaId(mediaId, extras);
+                                    Log.d(TAG, "onPlayFromMediaId: " + mediaId);
+                                    QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                                    if (queuePlugin != null) {
+                                        queuePlugin.triggerPlayRequest(mediaId);
+                                    } else {
+                                        startAppWithMediaId(mediaId);
+                                    }
+                                }
 
-                        @Override
-                        public void onPlay() {
-                            try { actionCallbackMethod.invoke(plugin, "play"); } catch (Exception e) { Log.e(TAG, "Error invoking play", e); }
-                        }
+                                @Override
+                                public void onPlay() {
+                                    try { actionCallbackMethod.invoke(plugin, "play"); } catch (Exception e) { Log.e(TAG, "Error invoking play", e); }
+                                }
 
-                        @Override
-                        public void onPause() {
-                            try { actionCallbackMethod.invoke(plugin, "pause"); } catch (Exception e) { Log.e(TAG, "Error invoking pause", e); }
-                        }
+                                @Override
+                                public void onPause() {
+                                    try { actionCallbackMethod.invoke(plugin, "pause"); } catch (Exception e) { Log.e(TAG, "Error invoking pause", e); }
+                                }
 
-                        @Override
-                        public void onSeekTo(long pos) {
-                            try {
-                                JSObject data = new JSObject();
-                                data.put("seekTime", (double) pos / 1000.0);
-                                actionCallbackWithDataMethod.invoke(plugin, "seekto", data);
-                            } catch (Exception e) { Log.e(TAG, "Error invoking seekto", e); }
-                        }
+                                @Override
+                                public void onSeekTo(long pos) {
+                                    try {
+                                        JSObject data = new JSObject();
+                                        data.put("seekTime", (double) pos / 1000.0);
+                                        actionCallbackWithDataMethod.invoke(plugin, "seekto", data);
+                                    } catch (Exception e) { Log.e(TAG, "Error invoking seekto", e); }
+                                }
 
-                        @Override
-                        public void onRewind() {
-                            try { actionCallbackMethod.invoke(plugin, "seekbackward"); } catch (Exception e) { Log.e(TAG, "Error invoking seekbackward", e); }
-                        }
+                                @Override
+                                public void onRewind() {
+                                    try { actionCallbackMethod.invoke(plugin, "seekbackward"); } catch (Exception e) { Log.e(TAG, "Error invoking seekbackward", e); }
+                                }
 
-                        @Override
-                        public void onFastForward() {
-                            try { actionCallbackMethod.invoke(plugin, "seekforward"); } catch (Exception e) { Log.e(TAG, "Error invoking seekforward", e); }
-                        }
+                                @Override
+                                public void onFastForward() {
+                                    try { actionCallbackMethod.invoke(plugin, "seekforward"); } catch (Exception e) { Log.e(TAG, "Error invoking seekforward", e); }
+                                }
 
-                        @Override
-                        public void onSkipToPrevious() {
-                            try { actionCallbackMethod.invoke(plugin, "previoustrack"); } catch (Exception e) { Log.e(TAG, "Error invoking previoustrack", e); }
-                        }
+                                @Override
+                                public void onSkipToPrevious() {
+                                    try { actionCallbackMethod.invoke(plugin, "previoustrack"); } catch (Exception e) { Log.e(TAG, "Error invoking previoustrack", e); }
+                                }
 
-                        @Override
-                        public void onSkipToNext() {
-                            try { actionCallbackMethod.invoke(plugin, "nexttrack"); } catch (Exception e) { Log.e(TAG, "Error invoking nexttrack", e); }
-                        }
+                                @Override
+                                public void onSkipToNext() {
+                                    try { actionCallbackMethod.invoke(plugin, "nexttrack"); } catch (Exception e) { Log.e(TAG, "Error invoking nexttrack", e); }
+                                }
 
-                        @Override
-                        public void onStop() {
-                            try { actionCallbackMethod.invoke(plugin, "stop"); } catch (Exception e) { Log.e(TAG, "Error invoking stop", e); }
-                        }
-                    });
+                                @Override
+                                public void onStop() {
+                                    try { actionCallbackMethod.invoke(plugin, "stop"); } catch (Exception e) { Log.e(TAG, "Error invoking stop", e); }
+                                }
+                            });
                         }
                     }
                 }
@@ -159,10 +179,27 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
         }
     };
 
+    private void startAppWithMediaId(String mediaId) {
+        QueuePlugin.setPendingMediaId(mediaId);
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.putExtra("play_media_id", mediaId);
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start activity", e);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate - Inizializzazione servizio Android Auto");
+        
+        proxySession = new MediaSessionCompat(this, TAG);
+        proxySession.setActive(true);
+        setSessionToken(proxySession.getSessionToken());
+        
         // Bind to the Capgo MediaSessionService to get the session token
         Intent intent = new Intent(this, MediaSessionService.class);
         try {
@@ -234,11 +271,11 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
             // Fetch queue from our custom plugin using the static method
             JSArray queue = null;
             if (QUEUE_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticQueue();
+                queue = QueuePlugin.getStaticQueue(this);
             } else if (RECENT_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticRecent();
+                queue = QueuePlugin.getStaticRecent(this);
             } else if (FAVORITES_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticFavorites();
+                queue = QueuePlugin.getStaticFavorites(this);
             }
             
             if (queue != null) {

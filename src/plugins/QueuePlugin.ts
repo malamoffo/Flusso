@@ -6,6 +6,7 @@ export interface QueuePlugin {
     recent?: any[];
     favorites?: any[];
   }): Promise<void>;
+  getPendingMediaId(): Promise<{ mediaId: string | null }>;
   addListener(eventName: 'playRequest', listenerFunc: (data: { id: string }) => void): Promise<PluginListenerHandle>;
 }
 

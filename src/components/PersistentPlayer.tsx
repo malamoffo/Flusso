@@ -85,6 +85,7 @@ const PlayerTitle = React.memo(function PlayerTitle({ track }: { track: Article 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const textRef = React.useRef<HTMLHeadingElement>(null);
   const [scrollDistance, setScrollDistance] = React.useState(0);
+  const [textWidth, setTextWidth] = React.useState(0);
   
   let displayTitle = track.title;
   if (track.chapters && track.chapters.length > 0) {
@@ -97,9 +98,12 @@ const PlayerTitle = React.memo(function PlayerTitle({ track }: { track: Article 
   React.useEffect(() => {
     if (containerRef.current && textRef.current) {
       const containerWidth = containerRef.current.offsetWidth;
-      const textWidth = textRef.current.offsetWidth;
-      if (textWidth > containerWidth) {
-        setScrollDistance(textWidth - containerWidth + 20); // 20px extra padding
+      // Reset padding to measure true width
+      textRef.current.style.paddingRight = '0px';
+      const tWidth = textRef.current.offsetWidth;
+      setTextWidth(tWidth);
+      if (tWidth > containerWidth) {
+        setScrollDistance(tWidth - containerWidth);
       } else {
         setScrollDistance(0);
       }
@@ -110,12 +114,21 @@ const PlayerTitle = React.memo(function PlayerTitle({ track }: { track: Article 
     <div className="overflow-hidden whitespace-nowrap relative w-full" ref={containerRef}>
       <motion.div
         className="inline-block"
-        animate={scrollDistance > 0 ? { x: [0, -scrollDistance] } : { x: 0 }}
-        transition={scrollDistance > 0 ? { repeat: Infinity, duration: scrollDistance / 20, ease: "linear", repeatDelay: 2 } : {}}
+        animate={scrollDistance > 0 ? { x: [0, -textWidth - 24] } : { x: 0 }}
+        transition={scrollDistance > 0 ? { repeat: Infinity, duration: (textWidth + 24) / 30, ease: "linear" } : {}}
       >
-        <h4 className="text-sm font-bold text-white inline-block" ref={textRef}>
+        <h4 
+          className="text-sm font-bold text-white inline-block" 
+          style={{ paddingRight: scrollDistance > 0 ? 24 : 0 }} 
+          ref={textRef}
+        >
           {displayTitle}
         </h4>
+        {scrollDistance > 0 && (
+          <h4 className="text-sm font-bold text-white inline-block" style={{ paddingRight: 24 }}>
+            {displayTitle}
+          </h4>
+        )}
       </motion.div>
     </div>
   );
@@ -129,15 +142,15 @@ const PlayerProgressBar = React.memo(function PlayerProgressBar() {
   const progressPercent = (progress / duration) * 100 || 0;
 
   return (
-    <div className="flex items-center gap-2 text-[10px] font-medium text-indigo-400 mt-1 tabular-nums">
-      <span className="flex-shrink-0 text-left whitespace-nowrap">{formatTime(progress)}</span>
-      <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+    <div className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-400 mt-1 tabular-nums w-full">
+      <span className="flex-shrink-0 text-left whitespace-nowrap min-w-[32px]">{formatTime(progress)}</span>
+      <div className="flex-1 min-w-[20px] h-1.5 bg-gray-800 rounded-full overflow-hidden">
         <div 
           className="h-full bg-indigo-500 transition-all duration-200" 
           style={{ width: `${progressPercent}%` }} 
         />
       </div>
-      <span className="flex-shrink-0 text-right whitespace-nowrap">-{formatTime(Math.max(0, duration - progress))}</span>
+      <span className="flex-shrink-0 text-right whitespace-nowrap min-w-[36px]">-{formatTime(Math.max(0, duration - progress))}</span>
     </div>
   );
 });
@@ -161,17 +174,17 @@ function SeekButton({ direction }: { direction: 'forward' | 'backward' }) {
   return (
     <button 
       onClick={handleSeek}
-      className="p-1.5 text-gray-300 hover:bg-gray-800 rounded-full"
+      className="p-2 text-gray-300 hover:bg-gray-800 rounded-full transition-colors"
     >
       {direction === 'backward' ? (
         <div className="relative">
-          <RotateCcw className="w-4 h-4" />
-          <span className="absolute inset-0 flex items-center justify-center text-[6px] font-bold mt-0.5">15</span>
+          <RotateCcw className="w-5 h-5" />
+          <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold mt-0.5">15</span>
         </div>
       ) : (
         <div className="relative">
-          <RotateCw className="w-4 h-4" />
-          <span className="absolute inset-0 flex items-center justify-center text-[6px] font-bold mt-0.5">15</span>
+          <RotateCw className="w-5 h-5" />
+          <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold mt-0.5">15</span>
         </div>
       )}
     </button>

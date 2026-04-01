@@ -275,7 +275,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         }
       }
 
-      const content = getSingleTagText(tagDict, ['content', 'summary', 'description', 'content:encoded']) || '';
+      const content = getSingleTagText(tagDict, ['content:encoded', 'content', 'itunes:summary', 'summary', 'description']) || '';
       let entryTitle = getSingleTagText(tagDict, ['title', 'dc:title']);
       
       if (!entryTitle) {
@@ -464,7 +464,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         }
       }
       
-      const content = getSingleTagText(tagDict, ['description', 'content:encoded', 'content', 'summary', 'itunes:summary', 'itunes:subtitle']) || '';
+      const content = getSingleTagText(tagDict, ['content:encoded', 'content', 'itunes:summary', 'summary', 'description', 'itunes:subtitle']) || '';
       let itemTitle = getSingleTagText(tagDict, ['title', 'dc:title']);
       if (!itemTitle) {
         const plainText = sanitizeSnippet(decodeHtmlEntities(content));

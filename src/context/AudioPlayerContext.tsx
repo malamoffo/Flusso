@@ -241,6 +241,20 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setIsBuffering(true);
   }, [currentTrack]);
 
+  // Check for pending media ID from Android Auto
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() && articles.length > 0) {
+      QueuePlugin.getPendingMediaId().then(({ mediaId }) => {
+        if (mediaId) {
+          const trackToPlay = articles.find(a => a.id === mediaId);
+          if (trackToPlay) {
+            play(trackToPlay);
+          }
+        }
+      }).catch(console.error);
+    }
+  }, [articles, play]);
+
   const playNext = useCallback(() => {
     if (!currentTrackRef.current) return;
     const currentIndex = queue.findIndex(a => a.id === currentTrackRef.current?.id);

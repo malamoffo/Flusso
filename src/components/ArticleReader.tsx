@@ -276,9 +276,10 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'A' && target.classList.contains('podcast-timestamp')) {
+    const link = target.closest('a.podcast-timestamp');
+    if (link) {
       e.preventDefault();
-      const timeStr = target.getAttribute('data-time');
+      const timeStr = link.getAttribute('data-time');
       if (timeStr) {
         const timeInSeconds = parseDurationToSeconds(timeStr);
         if (currentTrack?.id === article.id) {
@@ -371,7 +372,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
       });
 
       const sanitized = purifier.sanitize(content, {
-        ADD_ATTR: ['style', 'allow', 'allowfullscreen', 'frameborder', 'scrolling', 'controls', 'src', 'alt', 'width', 'height', 'srcset', 'sizes', 'sandbox', 'poster', 'preload'],
+        ADD_ATTR: ['style', 'allow', 'allowfullscreen', 'frameborder', 'scrolling', 'controls', 'src', 'alt', 'width', 'height', 'srcset', 'sizes', 'sandbox', 'poster', 'preload', 'class', 'data-time'],
         ADD_TAGS: ['video', 'audio', 'source', 'iframe', 'img', 'figure', 'figcaption'],
         FORBID_ATTR: ['id', 'name'],
       });
