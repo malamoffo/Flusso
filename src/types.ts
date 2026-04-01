@@ -27,6 +27,13 @@ export interface Feed {
   error?: string;
 }
 
+export interface PodcastChapter {
+  startTime: number;
+  title: string;
+  url?: string;
+  imageUrl?: string;
+}
+
 export interface Article {
   id: string;
   feedId: string;
@@ -45,6 +52,8 @@ export interface Article {
   isFavorite: boolean;
   isQueued: boolean;
   type: 'article' | 'podcast';
+  chapters?: PodcastChapter[];
+  chaptersUrl?: string;
 }
 
 export interface FullArticleContent {

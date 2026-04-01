@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { Article } from '../types';
 import { useRss } from './RssContext';
 import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
+import { fetchWithProxy } from '../utils/proxy';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import QueuePlugin from '../plugins/QueuePlugin';
 import { Capacitor } from '@capacitor/core';
@@ -194,6 +195,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         console.error("Error loading audio:", e);
       }
       
+      // Fetch chapters if needed
+      if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
+        fetchWithProxy(track.chaptersUrl, false)
+          .then(text => JSON.parse(text))
+          .then(data => {
+            if (data && data.chapters && Array.isArray(data.chapters)) {
+              const mappedChapters = data.chapters.map((c: any) => ({
+                startTime: Number(c.startTime) || 0,
+                title: c.title || 'Untitled Chapter',
+                url: c.url,
+                imageUrl: c.img || c.image || c.imageUrl
+              }));
+              updateArticle(track.id, { chapters: mappedChapters });
+              setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
+            }
+          })
+          .catch(err => console.error('Failed to fetch chapters:', err));
+      }
+
       // Resume from saved progress if available
       if (track.progress && track.progress > 0) {
         const resumeTime = track.progress * (track.duration ? parseDurationToSeconds(track.duration) : 0);

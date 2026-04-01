@@ -104,6 +104,16 @@ export function extractBestImage(content: string, baseUrl?: string): string | nu
   return null;
 }
 
+function parseTime(timeStr: string | null): number {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':').reverse();
+  let seconds = 0;
+  for (let i = 0; i < parts.length; i++) {
+    seconds += parseFloat(parts[i]) * Math.pow(60, i);
+  }
+  return seconds;
+}
+
 // Helper to parse RSS/Atom XML using native DOMParser
 function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles: Article[] } {
   if (typeof xmlString !== 'string') {
@@ -341,6 +351,43 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         duration = mediaContentElements[0].getAttribute('duration') || '';
       }
 
+      let chapters: PodcastChapter[] | undefined = undefined;
+      let chaptersUrl: string | undefined = undefined;
+
+      const pscChaptersElements = tagDict['psc:chapters'] || tagDict['chapters'] || [];
+      if (pscChaptersElements.length > 0) {
+        const chapterNodes = pscChaptersElements[0].getElementsByTagName('psc:chapter');
+        const fallbackNodes = pscChaptersElements[0].getElementsByTagName('chapter');
+        const nodesToUse = chapterNodes.length > 0 ? chapterNodes : fallbackNodes;
+        
+        if (nodesToUse.length > 0) {
+          chapters = [];
+          for (let k = 0; k < nodesToUse.length; k++) {
+            const node = nodesToUse[k];
+            const start = node.getAttribute('start');
+            const title = node.getAttribute('title');
+            const href = node.getAttribute('href');
+            const image = node.getAttribute('image');
+            if (start && title) {
+              chapters.push({
+                startTime: parseTime(start),
+                title: title,
+                url: href || undefined,
+                imageUrl: image || undefined
+              });
+            }
+          }
+        }
+      }
+
+      const podcastChaptersElements = tagDict['podcast:chapters'] || [];
+      if (podcastChaptersElements.length > 0) {
+        const url = podcastChaptersElements[0].getAttribute('url');
+        if (url) {
+          chaptersUrl = getSafeUrl(url);
+        }
+      }
+
       articles.push({
         id: uuidv4(),
         feedId,
@@ -355,6 +402,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         isFavorite: false,
         isQueued: false,
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
+        chapters,
+        chaptersUrl,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
       });
@@ -490,6 +539,43 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         duration = mediaContentElements[0].getAttribute('duration') || '';
       }
 
+      let chapters: PodcastChapter[] | undefined = undefined;
+      let chaptersUrl: string | undefined = undefined;
+
+      const pscChaptersElements = tagDict['psc:chapters'] || tagDict['chapters'] || [];
+      if (pscChaptersElements.length > 0) {
+        const chapterNodes = pscChaptersElements[0].getElementsByTagName('psc:chapter');
+        const fallbackNodes = pscChaptersElements[0].getElementsByTagName('chapter');
+        const nodesToUse = chapterNodes.length > 0 ? chapterNodes : fallbackNodes;
+        
+        if (nodesToUse.length > 0) {
+          chapters = [];
+          for (let k = 0; k < nodesToUse.length; k++) {
+            const node = nodesToUse[k];
+            const start = node.getAttribute('start');
+            const title = node.getAttribute('title');
+            const href = node.getAttribute('href');
+            const image = node.getAttribute('image');
+            if (start && title) {
+              chapters.push({
+                startTime: parseTime(start),
+                title: title,
+                url: href || undefined,
+                imageUrl: image || undefined
+              });
+            }
+          }
+        }
+      }
+
+      const podcastChaptersElements = tagDict['podcast:chapters'] || [];
+      if (podcastChaptersElements.length > 0) {
+        const url = podcastChaptersElements[0].getAttribute('url');
+        if (url) {
+          chaptersUrl = getSafeUrl(url);
+        }
+      }
+
       articles.push({
         id: uuidv4(),
         feedId,
@@ -504,6 +590,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
         isFavorite: false,
         isQueued: false,
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
+        chapters,
+        chaptersUrl,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
       });

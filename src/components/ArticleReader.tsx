@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, Clock, Calendar, User, ExternalLink, RefreshCw, Bookmark } from 'lucide-react';
-import { Article, FullArticleContent } from '../types';
+import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, Clock, Calendar, User, ExternalLink, RefreshCw, Bookmark, List } from 'lucide-react';
+import { Article, FullArticleContent, PodcastChapter } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
@@ -27,6 +27,86 @@ interface ArticleReaderProps {
   hasNext?: boolean;
   hasPrev?: boolean;
 }
+
+const PodcastChapters = ({ article, isCurrentTrack }: { article: Article, isCurrentTrack: boolean }) => {
+  const [chapters, setChapters] = useState<PodcastChapter[]>(article.chapters || []);
+  const [loading, setLoading] = useState(false);
+  const { seek } = useAudioState();
+  const { progress } = useAudioProgress();
+
+  useEffect(() => {
+    if (article.chapters && article.chapters.length > 0) {
+      setChapters(article.chapters);
+      return;
+    }
+
+    if (article.chaptersUrl) {
+      setLoading(true);
+      fetchWithProxy(article.chaptersUrl, false)
+        .then(text => JSON.parse(text))
+        .then(data => {
+          if (data && data.chapters && Array.isArray(data.chapters)) {
+            const mappedChapters = data.chapters.map((c: any) => ({
+              startTime: Number(c.startTime) || 0,
+              title: c.title || 'Untitled Chapter',
+              url: c.url,
+              imageUrl: c.img || c.image || c.imageUrl
+            }));
+            setChapters(mappedChapters);
+          }
+        })
+        .catch(err => console.error('Failed to fetch chapters:', err))
+        .finally(() => setLoading(false));
+    }
+  }, [article.chapters, article.chaptersUrl]);
+
+  if (!chapters || chapters.length === 0) {
+    if (loading) {
+      return <div className="text-sm text-gray-500 animate-pulse mt-4">Loading chapters...</div>;
+    }
+    return null;
+  }
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+        <List className="w-5 h-5" /> Chapters
+      </h3>
+      <div className="space-y-2">
+        {chapters.map((chapter, index) => {
+          const isCurrentChapter = isCurrentTrack && progress >= chapter.startTime && (index === chapters.length - 1 || progress < chapters[index + 1].startTime);
+          return (
+            <button
+              key={index}
+              onClick={() => {
+                if (isCurrentTrack) {
+                  seek(chapter.startTime);
+                }
+              }}
+              className={cn(
+                "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3",
+                isCurrentChapter ? "bg-indigo-900/40 border border-indigo-500/30" : "bg-gray-800/40 hover:bg-gray-800",
+                !isCurrentTrack && "cursor-default"
+              )}
+            >
+              {chapter.imageUrl && (
+                <img src={chapter.imageUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className={cn("font-medium truncate", isCurrentChapter ? "text-indigo-300" : "text-gray-200")}>
+                  {chapter.title}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {formatTime(chapter.startTime)}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export const ArticleReader = React.memo(function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticle, hasNext, hasPrev }: ArticleReaderProps) {
   const [fullContent, setFullContent] = useState<FullArticleContent | null>(null);
@@ -194,6 +274,23 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
   const [sanitizedContent, setSanitizedContent] = useState<string>('');
 
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A' && target.classList.contains('podcast-timestamp')) {
+      e.preventDefault();
+      const timeStr = target.getAttribute('data-time');
+      if (timeStr) {
+        const timeInSeconds = parseDurationToSeconds(timeStr);
+        if (currentTrack?.id === article.id) {
+          seek(timeInSeconds);
+        } else {
+          play(article);
+          setTimeout(() => seek(timeInSeconds), 500);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     const processContent = async () => {
       let contentToSanitize = fullContent?.content;
@@ -213,6 +310,21 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
       content = content.replace(/<div[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/div>/gi, '');
       content = content.replace(/<span[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/span>/gi, '');
       
+      if (article.type === 'podcast') {
+        // If there are no <p> or <br> tags, convert newlines to <br>
+        if (!/<p\b[^>]*>/i.test(content) && !/<br\b[^>]*>/i.test(content)) {
+          content = content.replace(/\n/g, '<br/>');
+        }
+        
+        // Linkify URLs if there are no <a> tags
+        if (!/<a\b[^>]*>/i.test(content)) {
+          content = content.replace(/(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g, '<a href="$1">$1</a>');
+        }
+
+        // Linkify timestamps (e.g., 01:23:45 or 12:34)
+        content = content.replace(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/g, '<a href="#seek-$1" class="podcast-timestamp" data-time="$1">$1</a>');
+      }
+
       const purifier = DOMPurify();
 
       purifier.addHook('afterSanitizeAttributes', (node) => {
@@ -503,6 +615,10 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           </div>
         )}
 
+        {article.type === 'podcast' && (article.chapters || article.chaptersUrl) && (
+          <PodcastChapters article={article} isCurrentTrack={isCurrentTrack} />
+        )}
+
         {isLoading ? (
           <div className="space-y-4 animate-pulse mt-8">
             <div className="h-4 bg-gray-800 rounded w-3/4"></div>
@@ -513,7 +629,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           </div>
         ) : sanitizedContent ? (
           <div 
-            className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-justify
+            onClick={handleContentClick}
+            className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden ${article.type === 'podcast' ? 'text-left' : 'text-justify'}
               prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
               prose-video:w-full prose-video:rounded-xl
               [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
