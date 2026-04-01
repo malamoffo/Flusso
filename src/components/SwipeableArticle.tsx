@@ -82,9 +82,9 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   }, [inView, article.id, article.isRead, onVisibilityChange]);
 
   useEffect(() => {
-    // Mark as read when the article exits the top of the screen
+    // Mark as read when the article exits the top of the screen (past the sticky header)
     // Only apply this logic when in the 'inbox' filter section
-    if (filter === 'inbox' && !inView && entry && entry.boundingClientRect.top < 0 && !article.isRead) {
+    if (filter === 'inbox' && !inView && entry && entry.boundingClientRect.top < 120 && !article.isRead) {
       onMarkAsRead(article.id);
     }
   }, [inView, entry, article.id, article.isRead, onMarkAsRead, filter]);
@@ -98,25 +98,21 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   };
 
   // Background colors based on swipe action
-  const getActionColor = (action: string) => {
-    if (isSavedSection) return '#ef4444'; // Red for removal
-    if (action === 'toggleRead') return '#3b82f6'; // Blue
-    if (action === 'toggleFavorite') return '#f59e0b'; // Yellow
-    return '#ffffff';
+  const getActionColor = (action: string, isSaved: boolean) => {
+    if (isSaved) {
+      return '#ef4444'; // Red for removal in saved section
+    }
+    // If isSaved is false, we want yellow if action is configured, else transparent.
+    return action === 'none' ? 'rgba(0, 0, 0, 0)' : '#f59e0b'; // Yellow
   };
 
-  const background = useTransform(
-    x,
-    [-100, 0, 100],
-    [
-      isSavedSection ? getActionColor('') : getActionColor(settings.swipeLeftAction), 
-      '#000000', 
-      isSavedSection ? getActionColor('') : getActionColor(settings.swipeRightAction)
-    ]
-  );
+  const leftBackground = getActionColor(isSavedSection ? 'remove' : settings.swipeLeftAction, !!isSavedSection);
+  const rightBackground = getActionColor(isSavedSection ? 'remove' : settings.swipeRightAction, !!isSavedSection);
+
+  const middleBackground = isSavedSection ? 'rgba(239, 68, 68, 0)' : 'rgba(0, 0, 0, 0)';
+  const backgroundTransform = useTransform(x, [-100, 0, 100], [leftBackground, middleBackground, rightBackground]);
 
   const getActionIcon = (action: string, isLeft: boolean) => {
-    if (action === 'toggleRead') return <Check className="w-6 h-6" />;
     if (action === 'toggleFavorite') {
       return article.type === 'podcast' ? <ListPlus className="w-6 h-6" /> : <Bookmark className="w-6 h-6" />;
     }
@@ -125,7 +121,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   const getActionText = (action: string) => {
     if (isSavedSection) return 'Remove';
-    if (action === 'toggleRead') return article.isRead ? 'Mark Unread' : 'Mark Read';
     if (action === 'toggleFavorite') {
       if (article.type === 'podcast') return article.isQueued ? 'Remove from Queue' : 'Add to Queue';
       return article.isFavorite ? 'Unfavorite' : 'Favorite';
@@ -151,9 +146,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         // Snap back for all actions to give the "bounce" feel
         animate(x, 0, { type: "spring", stiffness: 600, damping: 35, restDelta: 0.5 });
 
-        if (action === 'toggleRead') {
-          toggleRead(article.id);
-        } else if (action === 'toggleFavorite') {
+        if (action === 'toggleFavorite') {
           article.type === 'podcast' ? toggleQueue(article.id) : toggleFavorite(article.id);
         }
       }
@@ -228,7 +221,9 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
       {/* Background Action Color */}
       <motion.div 
         className="absolute inset-0 z-0"
-        style={{ background }}
+        style={{ 
+          backgroundColor: backgroundTransform
+        }}
       />
 
       {/* Background Actions */}
@@ -238,7 +233,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
             <Trash2 className="w-6 h-6" />
           ) : (
             <>
-              {settings.swipeRightAction === 'toggleRead' && <Check className="w-6 h-6" />}
               {settings.swipeRightAction === 'toggleFavorite' && (
                 article.type === 'podcast' ? <ListPlus className="w-6 h-6" /> : <Bookmark className="w-6 h-6" />
               )}
@@ -250,7 +244,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
             <Trash2 className="w-6 h-6" />
           ) : (
             <>
-              {settings.swipeLeftAction === 'toggleRead' && <Check className="w-6 h-6" />}
               {settings.swipeLeftAction === 'toggleFavorite' && (
                 article.type === 'podcast' ? <ListPlus className="w-6 h-6" /> : <Bookmark className="w-6 h-6" />
               )}

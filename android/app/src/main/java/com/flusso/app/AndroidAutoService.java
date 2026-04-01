@@ -130,20 +130,34 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "onCreate");
+        Log.d(TAG, "onCreate - Inizializzazione servizio Android Auto");
         // Bind to the Capgo MediaSessionService to get the session token
         Intent intent = new Intent(this, MediaSessionService.class);
-        isBound = bindService(intent, connection, Context.BIND_AUTO_CREATE);
+        try {
+            isBound = bindService(intent, connection, Context.BIND_AUTO_CREATE);
+            if (!isBound) {
+                Log.e(TAG, "Impossibile effettuare il bind al MediaSessionService. Assicurati che sia dichiarato correttamente nel Manifest.");
+            } else {
+                Log.d(TAG, "Binding al MediaSessionService avviato con successo.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Errore critico durante il bind al servizio MediaSessionService", e);
+        }
     }
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
-        Log.d(TAG, "onDestroy");
+        Log.d(TAG, "onDestroy - Pulizia risorse");
         if (isBound) {
-            unbindService(connection);
+            try {
+                unbindService(connection);
+                Log.d(TAG, "Unbind dal servizio completato.");
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Errore durante l'unbind (servizio già non legato)", e);
+            }
             isBound = false;
         }
+        super.onDestroy();
     }
 
     @Nullable

@@ -80,7 +80,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsBuffering(false);
       
       // Update position state for media session
-      if (audio.duration > 0) {
+      if (audio.duration > 0 && Capacitor.isNativePlatform()) {
         MediaSession.setPositionState({
           duration: audio.duration,
           playbackRate: audio.playbackRate,
@@ -91,11 +91,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
-      MediaSession.setPositionState({
-        duration: audio.duration,
-        playbackRate: audio.playbackRate,
-        position: audio.currentTime
-      }).catch(console.error);
+      if (Capacitor.isNativePlatform()) {
+        MediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate,
+          position: audio.currentTime
+        }).catch(console.error);
+      }
     };
 
     const handleWaiting = () => {
@@ -104,14 +106,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handlePlaying = () => {
       setIsBuffering(false);
-      MediaSession.setPlaybackState({ playbackState: 'playing' }).catch(console.error);
+      if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'playing' }).catch(console.error);
     };
 
     const handleEnded = () => {
       setIsPlaying(false);
       setIsBuffering(false);
       setProgress(0);
-      MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+      if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
       if (currentTrackRef.current) {
         updateArticle(currentTrackRef.current.id, { progress: 0 });
         // Auto-play next in queue if available
@@ -125,7 +127,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       console.error("Audio error:", e);
       setIsPlaying(false);
       setIsBuffering(false);
-      MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+      if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -237,7 +239,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!audioRef.current) return;
     audioRef.current.pause();
     setIsPlaying(false);
-    MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(console.error);
+    if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(console.error);
     
     // Save progress on pause
     if (currentTrack && duration > 0) {
@@ -281,12 +283,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audioRef.current.currentTime = 0;
     setIsPlaying(false);
     setCurrentTrack(null);
-    MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+    if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
   }, [currentTrack, progress, duration, updateArticle]);
 
   // Media Session API for background controls
   useEffect(() => {
-    if (currentTrack) {
+    if (currentTrack && Capacitor.isNativePlatform()) {
       const feed = feeds.find(f => f.id === currentTrack.feedId);
       MediaSession.setMetadata({
         title: currentTrack.title,

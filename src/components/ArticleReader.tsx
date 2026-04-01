@@ -171,7 +171,7 @@ export function ArticleReader({ article, onClose, onNext, onPrev, onSelectArticl
             
             // If the article doesn't have an image, try to extract one from the full content
             if (!article.imageUrl && contentToSave.content) {
-              const newImageUrl = extractBestImage(contentToSave.content);
+              const newImageUrl = extractBestImage(contentToSave.content, article.link);
               if (newImageUrl) {
                 const safeUrl = getSafeUrl(newImageUrl, '');
                 if (safeUrl) {

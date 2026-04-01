@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudFog, Wind } from 'lucide-react';
 import { fetchWithProxy } from '../utils/proxy';
 
@@ -7,10 +7,8 @@ interface WeatherData {
   condition: string;
 }
 
-export function HeaderWidgets() {
+const Clock = memo(() => {
   const [time, setTime] = useState(new Date());
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -18,6 +16,48 @@ export function HeaderWidgets() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  return (
+    <div className="flex items-center">
+      <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+    </div>
+  );
+});
+
+const WeatherWidget = memo(({ loading, weather }: { loading: boolean, weather: WeatherData | null }) => {
+  const getWeatherIcon = (condition: string) => {
+    switch (condition) {
+      case 'clear': return <Sun className="w-4 h-4 text-amber-500" />;
+      case 'cloudy': return <Cloud className="w-4 h-4 text-gray-400" />;
+      case 'fog': return <CloudFog className="w-4 h-4 text-gray-300" />;
+      case 'rain': return <CloudRain className="w-4 h-4 text-blue-400" />;
+      case 'snow': return <CloudSnow className="w-4 h-4 text-blue-200" />;
+      case 'thunderstorm': return <CloudLightning className="w-4 h-4 text-yellow-500" />;
+      default: return <Sun className="w-4 h-4 text-amber-500" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="animate-pulse">
+        <span className="opacity-50">...</span>
+      </div>
+    );
+  }
+
+  if (!weather) return null;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {getWeatherIcon(weather.condition)}
+      <span>{weather.temp}°C</span>
+    </div>
+  );
+});
+
+export function HeaderWidgets() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchWeather = async (lat: number, lon: number) => {
@@ -73,34 +113,10 @@ export function HeaderWidgets() {
     return 'clear';
   };
 
-  const WeatherIcon = ({ condition }: { condition: string }) => {
-    switch (condition) {
-      case 'clear': return <Sun className="w-4 h-4 text-amber-500" />;
-      case 'cloudy': return <Cloud className="w-4 h-4 text-gray-400" />;
-      case 'fog': return <CloudFog className="w-4 h-4 text-gray-300" />;
-      case 'rain': return <CloudRain className="w-4 h-4 text-blue-400" />;
-      case 'snow': return <CloudSnow className="w-4 h-4 text-blue-200" />;
-      case 'thunderstorm': return <CloudLightning className="w-4 h-4 text-yellow-500" />;
-      default: return <Sun className="w-4 h-4 text-amber-500" />;
-    }
-  };
-
   return (
     <div className="flex items-baseline gap-3 text-xl font-bold text-gray-500 tracking-tight">
-      <div className="flex items-center">
-        <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-      
-      {loading ? (
-        <div className="animate-pulse">
-          <span className="opacity-50">...</span>
-        </div>
-      ) : weather && (
-        <div className="flex items-center gap-1.5">
-          <WeatherIcon condition={weather.condition} />
-          <span>{weather.temp}°C</span>
-        </div>
-      )}
+      <Clock />
+      <WeatherWidget loading={loading} weather={weather} />
     </div>
   );
 }

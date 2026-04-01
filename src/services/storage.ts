@@ -41,14 +41,24 @@ function sanitizeSnippet(input: string): string {
 }
 
 // Helper to extract the best image from HTML content, avoiding tracking pixels and icons
-export function extractBestImage(content: string): string | null {
+export function extractBestImage(content: string, baseUrl?: string): string | null {
   if (!content) return null;
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, 'text/html');
   
+  const resolveUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    if (!baseUrl) return url;
+    try {
+      return new URL(url, baseUrl).href;
+    } catch (e) {
+      return url;
+    }
+  };
+
   // Try og:image
   const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
-  if (ogImage) return ogImage;
+  if (ogImage) return resolveUrl(ogImage);
 
   const imgTags = doc.getElementsByTagName('img');
   
@@ -88,7 +98,7 @@ export function extractBestImage(content: string): string | null {
     if (height > 0 && height <= 10) continue;
 
     // First valid image found
-    return url;
+    return resolveUrl(url);
   }
   
   return null;
@@ -323,7 +333,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
           ALLOWED_TAGS: ['img', 'figure', 'picture', 'source'],
           ALLOWED_ATTR: ['src', 'data-src', 'data-lazy-src', 'data-original', 'width', 'height', 'alt', 'srcset', 'data-srcset']
         });
-        imageUrl = extractBestImage(sanitizedForImage);
+        imageUrl = extractBestImage(sanitizedForImage, entryLink);
       }
 
       let duration = getSingleTagText(tagDict, ['itunes:duration', 'duration', 'media:duration']);
@@ -472,7 +482,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       }
 
       if (!imageUrl) {
-        imageUrl = extractBestImage(content);
+        imageUrl = extractBestImage(content, itemLink);
       }
 
       let duration = getSingleTagText(tagDict, ['itunes:duration', 'duration', 'media:duration']);
@@ -516,7 +526,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
 export const defaultSettings: Settings = {
   swipeLeftAction: 'toggleFavorite',
-  swipeRightAction: 'toggleRead',
+  swipeRightAction: 'none',
   imageDisplay: 'small',
   fontSize: 'medium',
   refreshInterval: 60, // Default to 1 hour

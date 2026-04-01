@@ -6,6 +6,8 @@ import { FileText } from 'lucide-react';
 
 // Global set to track images that have already been loaded in this session
 const loadedImages = new Set<string>();
+// Global map to cache resolved local URLs to avoid redundant async calls
+const resolvedUrls = new Map<string, string>();
 
 type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   src: string;
@@ -13,50 +15,96 @@ type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 export function CachedImage({ src, className, fallback, ...props }: CachedImageProps) {
-  const [currentSrc, setCurrentSrc] = useState<string | null>(src || null);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(resolvedUrls.get(src) || src || null);
   const [isLoaded, setIsLoaded] = useState(loadedImages.has(src));
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     
-    // Reset state for new src
-    setIsLoaded(false);
-    setError(false);
-    setCurrentSrc(null);
+    // If src is empty, do nothing
+    if (!src) {
+      setIsLoaded(false);
+      setError(false);
+      setCurrentSrc(null);
+      return;
+    }
 
+    // If we already have this src loaded and resolved, we might not need to do anything
+    // but we still run the logic to ensure consistency, just more carefully.
+    
     const loadImage = async () => {
-      if (!src) return;
-
       let finalSrc = src;
-      if (Capacitor.isNativePlatform()) {
+      
+      // Check global cache first
+      if (resolvedUrls.has(src)) {
+        finalSrc = resolvedUrls.get(src)!;
+      } else if (Capacitor.isNativePlatform()) {
         try {
           const localUrl = await imagePersistence.getLocalUrl(src);
           if (localUrl) {
             finalSrc = localUrl;
+            resolvedUrls.set(src, localUrl);
           }
         } catch (e) {
-          console.error('[CachedImage] Native load error:', e);
+          // Fallback to original src
         }
+      }
+
+      if (!isMounted) return;
+
+      // If the finalSrc is different from what we're currently showing, update it
+      if (finalSrc !== currentSrc) {
+        setCurrentSrc(finalSrc);
+      }
+
+      // If already marked as loaded globally, just set local state
+      if (loadedImages.has(src)) {
+        setIsLoaded(true);
+        return;
       }
 
       const img = new Image();
       if (props.referrerPolicy) {
         img.referrerPolicy = props.referrerPolicy as ReferrerPolicy;
       }
+      
       img.onload = () => {
         if (isMounted) {
           loadedImages.add(src);
-          setCurrentSrc(finalSrc);
           setIsLoaded(true);
+          setError(false);
         }
       };
+      
       img.onerror = () => {
         if (isMounted) {
-          setError(true);
-          setIsLoaded(false);
+          // If native cache failed, try the original URL as a last resort if we haven't already
+          if (finalSrc !== src) {
+            setCurrentSrc(src);
+            const retryImg = new Image();
+            if (props.referrerPolicy) retryImg.referrerPolicy = props.referrerPolicy as ReferrerPolicy;
+            retryImg.onload = () => {
+              if (isMounted) {
+                loadedImages.add(src);
+                setIsLoaded(true);
+                setError(false);
+              }
+            };
+            retryImg.onerror = () => {
+              if (isMounted) {
+                setError(true);
+                setIsLoaded(false);
+              }
+            };
+            retryImg.src = src;
+          } else {
+            setError(true);
+            setIsLoaded(false);
+          }
         }
       };
+      
       img.src = finalSrc;
     };
 

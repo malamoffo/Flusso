@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRss } from './context/RssContext';
-import { useAudioPlayer } from './context/AudioPlayerContext';
+import { useAudioState } from './context/AudioPlayerContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { AddFeedModal } from './components/AddFeedModal';
@@ -29,7 +29,7 @@ export default function App() {
     toggleFavorite, toggleQueue, removeFromSaved
   } = useRss();
 
-  const { currentTrack } = useAudioPlayer();
+  const { currentTrack } = useAudioState();
 
   const handleVisibilityChange = useCallback((id: string, inView: boolean) => {
     if (inView) {
@@ -204,7 +204,7 @@ export default function App() {
 
   const handleArticleClick = useCallback((article: Article) => {
     setSelectedArticle(article);
-    if (!article.isRead && article.type !== 'podcast') {
+    if (!article.isRead) {
       markAsRead(article.id);
     }
   }, [markAsRead]);
@@ -556,7 +556,7 @@ export default function App() {
               if (idx < filteredArticles.length - 1) {
                 const next = articles.find(a => a.id === filteredArticles[idx + 1].id) || filteredArticles[idx + 1];
                 setSelectedArticle(next);
-                if (!next.isRead && next.type !== 'podcast') markAsRead(next.id);
+                if (!next.isRead) markAsRead(next.id);
               }
             }}
             onPrev={() => {
@@ -564,7 +564,7 @@ export default function App() {
               if (idx > 0) {
                 const prev = articles.find(a => a.id === filteredArticles[idx - 1].id) || filteredArticles[idx - 1];
                 setSelectedArticle(prev);
-                if (!prev.isRead && prev.type !== 'podcast') markAsRead(prev.id);
+                if (!prev.isRead) markAsRead(prev.id);
               }
             }}
             hasNext={filteredArticles.findIndex(a => a.id === selectedArticle.id) < filteredArticles.length - 1}

@@ -36,10 +36,19 @@ export function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Articl
           )}
           
           {/* Info */}
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-bold text-white truncate">
-              {currentTrack.title}
-            </h4>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <motion.div
+              className="whitespace-nowrap"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
+            >
+              <h4 className="text-sm font-bold text-white inline-block pr-8">
+                {currentTrack.title}
+              </h4>
+              <h4 className="text-sm font-bold text-white inline-block pr-8">
+                {currentTrack.title}
+              </h4>
+            </motion.div>
             <PlayerProgressBar />
           </div>
           
