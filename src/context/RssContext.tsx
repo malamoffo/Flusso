@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Feed, Article, Settings } from '../types';
 import { storage, defaultSettings } from '../services/storage';
 import packageJson from '../../package.json';
+import { Capacitor } from '@capacitor/core';
+import { BackgroundPlugin } from '../plugins/BackgroundPlugin';
 
 interface ProgressInfo {
   current: number;
@@ -110,6 +112,25 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      if (feeds.length > 0 && settings.refreshInterval > 0) {
+        const syncFeeds = feeds.map(f => ({
+          id: f.id,
+          url: f.feedUrl,
+          title: f.title,
+          lastFetched: f.lastFetched || 0
+        }));
+        BackgroundPlugin.setupBackgroundSync({
+          feeds: syncFeeds,
+          intervalMinutes: settings.refreshInterval
+        }).catch(console.error);
+      } else {
+        BackgroundPlugin.stopBackgroundSync().catch(console.error);
+      }
+    }
+  }, [feeds, settings.refreshInterval]);
 
   const updateSettings = useCallback(async (updates: Partial<Settings>) => {
     setSettings(prev => {
@@ -345,7 +366,47 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             try {
               const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
-              if (data) results.push(data);
+              if (data) {
+                results.push(data);
+                
+                // Inserisci i nuovi articoli uno alla volta nella corretta posizione cronologica
+                if (data.articles && data.articles.length > 0) {
+                  setArticles(prev => {
+                    const merged = [...prev];
+                    let hasNew = false;
+                    
+                    for (let i = 0; i < data.articles.length; i++) {
+                      const newArticle = data.articles[i];
+                      // Check for duplicate link
+                      if (!merged.some(a => a.link === newArticle.link)) {
+                        hasNew = true;
+                        
+                        // Ottimizzazione: se è più recente del primo, inserisci in testa
+                        if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
+                          merged.unshift(newArticle);
+                          continue;
+                        }
+
+                        // Ricerca Binaria per trovare la posizione corretta (O(log n))
+                        // Partendo dal "più recente" (inizio lista) in modo efficiente
+                        let low = 0;
+                        let high = merged.length;
+                        while (low < high) {
+                          const mid = (low + high) >>> 1;
+                          if (merged[mid].pubDate > newArticle.pubDate) {
+                            low = mid + 1;
+                          } else {
+                            high = mid;
+                          }
+                        }
+                        merged.splice(low, 0, newArticle);
+                      }
+                    }
+                    
+                    return hasNew ? merged : prev;
+                  });
+                }
+              }
             } finally {
               clearTimeout(timeoutId);
             }
@@ -366,38 +427,9 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       if (results.length > 0) {
         setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
-        const { updatedFeeds, allNewArticles } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
+        const { updatedFeeds } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
         
         setFeeds(updatedFeeds);
-        
-        if (allNewArticles.length > 0) {
-          setArticles(prev => {
-            // Efficiently merge new articles into the existing sorted list
-            // 1. Sort the new articles (usually a small batch)
-            const sortedNew = [...allNewArticles].sort((a, b) => b.pubDate - a.pubDate);
-            
-            // 2. Merge two sorted arrays in O(N+M)
-            const merged: Article[] = [];
-            let i = 0; // index for prev
-            let j = 0; // index for sortedNew
-            
-            while (i < prev.length && j < sortedNew.length) {
-              if (prev[i].pubDate >= sortedNew[j].pubDate) {
-                merged.push(prev[i]);
-                i++;
-              } else {
-                merged.push(sortedNew[j]);
-                j++;
-              }
-            }
-            
-            // Append remaining
-            while (i < prev.length) merged.push(prev[i]);
-            while (j < sortedNew.length) merged.push(sortedNew[j]);
-            
-            return merged;
-          });
-        }
       }
       
       setProgress(p => p ? { ...p, status: "Finalizing..." } : null);

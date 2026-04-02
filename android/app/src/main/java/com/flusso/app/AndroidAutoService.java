@@ -71,8 +71,30 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                                 new android.support.v4.media.session.MediaControllerCompat(AndroidAutoService.this, mediaSession.getSessionToken());
                             
                             // Initial sync
-                            proxySession.setPlaybackState(controller.getPlaybackState());
+                            PlaybackStateCompat currentState = controller.getPlaybackState();
+                            proxySession.setPlaybackState(currentState);
                             proxySession.setMetadata(controller.getMetadata());
+                            
+                            if (currentState == null || currentState.getState() != PlaybackStateCompat.STATE_PLAYING) {
+                                // Not playing, start from queue
+                                JSArray queue = QueuePlugin.getStaticQueue(AndroidAutoService.this);
+                                if (queue != null && queue.length() > 0) {
+                                    try {
+                                        JSONObject firstItem = queue.getJSONObject(0);
+                                        String mediaId = firstItem.optString("id");
+                                        if (mediaId != null && !mediaId.isEmpty()) {
+                                            QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                                            if (queuePlugin != null) {
+                                                queuePlugin.triggerPlayRequest(mediaId);
+                                            } else {
+                                                startAppWithMediaId(mediaId);
+                                            }
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Failed to auto-play first item", e);
+                                    }
+                                }
+                            }
                             
                             // Listen for changes
                             controller.registerCallback(new android.support.v4.media.session.MediaControllerCompat.Callback() {
@@ -298,40 +320,17 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                 List<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
 
                 if (ROOT_ID.equals(parentId)) {
-                    // Add folders at the root
+                    // Add a single folder at the root
                     mediaItems.add(new MediaBrowserCompat.MediaItem(
                             new MediaDescriptionCompat.Builder()
                                     .setMediaId(QUEUE_ID)
                                     .setTitle("Coda di riproduzione")
-                                    .setSubtitle("I tuoi podcast in coda")
+                                    .setSubtitle("I tuoi podcast preferiti e in coda")
                                     .build(), 
                             MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-                    
-                    mediaItems.add(new MediaBrowserCompat.MediaItem(
-                            new MediaDescriptionCompat.Builder()
-                                    .setMediaId(RECENT_ID)
-                                    .setTitle("Recenti")
-                                    .setSubtitle("Ultimi episodi pubblicati")
-                                    .build(), 
-                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-
-                    mediaItems.add(new MediaBrowserCompat.MediaItem(
-                            new MediaDescriptionCompat.Builder()
-                                    .setMediaId(FAVORITES_ID)
-                                    .setTitle("Preferiti")
-                                    .setSubtitle("I tuoi podcast preferiti")
-                                    .build(), 
-                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-                } else if (QUEUE_ID.equals(parentId) || RECENT_ID.equals(parentId) || FAVORITES_ID.equals(parentId)) {
+                } else if (QUEUE_ID.equals(parentId)) {
                     // Fetch queue from our custom plugin using the static method
-                    JSArray queue = null;
-                    if (QUEUE_ID.equals(parentId)) {
-                        queue = QueuePlugin.getStaticQueue(AndroidAutoService.this);
-                    } else if (RECENT_ID.equals(parentId)) {
-                        queue = QueuePlugin.getStaticRecent(AndroidAutoService.this);
-                    } else if (FAVORITES_ID.equals(parentId)) {
-                        queue = QueuePlugin.getStaticFavorites(AndroidAutoService.this);
-                    }
+                    JSArray queue = QueuePlugin.getStaticQueue(AndroidAutoService.this);
                     
                     if (queue != null) {
                         Log.d(TAG, "Queue size for " + parentId + ": " + queue.length());

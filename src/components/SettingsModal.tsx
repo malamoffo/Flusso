@@ -290,6 +290,35 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                 </section>
 
+                {/* Background Refresh Settings */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Background Refresh</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Refresh Interval
+                      </label>
+                      <select
+                        value={settings.refreshInterval}
+                        onChange={(e) => updateSettings({ refreshInterval: parseInt(e.target.value) })}
+                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-800 text-white"
+                      >
+                        <option value={0}>Never</option>
+                        <option value={15}>Every 15 minutes</option>
+                        <option value={30}>Every 30 minutes</option>
+                        <option value={60}>Every hour</option>
+                        <option value={180}>Every 3 hours</option>
+                        <option value={360}>Every 6 hours</option>
+                        <option value={720}>Every 12 hours</option>
+                        <option value={1440}>Every 24 hours</option>
+                      </select>
+                      <p className="mt-1 text-[10px] text-gray-500">
+                        * Minimum 15 minutes required by Android system.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
                 <section className="pt-4 border-t border-gray-800">
                   <button
                     onClick={() => setActiveTab('about')}
