@@ -704,25 +704,38 @@ export const storage = {
     await set(ARTICLES_KEY, articles);
   },
 
-  async fetchFeedData(feedUrl: string, sinceDate?: number): Promise<{ feed: Feed; articles: Article[] } | null> {
+  async fetchFeedData(feedUrl: string, sinceDate?: number, signal?: AbortSignal): Promise<{ feed: Feed; articles: Article[] } | null> {
     // Check if we are on a native platform (Android/iOS)
     const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
     
     if (isNative) {
       // On native, we ALWAYS use direct fetch via CapacitorHttp as it bypasses CORS
       try {
+        if (signal?.aborted) return null;
+
+        const headers: Record<string, string> = { 
+          'Accept': 'application/xml, text/xml, */*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        };
+
+        if (sinceDate) {
+          headers['If-Modified-Since'] = new Date(sinceDate).toUTCString();
+        }
+
         const options = {
           url: feedUrl,
-          headers: { 
-            'Accept': 'application/xml, text/xml, */*',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          },
-          connectTimeout: 30000,
-          readTimeout: 30000,
+          headers,
+          connectTimeout: 15000,
+          readTimeout: 15000,
         };
         
         const response = await CapacitorHttp.get(options);
         
+        if (response.status === 304) {
+          console.log(`[STORAGE] Feed not modified since ${sinceDate} for ${feedUrl}`);
+          return null; // No new articles
+        }
+
         if (response.status === 200) {
           const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
           const { feed, articles } = parseRssXml(dataString, feedUrl);
@@ -748,7 +761,9 @@ export const storage = {
 
     // Web fallback (using CORS proxy to avoid "Failed to fetch" errors in browser preview)
     try {
-      const xmlString = await fetchWithProxy(feedUrl);
+      const xmlString = await fetchWithProxy(feedUrl, true, sinceDate, signal);
+      if (!xmlString) return null; // 304 or empty
+
       const { feed, articles } = parseRssXml(xmlString, feedUrl);
       
       const filteredArticles = articles.filter(a => {

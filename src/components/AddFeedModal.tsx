@@ -101,6 +101,7 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose }
                 </div>
                 <input
                   type="url"
+                  inputMode="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://example.com/feed.xml"

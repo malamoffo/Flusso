@@ -288,84 +288,96 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     }
 
     @Override
-    public void onLoadChildren(@NonNull String parentId, @NonNull Result<List<MediaBrowserCompat.MediaItem>> result) {
+    public void onLoadChildren(@NonNull final String parentId, @NonNull final Result<List<MediaBrowserCompat.MediaItem>> result) {
         Log.d(TAG, "onLoadChildren: " + parentId);
-        List<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
-
-        if (ROOT_ID.equals(parentId)) {
-            // Add folders at the root
-            mediaItems.add(new MediaBrowserCompat.MediaItem(
-                    new MediaDescriptionCompat.Builder()
-                            .setMediaId(QUEUE_ID)
-                            .setTitle("Coda di riproduzione")
-                            .setSubtitle("I tuoi podcast in coda")
-                            .build(), 
-                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-            
-            mediaItems.add(new MediaBrowserCompat.MediaItem(
-                    new MediaDescriptionCompat.Builder()
-                            .setMediaId(RECENT_ID)
-                            .setTitle("Recenti")
-                            .setSubtitle("Ultimi episodi pubblicati")
-                            .build(), 
-                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-
-            mediaItems.add(new MediaBrowserCompat.MediaItem(
-                    new MediaDescriptionCompat.Builder()
-                            .setMediaId(FAVORITES_ID)
-                            .setTitle("Preferiti")
-                            .setSubtitle("I tuoi podcast preferiti")
-                            .build(), 
-                    MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-        } else if (QUEUE_ID.equals(parentId) || RECENT_ID.equals(parentId) || FAVORITES_ID.equals(parentId)) {
-            // Fetch queue from our custom plugin using the static method
-            JSArray queue = null;
-            if (QUEUE_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticQueue(this);
-            } else if (RECENT_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticRecent(this);
-            } else if (FAVORITES_ID.equals(parentId)) {
-                queue = QueuePlugin.getStaticFavorites(this);
-            }
-            
-            if (queue != null) {
-                Log.d(TAG, "Queue size for " + parentId + ": " + queue.length());
-                try {
-                    for (int i = 0; i < queue.length(); i++) {
-                        JSONObject item = queue.getJSONObject(i);
-                        String id = item.optString("id");
-                        if (id == null || id.isEmpty()) {
-                            id = "unknown_" + i;
-                        }
-                        String title = item.optString("title");
-                        if (title == null || title.isEmpty()) {
-                            title = "Sconosciuto";
-                        }
-                        String subtitle = item.optString("artist"); // Use artist for subtitle
-                        String imageUrl = item.optString("artwork"); // Use artwork for icon
-                        String mediaUrl = item.optString("mediaUrl");
-
-                        MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
-                                .setMediaId(id)
-                                .setTitle(title)
-                                .setSubtitle(subtitle);
-
-                        if (imageUrl != null && !imageUrl.isEmpty()) {
-                            descriptionBuilder.setIconUri(Uri.parse(imageUrl));
-                        }
-                        
-                        MediaDescriptionCompat description = descriptionBuilder.build();
-                        mediaItems.add(new MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE));
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error parsing queue", e);
-                }
-            } else {
-                Log.d(TAG, "Queue is null");
-            }
-        }
+        result.detach();
         
-        result.sendResult(mediaItems);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                List<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
+
+                if (ROOT_ID.equals(parentId)) {
+                    // Add folders at the root
+                    mediaItems.add(new MediaBrowserCompat.MediaItem(
+                            new MediaDescriptionCompat.Builder()
+                                    .setMediaId(QUEUE_ID)
+                                    .setTitle("Coda di riproduzione")
+                                    .setSubtitle("I tuoi podcast in coda")
+                                    .build(), 
+                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+                    
+                    mediaItems.add(new MediaBrowserCompat.MediaItem(
+                            new MediaDescriptionCompat.Builder()
+                                    .setMediaId(RECENT_ID)
+                                    .setTitle("Recenti")
+                                    .setSubtitle("Ultimi episodi pubblicati")
+                                    .build(), 
+                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+
+                    mediaItems.add(new MediaBrowserCompat.MediaItem(
+                            new MediaDescriptionCompat.Builder()
+                                    .setMediaId(FAVORITES_ID)
+                                    .setTitle("Preferiti")
+                                    .setSubtitle("I tuoi podcast preferiti")
+                                    .build(), 
+                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+                } else if (QUEUE_ID.equals(parentId) || RECENT_ID.equals(parentId) || FAVORITES_ID.equals(parentId)) {
+                    // Fetch queue from our custom plugin using the static method
+                    JSArray queue = null;
+                    if (QUEUE_ID.equals(parentId)) {
+                        queue = QueuePlugin.getStaticQueue(AndroidAutoService.this);
+                    } else if (RECENT_ID.equals(parentId)) {
+                        queue = QueuePlugin.getStaticRecent(AndroidAutoService.this);
+                    } else if (FAVORITES_ID.equals(parentId)) {
+                        queue = QueuePlugin.getStaticFavorites(AndroidAutoService.this);
+                    }
+                    
+                    if (queue != null) {
+                        Log.d(TAG, "Queue size for " + parentId + ": " + queue.length());
+                        try {
+                            for (int i = 0; i < queue.length(); i++) {
+                                JSONObject item = queue.getJSONObject(i);
+                                String id = item.optString("id");
+                                if (id == null || id.isEmpty()) {
+                                    id = "unknown_" + i;
+                                }
+                                String title = item.optString("title");
+                                if (title == null || title.isEmpty()) {
+                                    title = "Sconosciuto";
+                                }
+                                String subtitle = item.optString("artist"); // Use artist for subtitle
+                                String imageUrl = item.optString("artwork"); // Use artwork for icon
+
+                                MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
+                                        .setMediaId(id)
+                                        .setTitle(title)
+                                        .setSubtitle(subtitle);
+
+                                if (imageUrl != null && !imageUrl.isEmpty()) {
+                                    descriptionBuilder.setIconUri(Uri.parse(imageUrl));
+                                }
+                                
+                                MediaDescriptionCompat description = descriptionBuilder.build();
+                                mediaItems.add(new MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE));
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing queue", e);
+                        }
+                    } else {
+                        Log.d(TAG, "Queue is null for " + parentId);
+                    }
+                }
+                
+                result.sendResult(mediaItems);
+            }
+        }).start();
+    }
+
+    @Override
+    public void onLoadChildren(@NonNull String parentId, @NonNull Result<List<MediaBrowserCompat.MediaItem>> result, @NonNull Bundle options) {
+        // Android Auto sometimes calls this version
+        onLoadChildren(parentId, result);
     }
 
     @Override

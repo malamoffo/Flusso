@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2 } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
 import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
 import packageJson from '../../package.json';
@@ -23,13 +24,19 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [editTitle, setEditTitle] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   
   React.useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab || 'settings');
       setSelectedFeedId(null);
+      setIsConfirmingDelete(false);
     }
   }, [isOpen, initialTab]);
+
+  React.useEffect(() => {
+    setIsConfirmingDelete(false);
+  }, [selectedFeedId]);
 
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
   const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
@@ -68,13 +75,14 @@ export const SettingsModal = React.memo(function SettingsModal({
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   {(activeTab !== 'settings' || selectedFeed) && (
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
                       onClick={() => selectedFeed ? setSelectedFeedId(null) : setActiveTab('settings')}
                       className="p-2 -ml-2 rounded-full hover:bg-gray-800 transition-colors"
                       aria-label="Go back"
                     >
                       <ArrowLeft className="w-5 h-5 text-gray-300" aria-hidden="true" />
-                    </button>
+                    </motion.button>
                   )}
                   <h2 className="text-2xl font-bold text-white">
                     {selectedFeed ? 'Feed Details' : 
@@ -142,7 +150,34 @@ export const SettingsModal = React.memo(function SettingsModal({
                     </a>
                   )}
                 </div>
-                <button onClick={() => { removeFeed(selectedFeed.id); setSelectedFeedId(null); }} className="w-full p-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl font-medium transition-colors">Remove Feed</button>
+                <button 
+                  onClick={() => { 
+                    if (isConfirmingDelete) {
+                      removeFeed(selectedFeed.id); 
+                      setSelectedFeedId(null); 
+                    } else {
+                      setIsConfirmingDelete(true);
+                    }
+                  }} 
+                  className={cn(
+                    "w-full p-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2",
+                    isConfirmingDelete 
+                      ? "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-900/20" 
+                      : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                  )}
+                >
+                  {isConfirmingDelete ? (
+                    <>
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      Confirm Removal
+                    </>
+                  ) : 'Remove Feed'}
+                </button>
+                {isConfirmingDelete && (
+                  <p className="text-[10px] text-center text-red-400 animate-pulse uppercase tracking-wider font-bold">
+                    Tap again to permanently delete
+                  </p>
+                )}
               </div>
             ) : activeTab === 'settings' ? (
               <div className="space-y-8">

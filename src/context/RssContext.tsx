@@ -326,22 +326,35 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       
       const queue = [...fToRefresh];
-      const workers = Array(Math.min(5, queue.length)).fill(null).map(async () => {
-        while (queue.length > 0) {
-          const feed = queue.shift();
+      let queueIndex = 0;
+      const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
+      
+      const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
+        while (queueIndex < queue.length) {
+          const feed = queue[queueIndex++];
           if (!feed) break;
+          
           try {
             // Find the latest article date for this feed to only fetch newer articles
             const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
-            
-            // Use the feed's lastArticleDate if no articles are present (e.g. after cleanup)
-            // to avoid re-fetching articles that were already deleted.
             const sinceDate = latestArticleDate || feed.lastArticleDate;
             
-            const data = await storage.fetchFeedData(feed.feedUrl, sinceDate);
-            if (data) results.push(data);
-          } catch (e) {
-            console.error(`Failed to refresh feed ${feed.feedUrl}`, e);
+            // Global timeout for this specific feed fetch
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FEED_TIMEOUT);
+            
+            try {
+              const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
+              if (data) results.push(data);
+            } finally {
+              clearTimeout(timeoutId);
+            }
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              console.warn(`Skipping feed ${feed.feedUrl} due to timeout (${FEED_TIMEOUT}ms)`);
+            } else {
+              console.warn(`Skipping feed ${feed.feedUrl} due to error:`, e);
+            }
           } finally {
             completed++;
             setProgress(p => p ? { ...p, current: completed } : { current: completed, total: fToRefresh.length });

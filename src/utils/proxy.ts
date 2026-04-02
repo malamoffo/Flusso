@@ -1,18 +1,36 @@
-export async function fetchWithProxy(url: string, isRss: boolean = true): Promise<string> {
+export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDate?: number, externalSignal?: AbortSignal): Promise<string> {
   // First try direct fetch (in case CORS is enabled on the target server)
   try {
+    if (externalSignal?.aborted) throw new Error('Aborted');
+
     const directController = new AbortController();
     const directTimeoutId = setTimeout(() => directController.abort(), 10000);
     
+    // Link external signal to our internal controller
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', () => directController.abort(), { once: true });
+    }
+
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {})
+    };
+
+    if (sinceDate) {
+      headers['If-Modified-Since'] = new Date(sinceDate).toUTCString();
+    }
+
     const directResponse = await fetch(url, {
       signal: directController.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {})
-      }
+      headers
     });
     clearTimeout(directTimeoutId);
     
+    if (directResponse.status === 304) {
+      console.log(`Direct fetch returned 304 Not Modified for ${url}`);
+      return ''; // Return empty to indicate no new content
+    }
+
     if (directResponse.ok) {
       const text = await directResponse.text();
       if (isRss) {
@@ -26,6 +44,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
       console.warn(`Direct fetch failed for ${url} with status ${directResponse.status}`);
     }
   } catch (e: any) {
+    if (externalSignal?.aborted) throw new Error('Aborted');
     console.warn(`Direct fetch failed for ${url}: ${e.message || e}`);
     // Direct fetch failed (likely CORS or timeout), fallback to proxies
   }
@@ -50,6 +69,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
   const defaultTimeout = 10000; // 10 seconds timeout per proxy
 
   for (let i = 0; i < proxies.length; i++) {
+    if (externalSignal?.aborted) throw new Error('Aborted');
+    
     const proxy = proxies[i];
     const timeout = proxy.timeout || defaultTimeout;
     console.log(`Attempting fetch via ${proxy.name} for ${url} (timeout: ${timeout}ms)`);
@@ -62,6 +83,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true): Promis
       
       const controller = new AbortController();
       id = setTimeout(() => controller.abort(), timeout);
+      
+      // Link external signal to our internal controller
+      if (externalSignal) {
+        externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
       
       const response = await fetch(proxy.url, { 
         signal: controller.signal

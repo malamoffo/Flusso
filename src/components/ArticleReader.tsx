@@ -445,6 +445,26 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         >
           <X className="w-6 h-6 text-gray-200" aria-hidden="true" />
         </motion.button>
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={onPrev}
+            disabled={!hasPrev}
+            className="p-2 rounded-full hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none"
+            aria-label="Previous article"
+          >
+            <ChevronUp className="w-6 h-6 text-gray-200" aria-hidden="true" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={onNext}
+            disabled={!hasNext}
+            className="p-2 rounded-full hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none"
+            aria-label="Next article"
+          >
+            <ChevronDown className="w-6 h-6 text-gray-200" aria-hidden="true" />
+          </motion.button>
+        </div>
       </div>
 
       {/* Article Content */}

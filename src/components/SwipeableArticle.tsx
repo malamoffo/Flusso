@@ -283,8 +283,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               alt="" 
               className={cn(
                 "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
-                (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full aspect-video mb-3 object-cover' : 
-                (article.type === 'podcast' ? 'h-16 w-16 object-cover' : 'w-20 h-20 object-cover')
+                (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full h-auto min-h-[200px] max-h-[800px] mb-3 object-cover' : 
+                (article.type === 'podcast' ? 'h-16 w-16 object-cover' : 'w-20 h-auto min-h-[80px] max-h-[160px] object-cover')
               )}
               referrerPolicy="no-referrer"
             />
