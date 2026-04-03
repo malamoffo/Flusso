@@ -356,25 +356,25 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
       const pscChaptersElements = tagDict['psc:chapters'] || tagDict['chapters'] || [];
       if (pscChaptersElements.length > 0) {
-        const chapterNodes = pscChaptersElements[0].getElementsByTagName('psc:chapter');
-        const fallbackNodes = pscChaptersElements[0].getElementsByTagName('chapter');
-        const nodesToUse = chapterNodes.length > 0 ? chapterNodes : fallbackNodes;
-        
-        if (nodesToUse.length > 0) {
+        const children = pscChaptersElements[0].children;
+        if (children.length > 0) {
           chapters = [];
-          for (let k = 0; k < nodesToUse.length; k++) {
-            const node = nodesToUse[k];
-            const start = node.getAttribute('start');
-            const title = node.getAttribute('title');
-            const href = node.getAttribute('href');
-            const image = node.getAttribute('image');
-            if (start && title) {
-              chapters.push({
-                startTime: parseTime(start),
-                title: title,
-                url: href || undefined,
-                imageUrl: image || undefined
-              });
+          for (let k = 0; k < children.length; k++) {
+            const node = children[k];
+            const nn = node.nodeName.toLowerCase();
+            if (nn === 'psc:chapter' || nn === 'chapter') {
+              const start = node.getAttribute('start');
+              const title = node.getAttribute('title');
+              const href = node.getAttribute('href');
+              const image = node.getAttribute('image');
+              if (start && title) {
+                chapters.push({
+                  startTime: parseTime(start),
+                  title: title,
+                  url: href || undefined,
+                  imageUrl: image || undefined
+                });
+              }
             }
           }
         }
@@ -544,25 +544,25 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
       const pscChaptersElements = tagDict['psc:chapters'] || tagDict['chapters'] || [];
       if (pscChaptersElements.length > 0) {
-        const chapterNodes = pscChaptersElements[0].getElementsByTagName('psc:chapter');
-        const fallbackNodes = pscChaptersElements[0].getElementsByTagName('chapter');
-        const nodesToUse = chapterNodes.length > 0 ? chapterNodes : fallbackNodes;
-        
-        if (nodesToUse.length > 0) {
+        const children = pscChaptersElements[0].children;
+        if (children.length > 0) {
           chapters = [];
-          for (let k = 0; k < nodesToUse.length; k++) {
-            const node = nodesToUse[k];
-            const start = node.getAttribute('start');
-            const title = node.getAttribute('title');
-            const href = node.getAttribute('href');
-            const image = node.getAttribute('image');
-            if (start && title) {
-              chapters.push({
-                startTime: parseTime(start),
-                title: title,
-                url: href || undefined,
-                imageUrl: image || undefined
-              });
+          for (let k = 0; k < children.length; k++) {
+            const node = children[k];
+            const nn = node.nodeName.toLowerCase();
+            if (nn === 'psc:chapter' || nn === 'chapter') {
+              const start = node.getAttribute('start');
+              const title = node.getAttribute('title');
+              const href = node.getAttribute('href');
+              const image = node.getAttribute('image');
+              if (start && title) {
+                chapters.push({
+                  startTime: parseTime(start),
+                  title: title,
+                  url: href || undefined,
+                  imageUrl: image || undefined
+                });
+              }
             }
           }
         }
