@@ -26,9 +26,101 @@ const ProgressBanner = memo(() => {
   );
 });
 
+const ArticleListView = memo(({
+  isActive,
+  articles,
+  visibleCount,
+  scrollRef,
+  bottomRef,
+  handleScroll,
+  currentTrack,
+  feedsMap,
+  settings,
+  handleArticleClick,
+  markAsRead,
+  toggleRead,
+  toggleFavorite,
+  toggleQueue,
+  handleRemoveArticle,
+  isSavedSection,
+  feeds,
+  setSettingsTab,
+  setIsSettingsOpen
+}: any) => {
+  const visibleArticles = useMemo(() => articles.slice(0, visibleCount), [articles, visibleCount]);
+
+  return (
+    <motion.main
+      className={cn(
+        "absolute inset-0 overflow-y-auto transition-all duration-300 will-change-transform",
+        currentTrack ? "pb-48" : "pb-32",
+        isActive ? "z-10 opacity-100 pointer-events-auto" : "z-0 opacity-0 pointer-events-none"
+      )}
+      ref={scrollRef}
+      onScroll={handleScroll}
+      initial={false}
+    >
+      {articles.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
+          <CheckCircle2 className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
+          <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
+          <div className="text-sm">
+            {feeds.length === 0 ? (
+              <div className="space-y-4">
+                <p>You haven't added any feeds yet.</p>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => { setSettingsTab('subscriptions'); setIsSettingsOpen(true); }}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all"
+                >
+                  <Rss className="w-5 h-5" aria-hidden="true" /> Add your first feed
+                </motion.button>
+              </div>
+            ) : (
+              <p>You're all caught up!</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 max-w-3xl mx-auto">
+          <AnimatePresence initial={false}>
+            {visibleArticles.map((article: Article) => {
+              const feed = feedsMap.get(article.feedId);
+              return (
+                <SwipeableArticle
+                  key={article.id}
+                  article={article}
+                  feedName={feed?.title || 'Unknown Feed'}
+                  feedImageUrl={feed?.imageUrl}
+                  settings={settings}
+                  onClick={handleArticleClick}
+                  onMarkAsRead={markAsRead}
+                  toggleRead={toggleRead}
+                  toggleFavorite={toggleFavorite}
+                  toggleQueue={toggleQueue}
+                  isSavedSection={isSavedSection}
+                  filter={isSavedSection ? 'saved' : 'inbox'}
+                  onRemove={handleRemoveArticle}
+                />
+              );
+            })}
+          </AnimatePresence>
+          <div ref={bottomRef} className="h-20 flex items-center justify-center">
+            {visibleCount < articles.length && (
+              <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+            )}
+          </div>
+        </div>
+      )}
+    </motion.main>
+  );
+});
+
 export default function App() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const inboxScrollRef = useRef<HTMLDivElement>(null);
+  const savedScrollRef = useRef<HTMLDivElement>(null);
+  const inboxBottomRef = useRef<HTMLDivElement>(null);
+  const savedBottomRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
   const isAtTop = useRef(true);
 
@@ -47,7 +139,8 @@ export default function App() {
   const [isMarkAllReadOpen, setIsMarkAllReadOpen] = useState(false);
   
   const [filter, setFilter] = useState<'inbox' | 'saved'>('inbox');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
+  const [inboxTypeFilter, setInboxTypeFilter] = useState<'all' | 'unread' | 'article' | 'podcast'>('all');
+  const [savedTypeFilter, setSavedTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<string>('all');
@@ -58,33 +151,29 @@ export default function App() {
   const pullOpacity = useTransform(pullProgress, v => v / PULL_THRESHOLD);
   const [isPulling, setIsPulling] = useState(false);
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [visibleCountInbox, setVisibleCountInbox] = useState(PAGE_SIZE);
+  const [visibleCountSaved, setVisibleCountSaved] = useState(PAGE_SIZE);
 
   const handleFilterChange = (newFilter: 'inbox' | 'saved') => {
     if (newFilter === filter) return;
     
-    // Reset scroll and visible count immediately to avoid flickering
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
-      isAtTop.current = true;
-    }
-    
     // Batch updates
     setFilter(newFilter);
-    setTypeFilter('all');
-    setVisibleCount(PAGE_SIZE);
   };
 
-  const handleTypeFilterChange = (newType: 'all' | 'article' | 'podcast') => {
-    if (newType === typeFilter) return;
-    
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
-      isAtTop.current = true;
+  const handleTypeFilterChange = (newType: 'all' | 'unread' | 'article' | 'podcast') => {
+    if (filter === 'inbox') {
+      if (newType === inboxTypeFilter) return;
+      if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
+      setInboxTypeFilter(newType as any);
+      setVisibleCountInbox(PAGE_SIZE);
+    } else {
+      if (newType === savedTypeFilter) return;
+      if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
+      setSavedTypeFilter(newType as any);
+      setVisibleCountSaved(PAGE_SIZE);
     }
-    
-    setTypeFilter(newType);
-    setVisibleCount(PAGE_SIZE);
+    isAtTop.current = true;
   };
 
   useEffect(() => {
@@ -98,11 +187,11 @@ export default function App() {
 
   useEffect(() => {
     if (isSearchOpen || searchQuery || sourceFilter !== 'all' || timeFilter !== 'all') {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = 0;
-        isAtTop.current = true;
-      }
-      setVisibleCount(PAGE_SIZE);
+      if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
+      if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
+      isAtTop.current = true;
+      setVisibleCountInbox(PAGE_SIZE);
+      setVisibleCountSaved(PAGE_SIZE);
     }
   }, [isSearchOpen, searchQuery, sourceFilter, timeFilter]);
 
@@ -139,10 +228,13 @@ export default function App() {
     };
   }, [selectedArticle, isSettingsOpen, isSearchOpen, filter, sourceFilter, timeFilter, setSearchQuery]);
 
-  const filteredArticles = useMemo(() => {
+  const baseFilteredArticlesInbox = useMemo(() => {
     return articles.filter(article => {
-      if (filter === 'saved' && !article.isFavorite && !article.isQueued) return false;
-      if (typeFilter !== 'all' && article.type !== typeFilter) return false;
+      if (inboxTypeFilter === 'unread') {
+        if (article.isRead) return false;
+      } else if (inboxTypeFilter !== 'all' && article.type !== inboxTypeFilter) {
+        return false;
+      }
       
       if (isSearchOpen) {
         if (sourceFilter !== 'all' && article.feedId !== sourceFilter) return false;
@@ -164,21 +256,42 @@ export default function App() {
       
       return true;
     });
-    /**
-     * ⚡ Bolt: Removed redundant .sort() call on filteredArticles.
-     * Since RssContext.tsx already ensures the 'articles' array is sorted by 'pubDate', 
-     * and Array.prototype.filter preserves original order, this sorting was unnecessary.
-     * Expected: Reduces CPU time by O(N log N) during every article update (including 
-     * the frequent "mark as read" scroll events).
-     */
-  }, [articles, filter, typeFilter, searchQuery, sourceFilter, timeFilter, isSearchOpen]);
+  }, [articles, inboxTypeFilter, searchQuery, sourceFilter, timeFilter, isSearchOpen]);
 
-  const visibleArticles = useMemo(() => {
-    return filteredArticles.slice(0, visibleCount);
-  }, [filteredArticles, visibleCount]);
+  const baseFilteredArticlesSaved = useMemo(() => {
+    return articles.filter(article => {
+      if (savedTypeFilter !== 'all' && article.type !== savedTypeFilter) {
+        return false;
+      }
+      
+      if (isSearchOpen) {
+        if (sourceFilter !== 'all' && article.feedId !== sourceFilter) return false;
+        if (timeFilter !== 'all') {
+          const pubDate = new Date(article.pubDate);
+          const diffDays = Math.ceil(Math.abs(new Date().getTime() - pubDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (timeFilter === 'today' && diffDays > 1) return false;
+          if (timeFilter === 'week' && diffDays > 7) return false;
+          if (timeFilter === 'month' && diffDays > 30) return false;
+        }
+      }
+      
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return article.title.toLowerCase().includes(query) || 
+               (article.contentSnippet?.toLowerCase().includes(query) ?? false) ||
+               (article.content?.toLowerCase().includes(query) ?? false);
+      }
+      
+      return true;
+    });
+  }, [articles, savedTypeFilter, searchQuery, sourceFilter, timeFilter, isSearchOpen]);
+
+  const inboxArticles = baseFilteredArticlesInbox;
+  const savedArticles = useMemo(() => baseFilteredArticlesSaved.filter(a => a.isFavorite || a.isQueued), [baseFilteredArticlesSaved]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const scrollTop = scrollRef.current?.scrollTop || 0;
+    const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
+    const scrollTop = activeScrollRef.current?.scrollTop || 0;
     isAtTop.current = scrollTop <= 0;
     touchStartY.current = e.touches[0].clientY;
     if (isAtTop.current && !isSettingsOpen) {
@@ -215,13 +328,13 @@ export default function App() {
   }, [isLoading, pullProgress]);
 
   useEffect(() => {
-    if (!bottomRef.current || visibleArticles.length === 0) return;
+    if (!inboxBottomRef.current || inboxArticles.slice(0, visibleCountInbox).length === 0) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
-        if (visibleCount < filteredArticles.length) {
-          setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredArticles.length));
-        } else {
-          const toMark = filteredArticles.filter(a => !a.isRead).map(a => a.id);
+        if (visibleCountInbox < inboxArticles.length) {
+          setVisibleCountInbox(prev => Math.min(prev + PAGE_SIZE, inboxArticles.length));
+        } else if (filter === 'inbox') {
+          const toMark = inboxArticles.filter(a => !a.isRead).map(a => a.id);
           if (toMark.length > 0) {
             console.log(`[SCROLL] Reached bottom, marking ${toMark.length} articles as read`);
             markArticlesAsRead(toMark);
@@ -229,9 +342,28 @@ export default function App() {
         }
       }
     }, { threshold: 0.1 });
-    observer.observe(bottomRef.current);
+    observer.observe(inboxBottomRef.current);
     return () => observer.disconnect();
-  }, [visibleArticles, filteredArticles, visibleCount, markArticlesAsRead]);
+  }, [inboxArticles, visibleCountInbox, markArticlesAsRead, filter]);
+
+  useEffect(() => {
+    if (!savedBottomRef.current || savedArticles.slice(0, visibleCountSaved).length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        if (visibleCountSaved < savedArticles.length) {
+          setVisibleCountSaved(prev => Math.min(prev + PAGE_SIZE, savedArticles.length));
+        } else if (filter === 'saved') {
+          const toMark = savedArticles.filter(a => !a.isRead).map(a => a.id);
+          if (toMark.length > 0) {
+            console.log(`[SCROLL] Reached bottom, marking ${toMark.length} articles as read`);
+            markArticlesAsRead(toMark);
+          }
+        }
+      }
+    }, { threshold: 0.1 });
+    observer.observe(savedBottomRef.current);
+    return () => observer.disconnect();
+  }, [savedArticles, visibleCountSaved, markArticlesAsRead, filter]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
@@ -252,8 +384,9 @@ export default function App() {
   const feedsMap = useMemo(() => new Map(feeds.map(f => [f.id, f])), [feeds]);
 
   const scrollToTop = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
+    if (activeScrollRef.current) {
+      activeScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       isAtTop.current = true;
     }
   };
@@ -306,16 +439,27 @@ export default function App() {
             onClick={() => handleTypeFilterChange('all')}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-              typeFilter === 'all' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'all' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             )}
           >
             <Layers className="w-3.5 h-3.5" /> All
           </button>
+          {filter === 'inbox' && (
+            <button
+              onClick={() => handleTypeFilterChange('unread')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                inboxTypeFilter === 'unread' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              )}
+            >
+              <Inbox className="w-3.5 h-3.5" /> Unread
+            </button>
+          )}
           <button
             onClick={() => handleTypeFilterChange('article')}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-              typeFilter === 'article' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'article' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             )}
           >
             <FileText className="w-3.5 h-3.5" /> Articles
@@ -324,7 +468,7 @@ export default function App() {
             onClick={() => handleTypeFilterChange('podcast')}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-              typeFilter === 'podcast' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'podcast' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             )}
           >
             <Headphones className="w-3.5 h-3.5" /> Podcasts
@@ -390,68 +534,50 @@ export default function App() {
         )}
       </div>
 
-      <motion.main
-        className={cn(
-          "flex-1 overflow-y-auto transition-all duration-300 will-change-transform",
-          currentTrack ? "pb-48" : "pb-32"
-        )}
-        style={{ z: 0 }}
-        ref={scrollRef}
-        onScroll={handleScroll}
-      >
-        {filteredArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
-            <CheckCircle2 className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
-            <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
-            <div className="text-sm">
-              {feeds.length === 0 ? (
-                <div className="space-y-4">
-                  <p>You haven't added any feeds yet.</p>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => { setSettingsTab('subscriptions'); setIsSettingsOpen(true); }}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all"
-                  >
-                    <Rss className="w-5 h-5" aria-hidden="true" /> Add your first feed
-                  </motion.button>
-                </div>
-              ) : (
-                <p>You're all caught up!</p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1">
-            <AnimatePresence initial={false}>
-              {visibleArticles.map(article => {
-                const feed = feedsMap.get(article.feedId);
-                return (
-                  <SwipeableArticle
-                    key={article.id}
-                    article={article}
-                    feedName={feed?.title || 'Unknown Feed'}
-                    feedImageUrl={feed?.imageUrl}
-                    settings={settings}
-                    onClick={handleArticleClick}
-                    onMarkAsRead={markAsRead}
-                    toggleRead={toggleRead}
-                    toggleFavorite={toggleFavorite}
-                    toggleQueue={toggleQueue}
-                    isSavedSection={filter === 'saved'}
-                    filter={filter}
-                    onRemove={handleRemoveArticle}
-                  />
-                );
-              })}
-            </AnimatePresence>
-            <div ref={bottomRef} className="h-20 flex items-center justify-center">
-              {visibleCount < filteredArticles.length && (
-                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
-              )}
-            </div>
-          </div>
-        )}
-      </motion.main>
+      <div className="flex-1 relative overflow-hidden">
+        <ArticleListView
+          isActive={filter === 'inbox'}
+          articles={inboxArticles}
+          visibleCount={visibleCountInbox}
+          scrollRef={inboxScrollRef}
+          bottomRef={inboxBottomRef}
+          handleScroll={handleScroll}
+          currentTrack={currentTrack}
+          feedsMap={feedsMap}
+          settings={settings}
+          handleArticleClick={handleArticleClick}
+          markAsRead={markAsRead}
+          toggleRead={toggleRead}
+          toggleFavorite={toggleFavorite}
+          toggleQueue={toggleQueue}
+          handleRemoveArticle={handleRemoveArticle}
+          isSavedSection={false}
+          feeds={feeds}
+          setSettingsTab={setSettingsTab}
+          setIsSettingsOpen={setIsSettingsOpen}
+        />
+        <ArticleListView
+          isActive={filter === 'saved'}
+          articles={savedArticles}
+          visibleCount={visibleCountSaved}
+          scrollRef={savedScrollRef}
+          bottomRef={savedBottomRef}
+          handleScroll={handleScroll}
+          currentTrack={currentTrack}
+          feedsMap={feedsMap}
+          settings={settings}
+          handleArticleClick={handleArticleClick}
+          markAsRead={markAsRead}
+          toggleRead={toggleRead}
+          toggleFavorite={toggleFavorite}
+          toggleQueue={toggleQueue}
+          handleRemoveArticle={handleRemoveArticle}
+          isSavedSection={true}
+          feeds={feeds}
+          setSettingsTab={setSettingsTab}
+          setIsSettingsOpen={setIsSettingsOpen}
+        />
+      </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20 transition-colors bg-black">
         <motion.button
@@ -545,7 +671,8 @@ export default function App() {
                 </button>
                 <button
                   onClick={async () => {
-                    const toMark = filteredArticles.filter(a => !a.isRead).map(a => a.id);
+                    const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+                    const toMark = activeArticles.filter(a => !a.isRead).map(a => a.id);
                     if (toMark.length > 0) {
                       markArticlesAsRead(toMark);
                     }
@@ -580,23 +707,25 @@ export default function App() {
             onClose={() => setSelectedArticle(null)}
             onSelectArticle={(a) => setSelectedArticle(a)}
             onNext={() => {
-              const idx = filteredArticles.findIndex(a => a.id === selectedArticle.id);
-              if (idx < filteredArticles.length - 1) {
-                const next = articles.find(a => a.id === filteredArticles[idx + 1].id) || filteredArticles[idx + 1];
+              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
+              if (idx < activeArticles.length - 1) {
+                const next = articles.find(a => a.id === activeArticles[idx + 1].id) || activeArticles[idx + 1];
                 setSelectedArticle(next);
                 if (!next.isRead) markAsRead(next.id);
               }
             }}
             onPrev={() => {
-              const idx = filteredArticles.findIndex(a => a.id === selectedArticle.id);
+              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
               if (idx > 0) {
-                const prev = articles.find(a => a.id === filteredArticles[idx - 1].id) || filteredArticles[idx - 1];
+                const prev = articles.find(a => a.id === activeArticles[idx - 1].id) || activeArticles[idx - 1];
                 setSelectedArticle(prev);
                 if (!prev.isRead) markAsRead(prev.id);
               }
             }}
-            hasNext={filteredArticles.findIndex(a => a.id === selectedArticle.id) < filteredArticles.length - 1}
-            hasPrev={filteredArticles.findIndex(a => a.id === selectedArticle.id) > 0}
+            hasNext={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) < (filter === 'inbox' ? inboxArticles : savedArticles).length - 1}
+            hasPrev={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) > 0}
           />
         )}
       </AnimatePresence>
