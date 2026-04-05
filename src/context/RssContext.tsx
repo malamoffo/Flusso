@@ -392,12 +392,14 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const results: { feed: Feed; articles: Article[] }[] = [];
       let completed = 0;
       
-      // Precompute the latest article date for each feed for O(1) lookups
-      const latestArticleDateByFeedId = new Map<string, number>();
+      // Precompute the latest article and podcast date for each feed for O(1) lookups
+      const latestDateByFeedAndType = new Map<string, number>();
       for (const article of cArticles) {
-        const currentLatest = latestArticleDateByFeedId.get(article.feedId) || 0;
+        const type = article.type || (article.mediaType?.startsWith('audio/') ? 'podcast' : 'article');
+        const key = `${article.feedId}_${type}`;
+        const currentLatest = latestDateByFeedAndType.get(key) || 0;
         if (article.pubDate > currentLatest) {
-          latestArticleDateByFeedId.set(article.feedId, article.pubDate);
+          latestDateByFeedAndType.set(key, article.pubDate);
         }
       }
       
@@ -411,10 +413,19 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (!feed) break;
           
           try {
-            // Find the latest article date for this feed to only fetch newer articles
-            const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
-            // Temporarily disable sinceDate to force full refresh and get chapters for existing articles
-            const sinceDate = undefined;
+            // Find the latest article and podcast date for this feed to only fetch newer items
+            const latestArticleDate = latestDateByFeedAndType.get(`${feed.id}_article`) || 0;
+            const latestPodcastDate = latestDateByFeedAndType.get(`${feed.id}_podcast`) || 0;
+            
+            // We pass the minimum of the two to fetchFeedData to optimize network requests (If-Modified-Since)
+            let sinceDate: number | undefined = undefined;
+            if (latestArticleDate > 0 && latestPodcastDate > 0) {
+              sinceDate = Math.min(latestArticleDate, latestPodcastDate);
+            } else if (latestArticleDate > 0) {
+              sinceDate = latestArticleDate;
+            } else if (latestPodcastDate > 0) {
+              sinceDate = latestPodcastDate;
+            }
             
             // Global timeout for this specific feed fetch
             const controller = new AbortController();
@@ -428,7 +439,18 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 // Inserisci i nuovi articoli uno alla volta nella corretta posizione cronologica
                 if (data.articles && data.articles.length > 0) {
                   // Ensure articles have the correct feedId from the existing feed
-                  const articlesWithCorrectId = data.articles.map(a => ({ ...a, feedId: feed.id }));
+                  let articlesWithCorrectId = data.articles.map(a => ({ ...a, feedId: feed.id }));
+                  
+                  // Filter out articles/podcasts that are older than the respective latest date
+                  articlesWithCorrectId = articlesWithCorrectId.filter(a => {
+                    const type = a.type || (a.mediaType?.startsWith('audio/') ? 'podcast' : 'article');
+                    const latestDate = latestDateByFeedAndType.get(`${feed.id}_${type}`) || 0;
+                    return a.pubDate > latestDate;
+                  });
+
+                  // Ensure they are marked as unread
+                  articlesWithCorrectId = articlesWithCorrectId.map(a => ({ ...a, isRead: false }));
+
                   // Update the results array so storage.saveAllFeedData also uses the correct ID
                   data.articles = articlesWithCorrectId;
                   
