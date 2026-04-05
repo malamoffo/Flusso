@@ -184,8 +184,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   return (
     <motion.div 
       layout={shouldReduceMotion ? false : "position"}
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0, height: 'auto' }}
       exit={{ 
         opacity: 0, 
         height: 0,
@@ -204,8 +204,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         "relative w-full overflow-hidden border-b border-gray-800 will-change-transform"
       )}
       style={{
-        contentVisibility: 'auto',
-        containIntrinsicSize: '0 120px', // Rough estimate of article height
         transform: 'translateZ(0)', // GPU acceleration
         ...style
       } as React.CSSProperties}

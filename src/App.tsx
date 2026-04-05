@@ -9,6 +9,7 @@ import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, Play, Pause, SkipBack, SkipForward, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
+import { useInView } from 'react-intersection-observer';
 import { cn } from './lib/utils';
 import { Article } from './types';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -29,9 +30,7 @@ const ProgressBanner = memo(() => {
 const ArticleListView = memo(({
   isActive,
   articles,
-  visibleCount,
   scrollRef,
-  bottomRef,
   handleScroll,
   currentTrack,
   feedsMap,
@@ -47,9 +46,19 @@ const ArticleListView = memo(({
   setSettingsTab,
   setIsSettingsOpen,
   hasMoreArticles,
-  isLoading
+  isLoading,
+  loadMoreArticles
 }: any) => {
-  const visibleArticles = useMemo(() => articles.slice(0, visibleCount), [articles, visibleCount]);
+  const { ref, inView } = useInView({
+    threshold: 0,
+    rootMargin: '200px',
+  });
+
+  useEffect(() => {
+    if (inView && hasMoreArticles && !isLoading) {
+      loadMoreArticles();
+    }
+  }, [inView, hasMoreArticles, isLoading, loadMoreArticles]);
 
   return (
     <motion.main
@@ -86,7 +95,7 @@ const ArticleListView = memo(({
       ) : (
         <div className="flex-1 max-w-3xl mx-auto">
           <AnimatePresence initial={false}>
-            {visibleArticles.map((article: Article) => {
+            {articles.map((article: Article) => {
               const feed = feedsMap.get(article.feedId);
               return (
                 <SwipeableArticle
@@ -107,8 +116,9 @@ const ArticleListView = memo(({
               );
             })}
           </AnimatePresence>
-          <div ref={bottomRef} className="h-20 flex items-center justify-center">
-            {(visibleCount < articles.length || hasMoreArticles) && (
+          
+          <div ref={ref} className="h-20 flex items-center justify-center">
+            {(hasMoreArticles || isLoading) && (
               <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
             )}
           </div>
@@ -153,9 +163,6 @@ export default function App() {
   const pullOpacity = useTransform(pullProgress, v => v / PULL_THRESHOLD);
   const [isPulling, setIsPulling] = useState(false);
 
-  const [visibleCountInbox, setVisibleCountInbox] = useState(PAGE_SIZE);
-  const [visibleCountSaved, setVisibleCountSaved] = useState(PAGE_SIZE);
-
   const handleFilterChange = (newFilter: 'inbox' | 'saved') => {
     if (newFilter === filter) return;
     
@@ -168,12 +175,10 @@ export default function App() {
       if (newType === inboxTypeFilter) return;
       if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
       setInboxTypeFilter(newType as any);
-      setVisibleCountInbox(PAGE_SIZE);
     } else {
       if (newType === savedTypeFilter) return;
       if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
       setSavedTypeFilter(newType as any);
-      setVisibleCountSaved(PAGE_SIZE);
     }
     isAtTop.current = true;
   };
@@ -192,8 +197,6 @@ export default function App() {
       if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
       if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
       isAtTop.current = true;
-      setVisibleCountInbox(PAGE_SIZE);
-      setVisibleCountSaved(PAGE_SIZE);
     }
   }, [isSearchOpen, searchQuery, sourceFilter, timeFilter]);
 
@@ -335,36 +338,6 @@ export default function App() {
   const savedArticlesRef = useRef(savedArticles);
   useEffect(() => { savedArticlesRef.current = savedArticles; }, [savedArticles]);
 
-  useEffect(() => {
-    if (!inboxBottomRef.current || !inboxScrollRef.current) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        if (visibleCountInbox < inboxArticlesRef.current.length) {
-          setVisibleCountInbox(prev => Math.min(prev + PAGE_SIZE, inboxArticlesRef.current.length));
-        } else if (hasMoreArticles && !isLoading) {
-          loadMoreArticles();
-        }
-      }
-    }, { root: inboxScrollRef.current, rootMargin: '100px', threshold: 0.1 });
-    observer.observe(inboxBottomRef.current);
-    return () => observer.disconnect();
-  }, [visibleCountInbox, hasMoreArticles, isLoading, loadMoreArticles]);
-
-  useEffect(() => {
-    if (!savedBottomRef.current || !savedScrollRef.current) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        if (visibleCountSaved < savedArticlesRef.current.length) {
-          setVisibleCountSaved(prev => Math.min(prev + PAGE_SIZE, savedArticlesRef.current.length));
-        } else if (hasMoreArticles && !isLoading) {
-          loadMoreArticles();
-        }
-      }
-    }, { root: savedScrollRef.current, rootMargin: '100px', threshold: 0.1 });
-    observer.observe(savedBottomRef.current);
-    return () => observer.disconnect();
-  }, [visibleCountSaved, hasMoreArticles, isLoading, loadMoreArticles]);
-
   const inboxTimerRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -383,7 +356,7 @@ export default function App() {
       }
 
       const isAtBottom = inboxContainer.scrollHeight - inboxContainer.scrollTop <= inboxContainer.clientHeight + 50;
-      const allVisible = visibleCountInbox >= inboxArticlesRef.current.length;
+      const allVisible = !hasMoreArticles;
 
       if (isAtBottom && allVisible) {
         const hasUnread = inboxArticlesRef.current.some(a => !a.isRead);
@@ -414,7 +387,7 @@ export default function App() {
       inboxContainer.removeEventListener('scroll', checkAtBottom);
       if (inboxTimerRef.current) clearTimeout(inboxTimerRef.current);
     };
-  }, [filter, visibleCountInbox, markArticlesAsRead]);
+  }, [filter, hasMoreArticles, markArticlesAsRead]);
 
   useEffect(() => {
     const savedContainer = savedScrollRef.current;
@@ -430,7 +403,7 @@ export default function App() {
       }
 
       const isAtBottom = savedContainer.scrollHeight - savedContainer.scrollTop <= savedContainer.clientHeight + 50;
-      const allVisible = visibleCountSaved >= savedArticlesRef.current.length;
+      const allVisible = !hasMoreArticles;
 
       if (isAtBottom && allVisible) {
         const hasUnread = savedArticlesRef.current.some(a => !a.isRead);
@@ -461,7 +434,7 @@ export default function App() {
       savedContainer.removeEventListener('scroll', checkAtBottom);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
-  }, [filter, visibleCountSaved, markArticlesAsRead]);
+  }, [filter, hasMoreArticles, markArticlesAsRead]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
@@ -636,9 +609,7 @@ export default function App() {
         <ArticleListView
           isActive={filter === 'inbox'}
           articles={inboxArticles}
-          visibleCount={visibleCountInbox}
           scrollRef={inboxScrollRef}
-          bottomRef={inboxBottomRef}
           handleScroll={handleScroll}
           currentTrack={currentTrack}
           feedsMap={feedsMap}
@@ -655,13 +626,12 @@ export default function App() {
           setIsSettingsOpen={setIsSettingsOpen}
           hasMoreArticles={hasMoreArticles}
           isLoading={isLoading}
+          loadMoreArticles={loadMoreArticles}
         />
         <ArticleListView
           isActive={filter === 'saved'}
           articles={savedArticles}
-          visibleCount={visibleCountSaved}
           scrollRef={savedScrollRef}
-          bottomRef={savedBottomRef}
           handleScroll={handleScroll}
           currentTrack={currentTrack}
           feedsMap={feedsMap}
@@ -678,6 +648,7 @@ export default function App() {
           setIsSettingsOpen={setIsSettingsOpen}
           hasMoreArticles={hasMoreArticles}
           isLoading={isLoading}
+          loadMoreArticles={loadMoreArticles}
         />
       </div>
 
