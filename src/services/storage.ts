@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
-import { Feed, Article, Settings, PodcastChapter } from '../types';
+import { Feed, Article, Settings, PodcastChapter, FullArticleContent } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../utils/proxy';
 import DOMPurify from 'dompurify';
@@ -11,6 +11,7 @@ import he from 'he';
 const FEEDS_KEY = 'rss_feeds';
 const ARTICLES_KEY = 'rss_articles';
 const SETTINGS_KEY = 'rss_settings';
+const CONTENT_PREFIX = 'article_content_';
 
 // Helper to decode HTML entities safely
 function decodeHtmlEntities(text: string): string {
@@ -735,10 +736,13 @@ export const storage = {
     await set(FEEDS_KEY, feeds);
   },
 
-  async getArticles(): Promise<Article[]> {
+  async getArticles(offset = 0, limit = 0): Promise<Article[]> {
     const articles = (await get<Article[]>(ARTICLES_KEY)) || [];
     if (articles.length === 0) return [];
 
+    // If limit is 0, return all (for internal use or legacy support)
+    // But we still want to apply the cleanup logic if it's the first load
+    
     const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
@@ -753,21 +757,22 @@ export const storage = {
       if (a.isFavorite || a.isQueued) {
         keep = true;
       } else {
-        const limit = !a.isRead 
+        const limitTime = !a.isRead 
           ? (a.type === 'podcast' ? 30 * 24 * 60 * 60 * 1000 : 14 * 24 * 60 * 60 * 1000)
           : (a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS);
         
         const referenceTime = (a.isRead && a.readAt) ? a.readAt : a.pubDate;
-        if ((now - referenceTime) <= limit) {
+        if ((now - referenceTime) <= limitTime) {
           keep = true;
         }
       }
 
       if (keep) {
-        // Normalize only if necessary to avoid object creation
-        if (a.type === undefined || a.isQueued === undefined) {
+        // Normalize and ensure content is NOT in the main list
+        if (a.content || a.type === undefined || a.isQueued === undefined) {
+          const { content, ...lightArticle } = a;
           validArticles.push({
-            ...a,
+            ...lightArticle,
             type: a.type || (a.mediaType?.startsWith('audio/') ? 'podcast' : 'article'),
             isQueued: a.isQueued || false
           });
@@ -783,10 +788,54 @@ export const storage = {
     if (hasChanged) {
       await this.saveArticles(validArticles);
       // Also trigger a cleanup of orphaned content in the background
-      this.cleanupOrphanedContent(validArticles).catch(err => console.error('Failed to cleanup orphaned content', err));
+      // Use a small delay to not block the main thread during initial load
+      setTimeout(() => {
+        this.cleanupOrphanedContent(validArticles).catch(err => console.error('Failed to cleanup orphaned content', err));
+      }, 2000);
+    }
+    
+    // Sort by date descending
+    validArticles.sort((a, b) => b.pubDate - a.pubDate);
+
+    if (limit > 0) {
+      return validArticles.slice(offset, offset + limit);
     }
     
     return validArticles;
+  },
+
+  async cleanUpOldArticles(): Promise<void> {
+    // This is essentially what getArticles(0, 0) does now, 
+    // but we can make it more explicit and run it in background
+    console.log('[STORAGE] Running garbage collection...');
+    await this.getArticles(0, 0);
+  },
+
+  async getArticleContent(id: string): Promise<string | null> {
+    const fullContent = await get<FullArticleContent>(`${CONTENT_PREFIX}${id}`);
+    return fullContent?.content || null;
+  },
+
+  async saveArticleContent(id: string, content: string): Promise<void> {
+    // We only save if it's not already there or we want to update it
+    // Usually handled by contentFetcher, but good to have here
+    const existing = await get<FullArticleContent>(`${CONTENT_PREFIX}${id}`);
+    if (existing) {
+      await set(`${CONTENT_PREFIX}${id}`, { ...existing, content });
+    } else {
+      // Create a minimal FullArticleContent if it doesn't exist
+      await set(`${CONTENT_PREFIX}${id}`, { 
+        title: '', 
+        content, 
+        textContent: '', 
+        length: content.length, 
+        excerpt: '', 
+        byline: '', 
+        dir: '', 
+        siteName: '', 
+        lang: '' 
+      });
+    }
   },
 
   async cleanupOrphanedContent(validArticles: Article[]): Promise<void> {
@@ -927,9 +976,18 @@ export const storage = {
           ...feed,
           lastArticleDate: latestFromNew
         });
-        // Still check for duplicates even for new feeds
-        const trulyNewArticles = newArticles.filter(a => !existingLinks.has(a.link));
-        allNewArticles.push(...trulyNewArticles);
+        
+        // Process new articles: separate content and keep lightweight version
+        for (const a of newArticles) {
+          if (!existingLinks.has(a.link)) {
+            const { content, ...lightArticle } = a;
+            if (content) {
+              // Save content separately in background
+              this.saveArticleContent(a.id, content).catch(err => console.error('Failed to save article content', err));
+            }
+            allNewArticles.push(lightArticle as Article);
+          }
+        }
       } else {
         const feedId = updatedFeeds[existingFeedIndex].id;
         const currentLastArticleDate = updatedFeeds[existingFeedIndex].lastArticleDate || 0;
@@ -942,24 +1000,25 @@ export const storage = {
           imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
         };
         
-        const trulyNewArticles = newArticles.filter(a => !existingLinks.has(a.link)).map(a => ({
-          ...a,
-          feedId
-        }));
-        
-        // Also update existing articles if they are missing chaptersUrl
-        const existingArticlesToUpdate = newArticles.filter(a => existingLinks.has(a.link) && a.chaptersUrl);
-        if (existingArticlesToUpdate.length > 0) {
-          for (const newA of existingArticlesToUpdate) {
-            const idx = articles.findIndex(a => a.link === newA.link);
+        for (const a of newArticles) {
+          if (!existingLinks.has(a.link)) {
+            const { content, ...lightArticle } = a;
+            if (content) {
+              this.saveArticleContent(a.id, content).catch(err => console.error('Failed to save article content', err));
+            }
+            allNewArticles.push({
+              ...lightArticle,
+              feedId
+            } as Article);
+          } else if (a.chaptersUrl) {
+            // Update existing articles if they are missing chaptersUrl
+            const idx = articles.findIndex(ex => ex.link === a.link);
             if (idx !== -1 && !articles[idx].chaptersUrl) {
-              articles[idx] = { ...articles[idx], chaptersUrl: newA.chaptersUrl };
+              articles[idx] = { ...articles[idx], chaptersUrl: a.chaptersUrl };
               articlesModified = true;
             }
           }
         }
-        
-        allNewArticles.push(...trulyNewArticles);
       }
     }
     

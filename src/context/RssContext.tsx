@@ -39,6 +39,8 @@ interface RssContextType {
   updateArticle: (id: string, updates: Partial<Article>) => void;
   updateSettings: (updates: Partial<Settings>) => void;
   checkUpdates: (force?: boolean) => Promise<void>;
+  loadMoreArticles: () => Promise<void>;
+  hasMoreArticles: boolean;
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
@@ -52,8 +54,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [updateInfo, setUpdateInfo] = useState<any | null>(null);
+  const [hasMoreArticles, setHasMoreArticles] = useState<boolean>(true);
   const lastRefresh = useRef(Date.now());
   const isRefreshing = useRef(false);
+  const articlesOffset = useRef(0);
+  const PAGE_SIZE = 100;
 
   const checkUpdates = useCallback(async (force = false) => {
     try {
@@ -82,16 +87,42 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (append = false) => {
     try {
       setIsLoading(true);
+      if (!append) {
+        articlesOffset.current = 0;
+      }
+      
       const loadedFeeds = await storage.getFeeds();
-      const loadedArticles = await storage.getArticles();
+      const loadedArticles = await storage.getArticles(articlesOffset.current, PAGE_SIZE);
       const loadedSettings = await storage.getSettings();
       
       setFeeds(loadedFeeds);
-      setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
       setSettings(loadedSettings);
+      
+      if (append) {
+        setArticles(prev => {
+          const combined = [...prev, ...loadedArticles];
+          // Ensure uniqueness just in case
+          const seen = new Set();
+          return combined.filter(a => {
+            if (seen.has(a.id)) return false;
+            seen.add(a.id);
+            return true;
+          }).sort((a, b) => b.pubDate - a.pubDate);
+        });
+      } else {
+        setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
+      }
+      
+      setHasMoreArticles(loadedArticles.length === PAGE_SIZE);
+      articlesOffset.current += loadedArticles.length;
+      
+      // Run garbage collection in background on first load
+      if (!append) {
+        storage.cleanUpOldArticles().catch(err => console.error('GC failed', err));
+      }
       
       return { loadedFeeds, loadedArticles, loadedSettings };
     } catch (err) {
@@ -102,6 +133,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(false);
     }
   };
+
+  const loadMoreArticles = useCallback(async () => {
+    if (isLoading || !hasMoreArticles) return;
+    await loadData(true);
+  }, [isLoading, hasMoreArticles]);
 
   useEffect(() => {
     let mounted = true;
@@ -493,13 +529,15 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
     toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
-    searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates
+    searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates,
+    loadMoreArticles, hasMoreArticles
   }), [
     feeds, articles, settings, isLoading, progress, error,
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
     toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
-    searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates
+    searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates,
+    loadMoreArticles, hasMoreArticles
   ]);
 
   return (

@@ -45,7 +45,9 @@ const ArticleListView = memo(({
   isSavedSection,
   feeds,
   setSettingsTab,
-  setIsSettingsOpen
+  setIsSettingsOpen,
+  hasMoreArticles,
+  isLoading
 }: any) => {
   const visibleArticles = useMemo(() => articles.slice(0, visibleCount), [articles, visibleCount]);
 
@@ -60,7 +62,7 @@ const ArticleListView = memo(({
       onScroll={handleScroll}
       initial={false}
     >
-      {articles.length === 0 ? (
+      {articles.length === 0 && !isLoading ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
           <CheckCircle2 className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
           <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
@@ -106,7 +108,7 @@ const ArticleListView = memo(({
             })}
           </AnimatePresence>
           <div ref={bottomRef} className="h-20 flex items-center justify-center">
-            {visibleCount < articles.length && (
+            {(visibleCount < articles.length || hasMoreArticles) && (
               <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
             )}
           </div>
@@ -128,7 +130,7 @@ export default function App() {
     articles, feeds, settings, isLoading, error,
     refreshFeeds, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, searchQuery, setSearchQuery, unreadCount, savedCount,
-    toggleFavorite, toggleQueue, removeFromSaved
+    toggleFavorite, toggleQueue, removeFromSaved, loadMoreArticles, hasMoreArticles
   } = useRss();
 
   const { currentTrack } = useAudioState();
@@ -339,12 +341,14 @@ export default function App() {
       if (entries[0].isIntersecting) {
         if (visibleCountInbox < inboxArticlesRef.current.length) {
           setVisibleCountInbox(prev => Math.min(prev + PAGE_SIZE, inboxArticlesRef.current.length));
+        } else if (hasMoreArticles && !isLoading) {
+          loadMoreArticles();
         }
       }
     }, { root: inboxScrollRef.current, rootMargin: '100px', threshold: 0.1 });
     observer.observe(inboxBottomRef.current);
     return () => observer.disconnect();
-  }, [visibleCountInbox]);
+  }, [visibleCountInbox, hasMoreArticles, isLoading, loadMoreArticles]);
 
   useEffect(() => {
     if (!savedBottomRef.current || !savedScrollRef.current) return;
@@ -352,12 +356,14 @@ export default function App() {
       if (entries[0].isIntersecting) {
         if (visibleCountSaved < savedArticlesRef.current.length) {
           setVisibleCountSaved(prev => Math.min(prev + PAGE_SIZE, savedArticlesRef.current.length));
+        } else if (hasMoreArticles && !isLoading) {
+          loadMoreArticles();
         }
       }
     }, { root: savedScrollRef.current, rootMargin: '100px', threshold: 0.1 });
     observer.observe(savedBottomRef.current);
     return () => observer.disconnect();
-  }, [visibleCountSaved]);
+  }, [visibleCountSaved, hasMoreArticles, isLoading, loadMoreArticles]);
 
   const inboxTimerRef = useRef<NodeJS.Timeout | null>(null);
   const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -647,6 +653,8 @@ export default function App() {
           feeds={feeds}
           setSettingsTab={setSettingsTab}
           setIsSettingsOpen={setIsSettingsOpen}
+          hasMoreArticles={hasMoreArticles}
+          isLoading={isLoading}
         />
         <ArticleListView
           isActive={filter === 'saved'}
@@ -668,6 +676,8 @@ export default function App() {
           feeds={feeds}
           setSettingsTab={setSettingsTab}
           setIsSettingsOpen={setIsSettingsOpen}
+          hasMoreArticles={hasMoreArticles}
+          isLoading={isLoading}
         />
       </div>
 

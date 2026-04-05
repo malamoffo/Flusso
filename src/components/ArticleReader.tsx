@@ -765,6 +765,12 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
         <hr className="border-gray-800 mb-6" />
 
+        {!hasChapters && article.type === 'podcast' && (
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-400" /> Note episodio
+          </h3>
+        )}
+
         {article.type === 'podcast' && article.mediaUrl && (
           <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
             <div className="flex flex-col gap-6">
@@ -796,8 +802,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
                       className="flex-1 py-3 px-1 text-center font-bold text-sm truncate"
                     >
                       {viewMode === 'chapters' 
-                        ? (currentChapter ? currentChapter.title : (chapters.length > 0 ? 'Capitoli' : 'Nessun capitolo')) 
-                        : (currentChapter ? currentChapter.title : 'Capitoli')}
+                        ? (currentChapter ? currentChapter.title : 'Capitoli') 
+                        : 'Note episodio'}
                     </button>
                     <button
                       onClick={(e) => {
