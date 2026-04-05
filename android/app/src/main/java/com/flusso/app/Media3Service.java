@@ -15,6 +15,7 @@ import androidx.media3.session.LibraryResult;
 import androidx.media3.session.MediaLibraryService;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaSession;
+import androidx.media3.session.MediaSession.MediaItemsWithPreloadHint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -163,7 +164,7 @@ public class Media3Service extends MediaLibraryService {
         }
 
         @Override
-        public ListenableFuture<MediaSession.MediaItemsWithPreloadHint> onSetMediaItems(
+        public ListenableFuture<MediaItemsWithPreloadHint> onSetMediaItems(
                 MediaSession session, MediaSession.ControllerInfo controller, List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
             if (!mediaItems.isEmpty()) {
                 MediaItem item = mediaItems.get(startIndex);
@@ -172,7 +173,7 @@ public class Media3Service extends MediaLibraryService {
                     plugin.notifyPlayRequest(item.mediaId);
                 }
             }
-            return Futures.immediateFuture(new MediaSession.MediaItemsWithPreloadHint(mediaItems, startIndex, startPositionMs));
+            return Futures.immediateFuture(new MediaItemsWithPreloadHint(mediaItems, startIndex, startPositionMs));
         }
     }
 
