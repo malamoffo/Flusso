@@ -13,6 +13,10 @@ import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
+import android.media.AudioManager;
+import androidx.media.AudioAttributesCompat;
+import androidx.media.AudioFocusRequestCompat;
+import androidx.media.AudioManagerCompat;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -37,6 +41,8 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     private static final String FAVORITES_ID = "favorites";
     private MediaSessionCompat proxySession;
     private boolean isBound = false;
+    private AudioManager audioManager;
+    private AudioFocusRequestCompat audioFocusRequest;
 
     private ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -132,6 +138,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
 
                                             @Override
                                             public void onPlay() {
+                                                requestAudioFocus();
                                                 controller.getTransportControls().play();
                                             }
 
@@ -197,6 +204,23 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
         }
     };
 
+    private boolean requestAudioFocus() {
+        AudioAttributesCompat audioAttributes = new AudioAttributesCompat.Builder()
+                .setUsage(AudioAttributesCompat.USAGE_MEDIA)
+                .setContentType(AudioAttributesCompat.CONTENT_TYPE_MUSIC)
+                .build();
+        
+        audioFocusRequest = new AudioFocusRequestCompat.Builder(AudioManagerCompat.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(focusChange -> {
+                    // Handle focus change
+                })
+                .build();
+        
+        return AudioManagerCompat.requestAudioFocus(audioManager, audioFocusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+    }
+
     private void startAppWithMediaId(String mediaId) {
         QueuePlugin.setPendingMediaId(mediaId);
         Intent intent = new Intent(this, MainActivity.class);
@@ -221,6 +245,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate - Inizializzazione servizio Android Auto");
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         
         proxySession = new MediaSessionCompat(this, TAG);
         proxySession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);

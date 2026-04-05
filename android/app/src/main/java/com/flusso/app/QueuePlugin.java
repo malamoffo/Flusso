@@ -93,9 +93,13 @@ public class QueuePlugin extends Plugin {
         if (favoritesQueue.length() == 0 && context != null) {
             try {
                 String json = context.getSharedPreferences("QueuePrefs", android.content.Context.MODE_PRIVATE).getString("favorites", "[]");
+                android.util.Log.d("QueuePlugin", "Loading favorites from prefs: " + json);
                 favoritesQueue = new JSArray(json);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                android.util.Log.e("QueuePlugin", "Error loading favorites", e);
+            }
         }
+        android.util.Log.d("QueuePlugin", "Returning favorites size: " + favoritesQueue.length());
         return favoritesQueue;
     }
 

@@ -371,7 +371,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           try {
             // Find the latest article date for this feed to only fetch newer articles
             const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
-            const sinceDate = latestArticleDate || feed.lastArticleDate;
+            // Temporarily disable sinceDate to force full refresh and get chapters for existing articles
+            const sinceDate = undefined;
             
             // Global timeout for this specific feed fetch
             const controller = new AbortController();
@@ -420,6 +421,13 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                           }
                         }
                         merged.splice(low, 0, newArticle);
+                      } else {
+                        // Update existing article with chaptersUrl if missing
+                        const existingIndex = merged.findIndex(a => a.link === newArticle.link);
+                        if (existingIndex !== -1 && !merged[existingIndex].chaptersUrl && newArticle.chaptersUrl) {
+                          merged[existingIndex] = { ...merged[existingIndex], chaptersUrl: newArticle.chaptersUrl };
+                          hasNew = true;
+                        }
                       }
                     }
                     

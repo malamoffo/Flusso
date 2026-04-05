@@ -47,7 +47,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     if (externalSignal?.aborted) throw new Error('Aborted');
 
     const directController = new AbortController();
-    const directTimeoutId = setTimeout(() => directController.abort(), 10000);
+    const directTimeoutId = setTimeout(() => directController.abort(), 20000);
     
     // Link external signal to our internal controller
     if (externalSignal) {
@@ -102,7 +102,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
   
   // Primary proxies (more reliable)
   proxies.push(
-    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 25000 },
     { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
     { name: 'CorsProxy.org', url: `https://corsproxy.org/?url=${encodeURIComponent(url)}`, type: 'text' },
     { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' }

@@ -132,7 +132,7 @@ function parseTime(timeStr: string | null): number {
 }
 
 // Helper to parse RSS/Atom XML using native DOMParser
-function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles: Article[] } {
+function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { feed: Feed; articles: Article[] } {
   if (typeof xmlString !== 'string') {
     xmlString = JSON.stringify(xmlString);
   }
@@ -171,6 +171,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
             if (isNaN(pubDate)) pubDate = Date.now();
           }
 
+          if (sinceDate && pubDate <= sinceDate) return null;
+
           return {
             id: uuidv4(),
             feedId,
@@ -186,7 +188,7 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
             type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
             contentSnippet: sanitizeSnippet(decodeHtmlEntities(item.content || item.description || '')),
           };
-        });
+        }).filter(Boolean) as Article[];
 
         return {
           feed: {
@@ -320,6 +322,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       const pubDateStr = getSingleTagText(tagDict, ['published', 'updated', 'pubDate']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
       
+      if (sinceDate && pubDate <= sinceDate) continue;
+      
       let imageUrl: string | null = null;
       let mediaUrl: string | null = null;
       let mediaType: string | null = null;
@@ -387,9 +391,9 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
       // 1. Look for inline chapters (PSC or similar)
       const chapterContainers = [
-        ...getElementsByLocalName(entry, 'chapters'),
-        ...getElementsByLocalName(entry, 'structure'),
-        ...getElementsByLocalName(entry, 'podcast:chapters')
+        ...(tagDict['chapters'] || []),
+        ...(tagDict['podcast:chapters'] || []),
+        ...(tagDict['structure'] || [])
       ];
 
       for (const container of chapterContainers) {
@@ -526,6 +530,8 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
       const pubDateStr = getSingleTagText(tagDict, ['pubDate', 'published', 'updated']) || new Date().toISOString();
       const pubDate = new Date(pubDateStr).getTime();
       
+      if (sinceDate && pubDate <= sinceDate) continue;
+      
       let imageUrl: string | null = null;
       let mediaUrl: string | null = null;
       let mediaType: string | null = null;
@@ -594,16 +600,18 @@ function parseRssXml(xmlString: string, feedUrl: string): { feed: Feed; articles
 
       // 1. Look for inline chapters (PSC or similar)
       const chapterContainers = [
-        ...getElementsByLocalName(item, 'chapters'),
-        ...getElementsByLocalName(item, 'structure'),
-        ...getElementsByLocalName(item, 'podcast:chapters')
+        ...(tagDict['chapters'] || []),
+        ...(tagDict['podcast:chapters'] || []),
+        ...(tagDict['structure'] || [])
       ];
 
       for (const container of chapterContainers) {
         // Check if it has a URL (Podcast Index or external PSC)
         const url = container.getAttribute('url') || container.getAttribute('href');
+        console.log('[CHAPTERS] Found potential chapter container:', container.tagName, 'URL:', url);
         if (url) {
           chaptersUrl = resolveUrl(url, feedUrl);
+          console.log('[CHAPTERS] Resolved chaptersUrl:', chaptersUrl);
         }
 
         const chapterNodes = getElementsByLocalName(container, 'chapter');
@@ -805,8 +813,8 @@ export const storage = {
         const options = {
           url: feedUrl,
           headers,
-          connectTimeout: 15000,
-          readTimeout: 15000,
+          connectTimeout: 25000,
+          readTimeout: 25000,
         };
         
         const response = await CapacitorHttp.get(options);
@@ -818,7 +826,7 @@ export const storage = {
 
         if (response.status === 200) {
           const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-          const { feed, articles } = parseRssXml(dataString, feedUrl);
+          const { feed, articles } = parseRssXml(dataString, feedUrl, sinceDate);
           
           const filteredArticles = articles.filter(a => {
             // When fetching, we use a slightly more generous limit to catch 
@@ -852,7 +860,7 @@ export const storage = {
 
       if (!xmlString) return null; // 304 or empty
 
-      const { feed, articles } = parseRssXml(xmlString, feedUrl);
+      const { feed, articles } = parseRssXml(xmlString, feedUrl, sinceDate);
       
       const filteredArticles = articles.filter(a => {
         // When fetching, we use a slightly more generous limit to catch 
@@ -886,6 +894,7 @@ export const storage = {
     
     let updatedFeeds = [...feeds];
     let allNewArticles: Article[] = [];
+    let articlesModified = false;
     
     for (const { feed, articles: newArticles } of results) {
       const existingFeedIndex = updatedFeeds.findIndex(f => f.feedUrl === feed.feedUrl);
@@ -920,11 +929,23 @@ export const storage = {
           feedId
         }));
         
+        // Also update existing articles if they are missing chaptersUrl
+        const existingArticlesToUpdate = newArticles.filter(a => existingLinks.has(a.link) && a.chaptersUrl);
+        if (existingArticlesToUpdate.length > 0) {
+          for (const newA of existingArticlesToUpdate) {
+            const idx = articles.findIndex(a => a.link === newA.link);
+            if (idx !== -1 && !articles[idx].chaptersUrl) {
+              articles[idx] = { ...articles[idx], chaptersUrl: newA.chaptersUrl };
+              articlesModified = true;
+            }
+          }
+        }
+        
         allNewArticles.push(...trulyNewArticles);
       }
     }
     
-    if (allNewArticles.length > 0) {
+    if (allNewArticles.length > 0 || articlesModified) {
       await this.saveArticles([...articles, ...allNewArticles]);
     }
     await this.saveFeeds(updatedFeeds);

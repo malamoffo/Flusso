@@ -1,3 +1,4 @@
+import { fetchChapters } from '../services/chapters';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, Calendar, User, ExternalLink, RefreshCw, Bookmark, List } from 'lucide-react';
 import { Article, FullArticleContent, PodcastChapter } from '../types';
@@ -126,7 +127,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
   const feed = feeds.find(f => f.id === article.feedId);
   const { play, currentTrack, isPlaying, isBuffering, toggle, seek, playbackRate, setPlaybackRate } = useAudioState();
   
-  const [viewMode, setViewMode] = useState<'notes' | 'chapters'>(article.type === 'podcast' ? 'chapters' : 'notes');
+  const [viewMode, setViewMode] = useState<'notes' | 'chapters'>('notes');
   const [fetchedChapters, setFetchedChapters] = useState<PodcastChapter[]>(article.chapters || []);
   const [isChaptersLoading, setIsChaptersLoading] = useState(false);
 
@@ -755,48 +756,50 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
             <div className="flex flex-col gap-6">
               {/* View Toggle Buttons */}
-              <div className="flex items-center">
-                <div className={cn(
-                  "w-full flex items-center rounded-xl border transition-all overflow-hidden",
-                  viewMode === 'chapters'
-                    ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                    : "bg-gray-800 border-gray-700 text-gray-400"
-                )}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (viewMode !== 'chapters') setViewMode('chapters');
-                      else if (currentChapterIndex > 0) seek(chapters[currentChapterIndex - 1].startTime);
-                    }}
-                    className="p-3 hover:bg-white/10 transition-colors disabled:opacity-20"
-                    disabled={viewMode === 'chapters' && currentChapterIndex <= 0}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewMode(viewMode === 'chapters' ? 'notes' : 'chapters');
-                    }}
-                    className="flex-1 py-3 px-1 text-center font-bold text-sm truncate"
-                  >
-                    {viewMode === 'chapters' 
-                      ? (currentChapter ? currentChapter.title : (chapters.length > 0 ? 'Capitoli' : 'Nessun capitolo')) 
-                      : (currentChapter ? currentChapter.title : 'Capitoli')}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (viewMode !== 'chapters') setViewMode('chapters');
-                      else if (currentChapterIndex < chapters.length - 1) seek(chapters[currentChapterIndex + 1].startTime);
-                    }}
-                    className="p-3 hover:bg-white/10 transition-colors disabled:opacity-20"
-                    disabled={viewMode === 'chapters' && currentChapterIndex >= chapters.length - 1}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+              {hasChapters && (
+                <div className="flex items-center">
+                  <div className={cn(
+                    "w-full flex items-center rounded-xl border transition-all overflow-hidden",
+                    viewMode === 'chapters'
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                      : "bg-gray-800 border-gray-700 text-gray-400"
+                  )}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (viewMode !== 'chapters') setViewMode('chapters');
+                        else if (currentChapterIndex > 0) seek(chapters[currentChapterIndex - 1].startTime);
+                      }}
+                      className="p-3 hover:bg-white/10 transition-colors disabled:opacity-20"
+                      disabled={viewMode === 'chapters' && currentChapterIndex <= 0}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewMode(viewMode === 'chapters' ? 'notes' : 'chapters');
+                      }}
+                      className="flex-1 py-3 px-1 text-center font-bold text-sm truncate"
+                    >
+                      {viewMode === 'chapters' 
+                        ? (currentChapter ? currentChapter.title : (chapters.length > 0 ? 'Capitoli' : 'Nessun capitolo')) 
+                        : (currentChapter ? currentChapter.title : 'Capitoli')}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (viewMode !== 'chapters') setViewMode('chapters');
+                        else if (currentChapterIndex < chapters.length - 1) seek(chapters[currentChapterIndex + 1].startTime);
+                      }}
+                      className="p-3 hover:bg-white/10 transition-colors disabled:opacity-20"
+                      disabled={viewMode === 'chapters' && currentChapterIndex >= chapters.length - 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <ReaderProgressBar article={article} isCurrentTrack={isCurrentTrack} chapters={chapters} />
 
