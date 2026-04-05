@@ -72,13 +72,10 @@ const PodcastChapters = ({ article, chapters, isCurrentTrack, loading, onRefresh
           const isCurrentChapter = isCurrentTrack && progress >= chapter.startTime && (index === chapters.length - 1 || progress < chapters[index + 1].startTime);
           return (
             <button
-              key={index}
+              key={`${chapter.startTime}-${chapter.title}`}
               onClick={() => {
                 if (isCurrentTrack) {
                   seek(chapter.startTime);
-                } else {
-                  // If not playing, we could start playing and then seek, 
-                  // but for now let's just seek if it's the current track
                 }
               }}
               className={cn(
