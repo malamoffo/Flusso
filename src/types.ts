@@ -32,6 +32,7 @@ export interface PodcastChapter {
   title: string;
   url?: string;
   imageUrl?: string;
+  img?: string;
 }
 
 export interface Article {
@@ -54,6 +55,7 @@ export interface Article {
   type: 'article' | 'podcast';
   chapters?: PodcastChapter[];
   chaptersUrl?: string;
+  episode?: number;
 }
 
 export interface FullArticleContent {

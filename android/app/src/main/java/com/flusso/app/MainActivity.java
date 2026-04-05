@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         registerPlugin(QueuePlugin.class);
         registerPlugin(BackgroundPlugin.class);
+        registerPlugin(Media3Plugin.class);
     }
 
     @Override

@@ -282,9 +282,9 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       
-      // Single-pass iteration to build a dictionary of immediate children
+      // Single-pass iteration to build a dictionary of all descendant elements
       const tagDict: Record<string, Element[]> = {};
-      const children = entry.children;
+      const children = entry.getElementsByTagName('*');
       for (let c = 0; c < children.length; c++) {
         const child = children[c];
         const nodeName = child.nodeName.toLowerCase();
@@ -388,6 +388,13 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
 
       let chapters: PodcastChapter[] | undefined = undefined;
       let chaptersUrl: string | undefined = undefined;
+      let episode: number | undefined = undefined;
+
+      const episodeText = getSingleTagText(tagDict, ['itunes:episode', 'podcast:episode', 'episode']);
+      if (episodeText) {
+        const epNum = parseInt(episodeText, 10);
+        if (!isNaN(epNum)) episode = epNum;
+      }
 
       // 1. Look for inline chapters (PSC or similar)
       const chapterContainers = [
@@ -418,7 +425,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
                 startTime: parseTime(start),
                 title: title,
                 url: href || undefined,
-                imageUrl: image || undefined
+                imageUrl: image || undefined,
+                img: image || undefined
               });
             }
           }
@@ -458,6 +466,7 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
         chapters,
         chaptersUrl,
+        episode,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
       });
@@ -494,7 +503,7 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
       const item = items[i];
       
       const tagDict: Record<string, Element[]> = {};
-      const children = item.children;
+      const children = item.getElementsByTagName('*');
       for (let c = 0; c < children.length; c++) {
         const child = children[c];
         const nodeName = child.nodeName.toLowerCase();
@@ -597,6 +606,13 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
 
       let chapters: PodcastChapter[] | undefined = undefined;
       let chaptersUrl: string | undefined = undefined;
+      let episode: number | undefined = undefined;
+
+      const episodeText = getSingleTagText(tagDict, ['itunes:episode', 'podcast:episode', 'episode']);
+      if (episodeText) {
+        const epNum = parseInt(episodeText, 10);
+        if (!isNaN(epNum)) episode = epNum;
+      }
 
       // 1. Look for inline chapters (PSC or similar)
       const chapterContainers = [
@@ -627,7 +643,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
                 startTime: parseTime(start),
                 title: title,
                 url: href || undefined,
-                imageUrl: image || undefined
+                imageUrl: image || undefined,
+                img: image || undefined
               });
             }
           }
@@ -667,6 +684,7 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
         chapters,
         chaptersUrl,
+        episode,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
       });

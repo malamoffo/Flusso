@@ -122,6 +122,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
   const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
   const { settings, feeds, articles, toggleFavorite, toggleQueue, toggleRead, updateArticle } = useRss();
   const feed = feeds.find(f => f.id === article.feedId);
+  console.log(`[READER] Article: ${article.title}, chaptersUrl: ${article.chaptersUrl}, chapters: ${article.chapters?.length}`);
   const { play, currentTrack, isPlaying, isBuffering, toggle, seek, playbackRate, setPlaybackRate } = useAudioState();
   
   const [viewMode, setViewMode] = useState<'notes' | 'chapters'>('notes');
@@ -162,7 +163,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
               startTime,
               title: c.title || 'Untitled Chapter',
               url: c.url,
-              imageUrl: c.img || c.image || c.imageUrl
+              imageUrl: c.img || c.image || c.imageUrl,
+              img: c.img || c.image || c.imageUrl
             };
           });
           
@@ -676,11 +678,11 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-full">
             {article.link && (
               <CachedImage 
-                src={`https://icons.duckduckgo.com/ip3/${(() => {
+                src={feed?.imageUrl || `https://icons.duckduckgo.com/ip3/${(() => {
                   try { return new URL(article.link).hostname; }
                   catch { return ''; }
                 })()}.ico`} 
-                alt="" 
+                alt={feed?.title || "Podcast icon"}
                 className="w-4 h-4 rounded-sm"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
@@ -698,20 +700,34 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={async () => {
-                try {
-                  await Share.share({
-                    title: article.title,
-                    url: article.link,
-                    dialogTitle: 'Condividi articolo'
-                  });
-                } catch (err) {
-                  console.error('Error sharing with Capacitor:', err);
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({ title: article.title, url: article.link });
-                    } catch (e) {
-                      console.error('Fallback share error:', e);
-                    }
+                if (Capacitor.isNativePlatform()) {
+                  try {
+                    await Share.share({
+                      title: article.title,
+                      url: article.link,
+                      dialogTitle: 'Condividi articolo'
+                    });
+                    return;
+                  } catch (err) {
+                    console.error('Error sharing with Capacitor:', err);
+                  }
+                }
+                
+                // Fallback for web
+                if (navigator.share) {
+                  try {
+                    await navigator.share({ title: article.title, url: article.link });
+                  } catch (e) {
+                    console.error('Fallback share error:', e);
+                  }
+                } else {
+                  console.warn('Share API not available');
+                  // Optional: copy to clipboard as a last resort
+                  try {
+                    await navigator.clipboard.writeText(article.link);
+                    alert('Link copiato negli appunti!');
+                  } catch (e) {
+                    console.error('Clipboard copy failed:', e);
                   }
                 }
               }}

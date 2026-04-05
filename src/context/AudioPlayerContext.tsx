@@ -5,6 +5,7 @@ import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { fetchWithProxy } from '../utils/proxy';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import QueuePlugin from '../plugins/QueuePlugin';
+import Media3 from '../services/media3';
 import { Capacitor } from '@capacitor/core';
 
 interface AudioPlayerStateContextType {
@@ -64,7 +65,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           title: a.title,
           artist: feed?.title || 'Podcast',
           album: 'Flusso',
-          artwork: a.imageUrl || feed?.imageUrl
+          artwork: a.imageUrl || feed?.imageUrl,
+          url: getSafeUrl(a.mediaUrl, '')
         };
       };
 
@@ -77,6 +79,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         recentCount: recentPodcasts.length, 
         favoritesCount: favoritePodcasts.length 
       })).catch(console.error);
+
+      Media3.setFavorites({ favorites: favoritePodcasts.map(mapTrack) }).catch(console.error);
+      Media3.setRecent({ recent: recentPodcasts.map(mapTrack) }).catch(console.error);
     }
   }, [queue, recentPodcasts, favoritePodcasts, feeds]);
 
@@ -103,7 +108,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       audio.playbackRate = playbackRate;
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.getPlatform() === 'ios') {
         const currentDuration = audio.duration;
         MediaSession.setPositionState({
           duration: isNaN(currentDuration) ? 0 : currentDuration,
@@ -120,7 +125,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const handlePlaying = () => {
       setIsBuffering(false);
       audio.playbackRate = playbackRate;
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.getPlatform() === 'ios') {
         MediaSession.setPlaybackState({ playbackState: 'playing' }).catch(console.error);
         const currentDuration = audio.duration;
         MediaSession.setPositionState({
@@ -135,7 +140,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsPlaying(false);
       setIsBuffering(false);
       setProgress(0);
-      if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+      if (Capacitor.getPlatform() === 'ios') MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
       if (currentTrackRef.current) {
         updateArticle(currentTrackRef.current.id, { progress: 0 });
         // Auto-play next in queue if available
@@ -149,7 +154,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       console.error("Audio error:", e);
       setIsPlaying(false);
       setIsBuffering(false);
-      if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+      if (Capacitor.getPlatform() === 'ios') MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -190,7 +195,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setPlaybackRateState(rate);
     if (audioRef.current) {
       audioRef.current.playbackRate = rate;
-      if (Capacitor.isNativePlatform() && isPlaying) {
+      if (Capacitor.getPlatform() === 'ios' && isPlaying) {
         MediaSession.setPositionState({
           duration: audioRef.current.duration || duration,
           playbackRate: rate,
@@ -211,11 +216,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (currentTrack?.id !== track.id) {
       setCurrentTrack(track);
-      audioRef.current.src = safeMediaUrl;
-      try {
-        audioRef.current.load();
-      } catch (e) {
-        console.error("Error loading audio:", e);
+      if (Capacitor.isNativePlatform()) {
+        const feed = feeds.find(f => f.id === track.feedId);
+        Media3.updateMetadata({
+          title: track.title,
+          artist: feed?.title || 'Podcast',
+          url: safeMediaUrl,
+          image: track.imageUrl || feed?.imageUrl || ''
+        }).catch(console.error);
+      } else {
+        audioRef.current.src = safeMediaUrl;
+        try {
+          audioRef.current.load();
+        } catch (e) {
+          console.error("Error loading audio:", e);
+        }
       }
       
       // Fetch chapters if needed
@@ -250,19 +265,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
     }
     
-    audioRef.current.play().then(() => {
-      setIsPlaying(true);
-      setIsBuffering(false);
-    }).catch(err => {
-      if (err.name === 'AbortError') {
-        // Ignore AbortError as it's usually caused by a new play request
-        return;
-      }
-      console.error("Playback failed:", err);
-      setIsBuffering(false);
-    });
+    if (Capacitor.isNativePlatform()) {
+      Media3.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch(err => {
+        console.error("Native playback failed:", err);
+        setIsBuffering(false);
+      });
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch(err => {
+        if (err.name === 'AbortError') {
+          // Ignore AbortError as it's usually caused by a new play request
+          return;
+        }
+        console.error("Playback failed:", err);
+        setIsBuffering(false);
+      });
+    }
     setIsBuffering(true);
-  }, [currentTrack]);
+  }, [currentTrack, feeds]);
 
   // Check for pending media ID from Android Auto
   useEffect(() => {
@@ -333,10 +358,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [articles, play]);
 
   const pause = useCallback(() => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    setIsPlaying(false);
     if (Capacitor.isNativePlatform()) {
+      Media3.pause().catch(console.error);
+      setIsPlaying(false);
+    } else {
+      if (!audioRef.current) return;
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+    
+    if (Capacitor.getPlatform() === 'ios') {
       MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(console.error);
       const currentDuration = audioRef.current.duration;
       MediaSession.setPositionState({
@@ -363,11 +394,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [isPlaying, currentTrack, play, pause]);
 
   const seek = useCallback((time: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = time;
-    setProgress(time);
-    
     if (Capacitor.isNativePlatform()) {
+      Media3.seek({ position: time * 1000 }).catch(console.error);
+      setProgress(time);
+    } else {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = time;
+      setProgress(time);
+    }
+    
+    if (Capacitor.getPlatform() === 'ios') {
       const currentDuration = audioRef.current.duration;
       MediaSession.setPositionState({
         duration: isNaN(currentDuration) ? duration : currentDuration,
@@ -397,12 +433,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audioRef.current.currentTime = 0;
     setIsPlaying(false);
     setCurrentTrack(null);
-    if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
+    if (Capacitor.getPlatform() === 'ios') MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
   }, [currentTrack, progress, duration, updateArticle]);
 
-  // Media Session API for background controls
+  // Media Session API for background controls (iOS only, Android uses Media3Service)
   useEffect(() => {
-    if (currentTrack && Capacitor.isNativePlatform()) {
+    if (currentTrack && Capacitor.getPlatform() === 'ios') {
       const feed = feeds.find(f => f.id === currentTrack.feedId);
       MediaSession.setMetadata({
         title: currentTrack.title,
@@ -454,6 +490,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     progress,
     duration
   }), [progress, duration]);
+
+  // Listen for playback state changes from Media3
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const stateListener = Media3.addListener('onPlaybackStateChanged', (data) => {
+        setIsPlaying(data.isPlaying);
+      });
+      const positionListener = Media3.addListener('onPositionChanged', (data) => {
+        setProgress(data.position / 1000);
+        progressRef.current = data.position / 1000;
+      });
+      const playRequestListener = Media3.addListener('playRequest', (data) => {
+        const trackToPlay = articles.find(a => a.id === data.id);
+        if (trackToPlay) {
+          play(trackToPlay);
+        }
+      });
+      return () => {
+        stateListener.then(l => l.remove());
+        positionListener.then(l => l.remove());
+        playRequestListener.then(l => l.remove());
+      };
+    }
+  }, []);
 
   return (
     <AudioPlayerStateContext.Provider value={stateValue}>
