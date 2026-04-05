@@ -219,6 +219,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (Capacitor.isNativePlatform()) {
         const feed = feeds.find(f => f.id === track.feedId);
         Media3.updateMetadata({
+          id: track.id,
           title: track.title,
           artist: feed?.title || 'Podcast',
           url: safeMediaUrl,
@@ -266,23 +267,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
     
     if (Capacitor.isNativePlatform()) {
+      console.log("[AUDIO] Native play request for:", track.id);
       Media3.play().then(() => {
+        console.log("[AUDIO] Native play success");
         setIsPlaying(true);
         setIsBuffering(false);
       }).catch(err => {
-        console.error("Native playback failed:", err);
+        console.error("[AUDIO] Native playback failed:", err);
         setIsBuffering(false);
       });
     } else {
+      console.log("[AUDIO] Web play request for:", track.id);
       audioRef.current.play().then(() => {
+        console.log("[AUDIO] Web play success");
         setIsPlaying(true);
         setIsBuffering(false);
       }).catch(err => {
         if (err.name === 'AbortError') {
-          // Ignore AbortError as it's usually caused by a new play request
+          console.log("[AUDIO] Web play aborted (new request)");
           return;
         }
-        console.error("Playback failed:", err);
+        console.error("[AUDIO] Web playback failed:", err);
         setIsBuffering(false);
       });
     }

@@ -96,24 +96,30 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       const loadedFeeds = await storage.getFeeds();
       const loadedArticles = await storage.getArticles(articlesOffset.current, PAGE_SIZE);
+      
+      // Also load all favorites and queued items to ensure they are available for native features
+      const allArticles = await storage.getArticles(0, 0);
+      const essentialArticles = allArticles.filter(a => a.isFavorite || a.isQueued);
+      
       const loadedSettings = await storage.getSettings();
       
       setFeeds(loadedFeeds);
       setSettings(loadedSettings);
       
+      const mergeArticles = (prev: Article[], next: Article[]) => {
+        const combined = [...prev, ...next];
+        const seen = new Set();
+        return combined.filter(a => {
+          if (seen.has(a.id)) return false;
+          seen.add(a.id);
+          return true;
+        }).sort((a, b) => b.pubDate - a.pubDate);
+      };
+
       if (append) {
-        setArticles(prev => {
-          const combined = [...prev, ...loadedArticles];
-          // Ensure uniqueness just in case
-          const seen = new Set();
-          return combined.filter(a => {
-            if (seen.has(a.id)) return false;
-            seen.add(a.id);
-            return true;
-          }).sort((a, b) => b.pubDate - a.pubDate);
-        });
+        setArticles(prev => mergeArticles(prev, loadedArticles));
       } else {
-        setArticles(loadedArticles.sort((a, b) => b.pubDate - a.pubDate));
+        setArticles(mergeArticles(loadedArticles, essentialArticles));
       }
       
       setHasMoreArticles(loadedArticles.length === PAGE_SIZE);

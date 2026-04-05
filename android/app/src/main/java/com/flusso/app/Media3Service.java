@@ -56,6 +56,16 @@ public class Media3Service extends MediaLibraryService {
                 if (plugin != null) {
                     plugin.notifyPlaybackState(isPlaying);
                 }
+                if (isPlaying) {
+                    startPositionUpdates();
+                } else {
+                    stopPositionUpdates();
+                }
+            }
+
+            @Override
+            public void onPlayerError(androidx.media3.common.PlaybackException error) {
+                Log.e(TAG, "Player error: " + error.getMessage(), error);
             }
             
             @Override
@@ -70,7 +80,32 @@ public class Media3Service extends MediaLibraryService {
         mediaLibrarySession = new MediaLibrarySession.Builder(this, player, new LibrarySessionCallback()).build();
     }
 
-    public void updateMetadata(String title, String artist, String url, String image) {
+    private final Runnable positionUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (player != null && player.isPlaying()) {
+                Media3Plugin plugin = Media3Plugin.getInstance();
+                if (plugin != null) {
+                    plugin.notifyPosition(player.getCurrentPosition());
+                }
+                mainHandler.postDelayed(this, 1000);
+            }
+        }
+    };
+
+    private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    private void startPositionUpdates() {
+        mainHandler.removeCallbacks(positionUpdateRunnable);
+        mainHandler.post(positionUpdateRunnable);
+    }
+
+    private void stopPositionUpdates() {
+        mainHandler.removeCallbacks(positionUpdateRunnable);
+    }
+
+    public void updateMetadata(String id, String title, String artist, String url, String image) {
+        Log.d(TAG, "updateMetadata: " + title + " (id: " + id + "), url: " + url);
         if (player == null) return;
         
         MediaMetadata metadata = new MediaMetadata.Builder()
@@ -80,7 +115,7 @@ public class Media3Service extends MediaLibraryService {
                 .build();
 
         MediaItem mediaItem = new MediaItem.Builder()
-                .setMediaId(url)
+                .setMediaId(id)
                 .setUri(url)
                 .setMediaMetadata(metadata)
                 .build();
@@ -90,14 +125,17 @@ public class Media3Service extends MediaLibraryService {
     }
 
     public void play() {
+        Log.d(TAG, "play() called");
         if (player != null) player.play();
     }
 
     public void pause() {
+        Log.d(TAG, "pause() called");
         if (player != null) player.pause();
     }
 
     public void seek(long positionMs) {
+        Log.d(TAG, "seek() to: " + positionMs);
         if (player != null) player.seekTo(positionMs);
     }
 
@@ -135,15 +173,50 @@ public class Media3Service extends MediaLibraryService {
         }
 
         @Override
+        public ListenableFuture<LibraryResult<MediaItem>> onGetItem(
+                MediaLibrarySession session, MediaSession.ControllerInfo browser, String mediaId) {
+            Log.d(TAG, "onGetItem: " + mediaId);
+            
+            // Try to find the item in our collections
+            String[] collections = {"favorites", "recent", "queue"};
+            for (String key : collections) {
+                String json = getSharedPreferences("QueuePrefs", MODE_PRIVATE).getString(key, "[]");
+                try {
+                    JSONArray array = new JSONArray(json);
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject obj = array.getJSONObject(i);
+                        if (obj.optString("id").equals(mediaId)) {
+                            MediaItem item = createPlayableItem(
+                                    obj.optString("id"),
+                                    obj.optString("title"),
+                                    obj.optString("artist"),
+                                    obj.optString("artwork"),
+                                    obj.optString("url")
+                            );
+                            return Futures.immediateFuture(LibraryResult.ofItem(item, null));
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing " + key, e);
+                }
+            }
+            
+            return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE));
+        }
+
+        @Override
         public ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> onGetChildren(
                 MediaLibrarySession session, MediaSession.ControllerInfo browser, String parentId, int page, int pageSize, @Nullable LibraryParams params) {
+            Log.d(TAG, "onGetChildren: " + parentId + " (page: " + page + ", size: " + pageSize + ")");
             List<MediaItem> children = new ArrayList<>();
             if (parentId.equals("root")) {
                 children.add(createBrowsableItem("favorites", "Preferiti", "I tuoi episodi salvati"));
                 children.add(createBrowsableItem("recent", "Recenti", "Ultimi episodi ascoltati"));
+                Log.d(TAG, "Returning root children: " + children.size());
             } else if (parentId.equals("favorites") || parentId.equals("recent")) {
                 String key = parentId.equals("favorites") ? "favorites" : "recent";
                 String json = getSharedPreferences("QueuePrefs", MODE_PRIVATE).getString(key, "[]");
+                Log.d(TAG, "Loading " + key + " from prefs: " + json);
                 try {
                     JSONArray array = new JSONArray(json);
                     for (int i = 0; i < array.length(); i++) {
@@ -156,6 +229,7 @@ public class Media3Service extends MediaLibraryService {
                                 obj.optString("url", "")
                         ));
                     }
+                    Log.d(TAG, "Returning " + key + " children: " + children.size());
                 } catch (Exception e) {
                     Log.e(TAG, "Error parsing " + key, e);
                 }

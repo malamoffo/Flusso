@@ -481,6 +481,10 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         contentToSanitize = he.decode(article.content);
       }
       
+      if (!contentToSanitize && article.contentSnippet) {
+        contentToSanitize = he.decode(article.contentSnippet);
+      }
+      
       if (!contentToSanitize) {
         setSanitizedContent('');
         return;
@@ -765,12 +769,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
         <hr className="border-gray-800 mb-6" />
 
-        {!hasChapters && article.type === 'podcast' && (
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-400" /> Note episodio
-          </h3>
-        )}
-
         {article.type === 'podcast' && article.mediaUrl && (
           <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
             <div className="flex flex-col gap-6">
@@ -898,39 +896,52 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
               }
             }}
           />
-        ) : isLoading ? (
-          <div className="space-y-4 animate-pulse mt-8">
-            <div className="h-4 bg-gray-800 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-800 rounded w-full"></div>
-            <div className="h-4 bg-gray-800 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-800 rounded w-full"></div>
-            <div className="h-40 bg-gray-800 rounded w-full mt-6"></div>
-          </div>
-        ) : sanitizedContent ? (
-          <div 
-            onClick={handleContentClick}
-            className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden ${article.type === 'podcast' ? 'text-left' : 'text-justify'}
-              prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
-              prose-video:w-full prose-video:rounded-xl
-              [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
-              prose-a:text-indigo-400 prose-headings:font-bold
-              prose-pre:max-w-full prose-pre:overflow-x-auto`}
-            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-          />
         ) : (
-          <div className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-center py-8`}>
-            <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">
-              We couldn't load the full content of this article.
-            </p>
-            <a 
-              href={getSafeUrl(article.link)}
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline"
-            >
-              Read original article
-            </a>
+          <div className="space-y-6">
+            {hasChapters && (
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-400" /> Note episodio
+              </h3>
+            )}
+            
+            {isLoading ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-4 bg-gray-800 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-800 rounded w-full"></div>
+                <div className="h-4 bg-gray-800 rounded w-5/6"></div>
+                <div className="h-4 bg-gray-800 rounded w-full"></div>
+                <div className="h-40 bg-gray-800 rounded w-full mt-6"></div>
+              </div>
+            ) : sanitizedContent ? (
+              <div 
+                onClick={handleContentClick}
+                className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden ${article.type === 'podcast' ? 'text-left' : 'text-justify'}
+                  prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
+                  prose-video:w-full prose-video:rounded-xl
+                  [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
+                  prose-a:text-indigo-400 prose-headings:font-bold
+                  prose-pre:max-w-full prose-pre:overflow-x-auto`}
+                dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+              />
+            ) : (
+              <div className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-center py-8`}>
+                <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">
+                  {article.type === 'podcast' ? 'Nessuna nota disponibile per questo episodio.' : "We couldn't load the full content of this article."}
+                </p>
+                {article.link && (
+                  <a 
+                    href={getSafeUrl(article.link)}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline"
+                  >
+                    <ExternalLink size={14} />
+                    {article.type === 'podcast' ? 'Articolo originale' : 'Read original article'}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

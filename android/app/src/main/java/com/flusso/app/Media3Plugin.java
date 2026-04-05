@@ -28,16 +28,17 @@ public class Media3Plugin extends Plugin {
 
     @PluginMethod
     public void updateMetadata(PluginCall call) {
+        String id = call.getString("id");
         String title = call.getString("title");
         String artist = call.getString("artist");
         String url = call.getString("url");
         String image = call.getString("image");
 
-        Log.d(TAG, "updateMetadata: " + title);
+        Log.d(TAG, "updateMetadata: " + title + " (id: " + id + ")");
 
         Media3Service service = Media3Service.getInstance();
         if (service != null) {
-            service.updateMetadata(title, artist, url, image);
+            service.updateMetadata(id, title, artist, url, image);
         } else {
             Intent intent = new Intent(getContext(), Media3Service.class);
             getContext().startService(intent);
@@ -51,6 +52,10 @@ public class Media3Plugin extends Plugin {
         Media3Service service = Media3Service.getInstance();
         if (service != null) {
             service.play();
+        } else {
+            Log.w(TAG, "play() called but Media3Service not running, starting it...");
+            Intent intent = new Intent(getContext(), Media3Service.class);
+            getContext().startService(intent);
         }
         call.resolve();
     }
