@@ -1,6 +1,7 @@
 import { fetchChapters } from '../services/chapters';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, Calendar, User, ExternalLink, RefreshCw, Bookmark, List } from 'lucide-react';
+import { openInApp } from '../utils/browser';
 import { Article, FullArticleContent, PodcastChapter } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
@@ -11,7 +12,6 @@ import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { Browser } from '@capacitor/browser';
 import { imagePersistence } from '../utils/imagePersistence';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
@@ -499,12 +499,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
     const link = target.closest('a');
     if (link && link.href) {
       e.preventDefault();
-      try {
-        await Browser.open({ url: link.href });
-      } catch (err) {
-        console.error('Failed to open link in browser:', err);
-        window.open(link.href, '_blank');
-      }
+      await openInApp(link.href);
     }
   };
 
@@ -710,12 +705,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
               e.preventDefault();
               const safeLink = getSafeUrl(article.link);
               if (safeLink) {
-                try {
-                  await Browser.open({ url: safeLink });
-                } catch (err) {
-                  console.error('Failed to open link in browser:', err);
-                  window.open(safeLink, '_blank');
-                }
+                await openInApp(safeLink);
               }
             }}
             className="hover:underline cursor-pointer"
@@ -981,12 +971,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
                       e.preventDefault();
                       const safeLink = getSafeUrl(article.link);
                       if (safeLink) {
-                        try {
-                          await Browser.open({ url: safeLink });
-                        } catch (err) {
-                          console.error('Failed to open link in browser:', err);
-                          window.open(safeLink, '_blank');
-                        }
+                        await openInApp(safeLink);
                       }
                     }}
                     className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline cursor-pointer"

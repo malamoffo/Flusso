@@ -489,7 +489,11 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
     };
   } else {
     // Assume RSS 2.0
-    const channel = xmlDoc.getElementsByTagName('channel')[0];
+    let channel = xmlDoc.getElementsByTagName('channel')[0];
+    if (!channel) {
+      // Try to find RSS 1.0 (RDF)
+      channel = xmlDoc.getElementsByTagName('rdf:RDF')[0] || xmlDoc.getElementsByTagName('RDF')[0];
+    }
     if (!channel) throw new Error('Invalid RSS feed: missing <channel>');
     
     const title = getTagText(channel, ['title', 'dc:title']) || 'Untitled RSS Feed';

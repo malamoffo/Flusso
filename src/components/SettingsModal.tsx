@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Browser } from '@capacitor/browser';
+import { openInApp } from '../utils/browser';
 import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileCode, Copy, Check } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -178,7 +178,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     <button 
                       onClick={async () => {
                         try {
-                          await Browser.open({ url: selectedFeed.link! });
+                          await openInApp(selectedFeed.link!);
                         } catch (err) {
                           console.error('Failed to open link in browser:', err);
                           window.open(selectedFeed.link!, '_blank');
@@ -431,7 +431,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                           <button 
                             onClick={async () => {
                               try {
-                                await Browser.open({ url: feed.link! });
+                                await openInApp(feed.link!);
                               } catch (err) {
                                 console.error('Failed to open link in browser:', err);
                                 window.open(feed.link!, '_blank');
@@ -506,7 +506,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <button 
                           onClick={async () => {
                             try {
-                              await Browser.open({ url: updateInfo.latestRelease?.url! });
+                              await openInApp(updateInfo.latestRelease?.url!);
                             } catch (err) {
                               console.error('Failed to open link in browser:', err);
                               window.open(updateInfo.latestRelease?.url!, '_blank');
@@ -555,7 +555,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     <button 
                       onClick={async () => {
                         try {
-                          await Browser.open({ url: 'https://github.com/malamoffo/flusso' });
+                          await openInApp('https://github.com/malamoffo/flusso');
                         } catch (err) {
                           console.error('Failed to open link in browser:', err);
                           window.open('https://github.com/malamoffo/flusso', '_blank');

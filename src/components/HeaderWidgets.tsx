@@ -1,7 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudFog, Wind } from 'lucide-react';
+import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudFog } from 'lucide-react';
 import { fetchWithProxy } from '../utils/proxy';
-import { Browser } from '@capacitor/browser';
 
 interface WeatherData {
   temp: number;
@@ -33,22 +32,9 @@ const WeatherWidget = memo(({ loading, weather }: { loading: boolean, weather: W
 
   if (!weather) return null;
 
-  const handleClick = async () => {
-    // Open Meteo forecast page URL structure: https://open-meteo.com/en/forecast?latitude=41.90&longitude=12.50
-    const url = `https://open-meteo.com/en/forecast?latitude=${weather.lat.toFixed(2)}&longitude=${weather.lon.toFixed(2)}`;
-    try {
-      await Browser.open({ url });
-    } catch (err) {
-      console.error('Failed to open weather link:', err);
-      window.open(url, '_blank');
-    }
-  };
-
   return (
     <div 
-      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700 transition-colors"
-      onClick={handleClick}
-      title="Vedi previsioni meteo"
+      className="flex items-center gap-1.5 transition-colors"
     >
       {getWeatherIcon(weather.condition)}
       <span>{weather.temp}°C</span>
