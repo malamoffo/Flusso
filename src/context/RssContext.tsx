@@ -112,13 +112,25 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setRefreshLogs(loadedLogs);
       
       const mergeArticles = (prev: Article[], next: Article[]) => {
-        const combined = [...prev, ...next];
-        const seen = new Set();
-        return combined.filter(a => {
-          if (seen.has(a.id)) return false;
-          seen.add(a.id);
-          return true;
-        }).sort((a, b) => b.pubDate - a.pubDate);
+        const result: Article[] = [];
+        let i = 0;
+        let j = 0;
+        const seen = new Set<string>();
+        
+        while (i < prev.length || j < next.length) {
+          let article: Article;
+          if (i < prev.length && (j >= next.length || prev[i].pubDate >= next[j].pubDate)) {
+            article = prev[i++];
+          } else {
+            article = next[j++];
+          }
+          
+          if (!seen.has(article.id)) {
+            result.push(article);
+            seen.add(article.id);
+          }
+        }
+        return result;
       };
 
       if (append) {
@@ -397,21 +409,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
 
-      // 2. Update with dates from actual articles in DB (more granular if available)
-      for (const article of cArticles) {
-        const type = article.type || (article.mediaType?.startsWith('audio/') ? 'podcast' : 'article');
-        const key = `${article.feedId}_${type}`;
-        const currentLatest = latestDateByFeedAndType.get(key) || 0;
-        if (article.pubDate > currentLatest) {
-          latestDateByFeedAndType.set(key, article.pubDate);
-        }
-      }
-      
       const queue = [...fToRefresh];
       let queueIndex = 0;
       const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
       
-      const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
+      const workers = Array(Math.min(10, queue.length)).fill(null).map(async () => {
         while (queueIndex < queue.length) {
           const feed = queue[queueIndex++];
           if (!feed) break;
@@ -589,7 +591,12 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let mounted = true;
     loadData().then(data => {
       if (mounted && data && data.loadedFeeds.length > 0) {
-        refreshFeeds(data.loadedFeeds, data.loadedArticles);
+        // Delay the refresh to let the app load first
+        setTimeout(() => {
+          if (mounted) {
+            refreshFeeds(data.loadedFeeds, data.loadedArticles);
+          }
+        }, 2000);
       }
     });
     return () => { mounted = false; };

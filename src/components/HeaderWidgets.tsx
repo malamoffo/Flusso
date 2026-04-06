@@ -33,7 +33,7 @@ const WeatherWidget = memo(({ loading, weather }: { loading: boolean, weather: W
   if (!weather) return null;
 
   const handleClick = () => {
-    window.open(`https://www.google.com/search?q=meteo+${weather.lat},${weather.lon}`, '_blank');
+    window.open(`https://open-meteo.com/en/forecast?latitude=${weather.lat}&longitude=${weather.lon}`, '_blank');
   };
 
   return (
