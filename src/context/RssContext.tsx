@@ -4,6 +4,7 @@ import { storage, defaultSettings } from '../services/storage';
 import packageJson from '../../package.json';
 import { Capacitor } from '@capacitor/core';
 import { BackgroundPlugin } from '../plugins/BackgroundPlugin';
+import Media3 from '../services/media3';
 
 interface ProgressInfo {
   current: number;
@@ -293,11 +294,17 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const toggleFavorite = useCallback(async (id: string) => {
+    let updatedArticles: Article[] = [];
     setArticles(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, isFavorite: !a.isFavorite } : a);
-      storage.saveArticles(updated);
-      return updated;
+      updatedArticles = prev.map(a => a.id === id ? { ...a, isFavorite: !a.isFavorite } : a);
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
     });
+    
+    if (Capacitor.isNativePlatform()) {
+      const favorites = updatedArticles.filter(a => a.isFavorite);
+      Media3.setFavorites({ favorites }).catch(console.error);
+    }
   }, []);
 
   const toggleQueue = useCallback(async (id: string) => {
@@ -309,11 +316,17 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const removeFromSaved = useCallback(async (id: string) => {
+    let updatedArticles: Article[] = [];
     setArticles(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, isFavorite: false, isQueued: false } : a);
-      storage.saveArticles(updated);
-      return updated;
+      updatedArticles = prev.map(a => a.id === id ? { ...a, isFavorite: false, isQueued: false } : a);
+      storage.saveArticles(updatedArticles);
+      return updatedArticles;
     });
+    
+    if (Capacitor.isNativePlatform()) {
+      const favorites = updatedArticles.filter(a => a.isFavorite);
+      Media3.setFavorites({ favorites }).catch(console.error);
+    }
   }, []);
 
   const updateArticle = useCallback(async (id: string, updates: Partial<Article>) => {

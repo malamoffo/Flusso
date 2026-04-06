@@ -14,6 +14,7 @@ export interface Settings {
   theme: Theme;
   pureBlack: boolean;
   lastBackgroundRefresh?: number;
+  lastPlayedArticleId?: string;
 }
 
 export interface Feed {
@@ -66,6 +67,7 @@ export interface Article {
   chapters?: PodcastChapter[];
   chaptersUrl?: string;
   episode?: number;
+  lastPlayedAt?: number;
 }
 
 export interface FullArticleContent {

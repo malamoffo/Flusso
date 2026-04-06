@@ -32,7 +32,7 @@ const AudioPlayerStateContext = createContext<AudioPlayerStateContextType | unde
 const AudioPlayerProgressContext = createContext<AudioPlayerProgressContextType | undefined>(undefined);
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
-  const { articles, updateArticle } = useRss();
+  const { articles, updateArticle, settings, updateSettings, feeds } = useRss();
   const [currentTrack, setCurrentTrack] = useState<Article | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -44,16 +44,48 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const lastSavedProgressRef = useRef<number>(0);
   const currentTrackRef = useRef<Article | null>(null);
 
+  // Restore last played track
+  useEffect(() => {
+    if (articles.length > 0 && settings.lastPlayedArticleId && !currentTrack) {
+      const track = articles.find(a => a.id === settings.lastPlayedArticleId);
+      if (track) {
+        setCurrentTrack(track);
+      }
+    }
+  }, [articles, settings.lastPlayedArticleId]);
+
+  // Update Media3 metadata when currentTrack changes
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() && currentTrack) {
+      const feed = feeds.find(f => f.id === currentTrack.feedId);
+      const safeMediaUrl = getSafeUrl(currentTrack.mediaUrl, '');
+      Media3.updateMetadata({
+        id: currentTrack.id,
+        title: currentTrack.title,
+        artist: feed?.title || 'Podcast',
+        url: safeMediaUrl,
+        image: currentTrack.imageUrl || feed?.imageUrl || ''
+      }).catch(console.error);
+    }
+  }, [currentTrack, feeds]);
+
+  // Save last played track
+  useEffect(() => {
+    if (currentTrack && currentTrack.id !== settings.lastPlayedArticleId) {
+      updateSettings({ lastPlayedArticleId: currentTrack.id });
+    }
+  }, [currentTrack, settings.lastPlayedArticleId, updateSettings]);
+
+
   // Get the current queue: queued and favorited podcasts
   const queue = useMemo(() => articles.filter(a => (a.isQueued || a.isFavorite) && a.type === 'podcast'), [articles]);
   const recentPodcasts = useMemo(() => articles
-    .filter(a => a.type === 'podcast')
-    .sort((a, b) => b.pubDate - a.pubDate)
+    .filter(a => a.type === 'podcast' && a.lastPlayedAt)
+    .sort((a, b) => (b.lastPlayedAt || 0) - (a.lastPlayedAt || 0))
     .slice(0, 20), [articles]);
   const favoritePodcasts = useMemo(() => articles.filter(a => a.isFavorite && a.type === 'podcast'), [articles]);
   
   const queueRef = useRef<Article[]>([]);
-  const { feeds } = useRss();
   
   useEffect(() => {
     queueRef.current = queue;
@@ -216,6 +248,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (currentTrack?.id !== track.id) {
       setCurrentTrack(track);
+      updateArticle(track.id, { lastPlayedAt: Date.now() });
       if (Capacitor.isNativePlatform()) {
         const feed = feeds.find(f => f.id === track.feedId);
         Media3.updateMetadata({
