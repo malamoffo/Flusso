@@ -13,6 +13,7 @@ export interface Settings {
   autoCheckUpdates: boolean;
   theme: Theme;
   pureBlack: boolean;
+  lastBackgroundRefresh?: number;
 }
 
 export interface Feed {
@@ -25,6 +26,15 @@ export interface Feed {
   lastFetched?: number;
   lastArticleDate?: number;
   error?: string;
+  lastRefreshStatus?: 'success' | 'warning' | 'error';
+}
+
+export interface RefreshLog {
+  feedId: string;
+  feedTitle: string;
+  timestamp: number;
+  error: string;
+  type: 'timeout' | 'network' | 'parse' | 'unknown';
 }
 
 export interface PodcastChapter {

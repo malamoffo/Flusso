@@ -16,7 +16,7 @@ export const SettingsModal = React.memo(function SettingsModal({
   onClose: () => void;
   initialTab?: 'settings' | 'subscriptions' | 'about';
 }) {
-  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates } = useRss();
+  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, refreshLogs } = useRss();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'subscriptions' | 'about'>('settings');
@@ -315,6 +315,44 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <p className="mt-1 text-[10px] text-gray-500">
                         * Minimum 15 minutes required by Android system.
                       </p>
+                      {settings.lastBackgroundRefresh && (
+                        <p className="mt-2 text-[10px] text-indigo-400 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Last background refresh: {new Date(settings.lastBackgroundRefresh).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Refresh Logs Section (Grouped with Background Refresh) */}
+                    <div className="pt-4 border-t border-gray-800/50">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Refresh Issues
+                      </h4>
+                      {refreshLogs.length > 0 ? (
+                        <>
+                          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {refreshLogs.map((log, idx) => (
+                              <div key={`${log.feedId}-${idx}`} className="p-3 rounded-xl bg-red-900/10 border border-red-900/20">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-xs font-bold text-red-300 truncate flex-1 mr-2">{log.feedTitle}</span>
+                                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400 leading-tight">{log.error}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-[10px] text-gray-500 italic">
+                            Logs are cleared automatically on each new refresh.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-gray-900/30 border border-gray-800/50 text-center">
+                          <p className="text-[10px] text-gray-500">No issues detected in the last update.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -360,7 +398,12 @@ export const SettingsModal = React.memo(function SettingsModal({
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         )}
-                        <span className={`w-2 h-2 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                        <span className={cn(
+                          "w-2.5 h-2.5 rounded-full shadow-sm",
+                          feed.lastRefreshStatus === 'error' ? 'bg-red-500 shadow-red-500/50' : 
+                          feed.lastRefreshStatus === 'warning' ? 'bg-yellow-500 shadow-yellow-500/50' : 
+                          'bg-green-500 shadow-green-500/50'
+                        )} />
                       </div>
                     </div>
                   ))}

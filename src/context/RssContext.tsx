@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
-import { Feed, Article, Settings } from '../types';
+import { Feed, Article, Settings, RefreshLog } from '../types';
 import { storage, defaultSettings } from '../services/storage';
 import packageJson from '../../package.json';
 import { Capacitor } from '@capacitor/core';
@@ -41,6 +41,7 @@ interface RssContextType {
   checkUpdates: (force?: boolean) => Promise<void>;
   loadMoreArticles: () => Promise<void>;
   hasMoreArticles: boolean;
+  refreshLogs: RefreshLog[];
 }
 
 const RssContext = createContext<RssContextType | undefined>(undefined);
@@ -55,6 +56,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [updateInfo, setUpdateInfo] = useState<any | null>(null);
   const [hasMoreArticles, setHasMoreArticles] = useState<boolean>(true);
+  const [refreshLogs, setRefreshLogs] = useState<RefreshLog[]>([]);
   const lastRefresh = useRef(Date.now());
   const isRefreshing = useRef(false);
   const articlesOffset = useRef(0);
@@ -102,9 +104,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const essentialArticles = allArticles.filter(a => a.isFavorite || a.isQueued);
       
       const loadedSettings = await storage.getSettings();
+      const loadedLogs = await storage.getRefreshLogs();
       
       setFeeds(loadedFeeds);
       setSettings(loadedSettings);
+      setRefreshLogs(loadedLogs);
       
       const mergeArticles = (prev: Article[], next: Article[]) => {
         const combined = [...prev, ...next];
@@ -144,35 +148,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (isLoading || !hasMoreArticles) return;
     await loadData(true);
   }, [isLoading, hasMoreArticles]);
-
-  useEffect(() => {
-    let mounted = true;
-    loadData().then(data => {
-      if (mounted && data && data.loadedFeeds.length > 0) {
-        refreshFeeds(data.loadedFeeds, data.loadedArticles);
-      }
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      if (feeds.length > 0 && settings.refreshInterval > 0) {
-        const syncFeeds = feeds.map(f => ({
-          id: f.id,
-          url: f.feedUrl,
-          title: f.title,
-          lastFetched: f.lastFetched || 0
-        }));
-        BackgroundPlugin.setupBackgroundSync({
-          feeds: syncFeeds,
-          intervalMinutes: settings.refreshInterval
-        }).catch(console.error);
-      } else {
-        BackgroundPlugin.stopBackgroundSync().catch(console.error);
-      }
-    }
-  }, [feeds, settings.refreshInterval]);
 
   const updateSettings = useCallback(async (updates: Partial<Settings>) => {
     setSettings(prev => {
@@ -379,6 +354,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isRefreshing.current = true;
     try {
       setIsLoading(true);
+      setRefreshLogs([]); // Clear logs on each new refresh
       const fToRefresh = feedsToRefresh || await storage.getFeeds();
       const cArticles = currentArticles || await storage.getArticles();
       
@@ -391,6 +367,10 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProgress({ current: 0, total: fToRefresh.length });
       const results: { feed: Feed; articles: Article[] }[] = [];
       let completed = 0;
+      
+      // Track statuses to update feeds later
+      const feedStatuses = new Map<string, 'success' | 'warning' | 'error'>();
+      const newLogs: RefreshLog[] = [];
       
       // Precompute the latest article and podcast date for each feed for O(1) lookups
       const latestDateByFeedAndType = new Map<string, number>();
@@ -435,6 +415,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
               if (data) {
                 results.push(data);
+                feedStatuses.set(feed.id, 'success');
                 
                 // Inserisci i nuovi articoli uno alla volta nella corretta posizione cronologica
                 if (data.articles && data.articles.length > 0) {
@@ -503,6 +484,18 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               clearTimeout(timeoutId);
             }
           } catch (e: any) {
+            const errorType = e.name === 'AbortError' ? 'timeout' : (e.message?.includes('network') ? 'network' : 'unknown');
+            const errorMessage = e.name === 'AbortError' ? `Timeout (${FEED_TIMEOUT}ms)` : (e.message || 'Unknown error');
+            
+            feedStatuses.set(feed.id, e.name === 'AbortError' ? 'warning' : 'error');
+            newLogs.push({
+              feedId: feed.id,
+              feedTitle: feed.title,
+              timestamp: Date.now(),
+              error: errorMessage,
+              type: errorType as any
+            });
+
             if (e.name === 'AbortError') {
               console.warn(`Skipping feed ${feed.feedUrl} due to timeout (${FEED_TIMEOUT}ms)`);
             } else {
@@ -517,6 +510,22 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       await Promise.all(workers);
       
+      setRefreshLogs(newLogs);
+      storage.saveRefreshLogs(newLogs);
+      
+      // Update feed statuses in the state and storage
+      setFeeds(prev => {
+        const updated = prev.map(f => {
+          const status = feedStatuses.get(f.id);
+          if (status) {
+            return { ...f, lastRefreshStatus: status };
+          }
+          return f;
+        });
+        storage.saveFeeds(updated);
+        return updated;
+      });
+
       if (results.length > 0) {
         setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
         const { updatedFeeds } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
@@ -552,20 +561,67 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { unreadCount: unread, savedCount: saved };
   }, [articles]);
 
+  useEffect(() => {
+    let mounted = true;
+    loadData().then(data => {
+      if (mounted && data && data.loadedFeeds.length > 0) {
+        refreshFeeds(data.loadedFeeds, data.loadedArticles);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const handleBackgroundSync = async (data: { feeds: string[] }) => {
+        console.log('[BACKGROUND] Sync triggered from native plugin:', data);
+        const feedsToRefresh = feeds.filter(f => data.feeds.includes(f.id));
+        if (feedsToRefresh.length > 0) {
+          await refreshFeeds(feedsToRefresh);
+          updateSettings({ lastBackgroundRefresh: Date.now() });
+        } else {
+          await refreshFeeds();
+          updateSettings({ lastBackgroundRefresh: Date.now() });
+        }
+      };
+
+      const listener = BackgroundPlugin.addListener('backgroundSync', handleBackgroundSync);
+      
+      if (feeds.length > 0 && settings.refreshInterval > 0) {
+        const syncFeeds = feeds.map(f => ({
+          id: f.id,
+          url: f.feedUrl,
+          title: f.title,
+          lastFetched: f.lastFetched || 0
+        }));
+        BackgroundPlugin.setupBackgroundSync({
+          feeds: syncFeeds,
+          intervalMinutes: settings.refreshInterval
+        }).catch(console.error);
+      } else {
+        BackgroundPlugin.stopBackgroundSync().catch(console.error);
+      }
+
+      return () => {
+        listener.then(l => l.remove());
+      };
+    }
+  }, [feeds, settings.refreshInterval, refreshFeeds, updateSettings]);
+
   const value = useMemo(() => ({
     feeds, articles, settings, isLoading, progress, error,
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
     toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates,
-    loadMoreArticles, hasMoreArticles
+    loadMoreArticles, hasMoreArticles, refreshLogs
   }), [
     feeds, articles, settings, isLoading, progress, error,
     addFeed, importOpml, toggleRead, markAsRead, markArticlesAsRead,
     toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, removeFeed,
     updateFeed, updateArticle, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates,
-    loadMoreArticles, hasMoreArticles
+    loadMoreArticles, hasMoreArticles, refreshLogs
   ]);
 
   return (

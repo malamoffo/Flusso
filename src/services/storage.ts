@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
-import { Feed, Article, Settings, PodcastChapter, FullArticleContent } from '../types';
+import { Feed, Article, Settings, PodcastChapter, FullArticleContent, RefreshLog } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../utils/proxy';
 import DOMPurify from 'dompurify';
@@ -11,6 +11,7 @@ import he from 'he';
 const FEEDS_KEY = 'rss_feeds';
 const ARTICLES_KEY = 'rss_articles';
 const SETTINGS_KEY = 'rss_settings';
+const REFRESH_LOGS_KEY = 'rss_refresh_logs';
 const CONTENT_PREFIX = 'article_content_';
 
 // Helper to decode HTML entities safely
@@ -199,7 +200,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
             link: getSafeUrl(data.feed.link),
             feedUrl: getSafeUrl(feedUrl),
             imageUrl: getSafeUrl(data.feed.image, undefined),
-            lastFetched: Date.now()
+            lastFetched: Date.now(),
+            lastRefreshStatus: 'success'
           },
           articles
         };
@@ -480,7 +482,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         description,
         link: getSafeUrl(link),
         feedUrl: getSafeUrl(feedUrl),
-        lastFetched: Date.now()
+        lastFetched: Date.now(),
+        lastRefreshStatus: 'success'
       },
       articles
     };
@@ -699,7 +702,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         link: getSafeUrl(link),
         feedUrl: getSafeUrl(feedUrl),
         imageUrl: getSafeUrl(feedImage, undefined),
-        lastFetched: Date.now()
+        lastFetched: Date.now(),
+        lastRefreshStatus: 'success'
       },
       articles
     };
@@ -905,12 +909,12 @@ export const storage = {
 
           return { feed, articles: filteredArticles };
         } else {
-          console.warn(`Feed fetch failed with status ${response.status} for ${feedUrl}`);
-          return null;
+          throw new Error(`Feed fetch failed with status ${response.status}`);
         }
       } catch (e) {
+        if (signal?.aborted) return null;
         console.warn(`[STORAGE] Native direct fetch failed for ${feedUrl}:`, e);
-        return null;
+        throw e;
       }
     }
 
@@ -939,8 +943,9 @@ export const storage = {
 
       return { feed, articles: filteredArticles };
     } catch (e) {
+      if (signal?.aborted) return null;
       console.warn(`[STORAGE] Web fetch error for ${feedUrl}:`, e);
-      return null;
+      throw e;
     }
   },
 
@@ -1167,5 +1172,13 @@ export const storage = {
     opml += '  </body>\n';
     opml += '</opml>';
     return opml;
+  },
+
+  async getRefreshLogs(): Promise<RefreshLog[]> {
+    return (await get<RefreshLog[]>(REFRESH_LOGS_KEY)) || [];
+  },
+
+  async saveRefreshLogs(logs: RefreshLog[]): Promise<void> {
+    await set(REFRESH_LOGS_KEY, logs);
   }
 };
