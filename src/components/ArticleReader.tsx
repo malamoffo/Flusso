@@ -15,7 +15,7 @@ import { imagePersistence } from '../utils/imagePersistence';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
-import { extractBestImage } from '../services/storage';
+import { storage, extractBestImage } from '../services/storage';
 import { getColorSync } from 'colorthief';
 
 interface ArticleReaderProps {
@@ -216,18 +216,17 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
     return false;
   }, [article.chaptersUrl, article.id, updateArticle]);
 
-  const extractFromContent = useCallback(() => {
-    const content = article.content || '';
-    if (!content) return false;
+  const extractFromContent = useCallback((contentToParse: string) => {
+    if (!contentToParse) return false;
     
-    console.log('[CHAPTERS] Attempting to extract chapters from content, length:', content.length);
+    console.log('[CHAPTERS] Attempting to extract chapters from content, length:', contentToParse.length);
     
     // More robust timestamp regex: handles [01:23], (1:23:45), 01.23.45, etc.
     // Matches: 00:00, 0:00, 00:00:00, 0:00:00, [00:00], (00:00), 00.00.00
     const timestampRegex = /(?:^|\s|\[|\()(\d{1,2}[:.]\d{2}(?:[:.]\d{2})?(?:\.\d+)?)(?:\s|$|\]|\))/;
     
     // Split by many more separators to find lines with timestamps
-    const lines = content.split(/<p[^>]*>|<\/p>|<div[^>]*>|<\/div>|<br\s*\/?>|\n|\r|<li>|<\/li>|&nbsp;|\t/i);
+    const lines = contentToParse.split(/<p[^>]*>|<\/p>|<div[^>]*>|<\/div>|<br\s*\/?>|\n|\r|<li>|<\/li>|&nbsp;|\t/i);
     const extractedChapters: PodcastChapter[] = [];
     
     lines.forEach(line => {
@@ -273,7 +272,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
     
     console.log('[CHAPTERS] No chapters found in content');
     return false;
-  }, [article.content, article.id, updateArticle]);
+  }, [article.id, updateArticle]);
 
   useEffect(() => {
     if (article.chapters && article.chapters.length > 0) {
@@ -283,13 +282,13 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
     const loadChapters = async () => {
       const fetched = await fetchExternalChapters();
-      if (!fetched) {
-        extractFromContent();
+      if (!fetched && fullContent?.content) {
+        extractFromContent(fullContent.content);
       }
     };
 
     loadChapters();
-  }, [article.id, article.chapters, fetchExternalChapters, extractFromContent]);
+  }, [article.id, article.chapters, fetchExternalChapters, extractFromContent, fullContent?.content]);
 
   const chapters = fetchedChapters;
   const hasChapters = chapters.length > 0 || !!article.chaptersUrl;
@@ -377,7 +376,27 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
   useEffect(() => {
     const fetchFullContent = async () => {
       if (article.type === 'podcast') {
-        setIsLoading(false);
+        setIsLoading(true);
+        try {
+          const savedContent = await storage.getArticleContent(article.id);
+          if (savedContent) {
+            setFullContent({
+              title: article.title,
+              content: savedContent,
+              textContent: savedContent,
+              length: savedContent.length,
+              excerpt: article.contentSnippet || '',
+              byline: '',
+              dir: '',
+              siteName: feed?.title || '',
+              lang: ''
+            });
+          }
+        } catch (e) {
+          console.error('[READER] Error fetching podcast content from storage:', e);
+        } finally {
+          setIsLoading(false);
+        }
         return;
       }
       
