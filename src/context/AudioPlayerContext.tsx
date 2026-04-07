@@ -270,40 +270,50 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    if (currentTrack?.id !== track.id) {
-      setCurrentTrack(track);
-      updateArticle(track.id, { lastPlayedAt: Date.now() });
+    const isNewTrack = currentTrack?.id !== track.id;
+    const isMissingSrc = !Capacitor.isNativePlatform() && (!audioRef.current.src || audioRef.current.src === window.location.href || audioRef.current.src.endsWith('/'));
+
+    if (isNewTrack || isMissingSrc) {
+      if (isNewTrack) {
+        setCurrentTrack(track);
+        updateArticle(track.id, { lastPlayedAt: Date.now() });
+      }
+
       if (Capacitor.isNativePlatform()) {
-        const feed = feeds.find(f => f.id === track.feedId);
-        Media3.updateMetadata({
-          id: track.id,
-          title: track.title,
-          artist: feed?.title || 'Podcast',
-          url: safeMediaUrl,
-          image: track.imageUrl || feed?.imageUrl || ''
-        }).catch(console.error);
+        if (isNewTrack) {
+          const feed = feeds.find(f => f.id === track.feedId);
+          Media3.updateMetadata({
+            id: track.id,
+            title: track.title,
+            artist: feed?.title || 'Podcast',
+            url: safeMediaUrl,
+            image: track.imageUrl || feed?.imageUrl || ''
+          }).catch(console.error);
+        }
       } else {
         console.log("[AUDIO] Setting web src:", safeMediaUrl);
         audioRef.current.src = safeMediaUrl;
       }
       
-      // Fetch chapters if needed
-      if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
-        fetchWithProxy(track.chaptersUrl, false)
-          .then(text => JSON.parse(text))
-          .then(data => {
-            if (data && data.chapters && Array.isArray(data.chapters)) {
-              const mappedChapters = data.chapters.map((c: any) => ({
-                startTime: Number(c.startTime) || 0,
-                title: c.title || 'Untitled Chapter',
-                url: c.url,
-                imageUrl: c.img || c.image || c.imageUrl
-              }));
-              updateArticle(track.id, { chapters: mappedChapters });
-              setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
-            }
-          })
-          .catch(err => console.error('Failed to fetch chapters:', err));
+      if (isNewTrack) {
+        // Fetch chapters if needed
+        if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
+          fetchWithProxy(track.chaptersUrl, false)
+            .then(text => JSON.parse(text))
+            .then(data => {
+              if (data && data.chapters && Array.isArray(data.chapters)) {
+                const mappedChapters = data.chapters.map((c: any) => ({
+                  startTime: Number(c.startTime) || 0,
+                  title: c.title || 'Untitled Chapter',
+                  url: c.url,
+                  imageUrl: c.img || c.image || c.imageUrl
+                }));
+                updateArticle(track.id, { chapters: mappedChapters });
+                setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
+              }
+            })
+            .catch(err => console.error('Failed to fetch chapters:', err));
+        }
       }
 
       // Resume from saved progress if available
