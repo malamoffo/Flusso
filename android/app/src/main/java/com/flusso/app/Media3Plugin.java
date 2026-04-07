@@ -17,6 +17,11 @@ public class Media3Plugin extends Plugin {
     private static final String TAG = "Media3Plugin";
     private static Media3Plugin instance;
 
+    public Media3Plugin() {
+        super();
+        instance = this;
+    }
+
     public static Media3Plugin getInstance() {
         return instance;
     }
