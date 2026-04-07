@@ -2,6 +2,8 @@ package com.flusso.app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -52,12 +54,26 @@ public class Media3Plugin extends Plugin {
         Media3Service service = Media3Service.getInstance();
         if (service != null) {
             service.play();
+            call.resolve();
         } else {
             Log.w(TAG, "play() called but Media3Service not running, starting it...");
             Intent intent = new Intent(getContext(), Media3Service.class);
             getContext().startService(intent);
+            
+            // Poll for service
+            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    Media3Service service = Media3Service.getInstance();
+                    if (service != null) {
+                        service.play();
+                        call.resolve();
+                    } else {
+                        call.reject("Media3Service not running");
+                    }
+                }
+            }, 500);
         }
-        call.resolve();
     }
 
     @PluginMethod

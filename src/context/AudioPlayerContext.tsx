@@ -315,23 +315,33 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     
     if (Capacitor.isNativePlatform()) {
       console.log("[AUDIO] Native play request for:", track.id);
-      try {
-        const feed = feeds.find(f => f.id === track.feedId);
-        await Media3.updateMetadata({
-          id: track.id,
-          title: track.title,
-          artist: feed?.title || 'Podcast',
-          url: safeMediaUrl,
-          image: track.imageUrl || feed?.imageUrl || ''
-        });
-        await Media3.play();
-        console.log("[AUDIO] Native play success");
-        setIsPlaying(true);
-        setIsBuffering(false);
-      } catch (err) {
-        console.error("[AUDIO] Native playback failed:", err);
-        setIsBuffering(false);
-      }
+      
+      const attemptPlay = async (retries: number): Promise<void> => {
+        try {
+          const feed = feeds.find(f => f.id === track.feedId);
+          await Media3.updateMetadata({
+            id: track.id,
+            title: track.title,
+            artist: feed?.title || 'Podcast',
+            url: safeMediaUrl,
+            image: track.imageUrl || feed?.imageUrl || ''
+          });
+          await Media3.play();
+          console.log("[AUDIO] Native play success");
+          setIsPlaying(true);
+          setIsBuffering(false);
+        } catch (err) {
+          if (retries > 0) {
+            console.warn(`[AUDIO] Native playback failed, retrying... (${retries} left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return attemptPlay(retries - 1);
+          }
+          console.error("[AUDIO] Native playback failed after retries:", err);
+          setIsBuffering(false);
+        }
+      };
+
+      await attemptPlay(3);
     } else {
       if (isNewTrack || isMissingSrcWeb) {
         console.log("[AUDIO] Setting web src:", safeMediaUrl);

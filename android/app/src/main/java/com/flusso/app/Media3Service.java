@@ -129,8 +129,18 @@ public class Media3Service extends MediaLibraryService {
         if (player != null) {
             if (player.getPlaybackState() == Player.STATE_IDLE) {
                 player.prepare();
+                player.addListener(new Player.Listener() {
+                    @Override
+                    public void onPlaybackStateChanged(int playbackState) {
+                        if (playbackState == Player.STATE_READY) {
+                            player.play();
+                            player.removeListener(this);
+                        }
+                    }
+                });
+            } else {
+                player.play();
             }
-            player.play();
         }
     }
 
