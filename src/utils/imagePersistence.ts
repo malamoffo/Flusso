@@ -3,6 +3,9 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 const CACHE_DIR = 'image_cache';
 
+// In-memory cache for resolved local URIs to avoid native bridge overhead
+const uriCache = new Map<string, string>();
+
 /**
  * Utility for persistent image caching on the device's filesystem.
  */
@@ -33,6 +36,10 @@ export const imagePersistence = {
   async getCachedUrl(url: string): Promise<string | null> {
     if (!Capacitor.isNativePlatform()) return null;
 
+    if (uriCache.has(url)) {
+      return uriCache.get(url)!;
+    }
+
     const filename = this.getFilename(url);
     const path = `${CACHE_DIR}/${filename}`;
 
@@ -47,7 +54,9 @@ export const imagePersistence = {
           path,
           directory: Directory.Data
         });
-        return Capacitor.convertFileSrc(uriResult.uri);
+        const finalUri = Capacitor.convertFileSrc(uriResult.uri);
+        uriCache.set(url, finalUri);
+        return finalUri;
       }
     } catch (e) {
       // File doesn't exist
@@ -61,6 +70,10 @@ export const imagePersistence = {
    */
   async getLocalUrl(url: string): Promise<string> {
     if (!Capacitor.isNativePlatform()) return url;
+
+    if (uriCache.has(url)) {
+      return uriCache.get(url)!;
+    }
 
     const filename = this.getFilename(url);
     const path = `${CACHE_DIR}/${filename}`;
@@ -77,7 +90,9 @@ export const imagePersistence = {
           path,
           directory: Directory.Data
         });
-        return Capacitor.convertFileSrc(uriResult.uri);
+        const finalUri = Capacitor.convertFileSrc(uriResult.uri);
+        uriCache.set(url, finalUri);
+        return finalUri;
       }
     } catch (e) {
       // File doesn't exist or is empty, proceed to download and cache it
@@ -115,7 +130,9 @@ export const imagePersistence = {
           path,
           directory: Directory.Data
         });
-        return Capacitor.convertFileSrc(uriResult.uri);
+        const finalUri = Capacitor.convertFileSrc(uriResult.uri);
+        uriCache.set(url, finalUri);
+        return finalUri;
       }
     } catch (downloadErr) {
       console.error('[IMAGE_CACHE] Failed to download/cache image:', url, downloadErr);

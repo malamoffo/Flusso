@@ -103,23 +103,36 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
   // Primary proxies (more reliable)
   proxies.push(
     { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 25000 },
-    { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'AllOrigins Raw (Unencoded)', url: `https://api.allorigins.win/raw?url=${url}`, type: 'text', timeout: 25000 },
+    { name: 'CorsProxy.io', url: `https://corsproxy.io/?${url}`, type: 'text' },
+    { name: 'CorsProxy.io (Encoded)', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
     { name: 'CorsProxy.org', url: `https://corsproxy.org/?url=${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' }
+    { name: 'CorsProxy.org (Unencoded)', url: `https://corsproxy.org/?url=${url}`, type: 'text' },
+    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${url}`, type: 'text' },
+    { name: 'CodeTabs (Encoded)', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'Proxy.cors.sh', url: `https://proxy.cors.sh/${url}`, type: 'text' },
+    { name: 'Proxy.cors.sh (Encoded)', url: `https://proxy.cors.sh/${encodeURIComponent(url)}`, type: 'text' }
   );
 
   // RSS specific proxy
   if (isRss) {
-    proxies.push({ name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 25000 });
+    proxies.push(
+      { name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 25000 },
+      { name: 'RSS2JSON (Unencoded)', url: `https://api.rss2json.com/v1/api.json?rss_url=${url}`, type: 'rss2json', timeout: 25000 }
+    );
   }
 
   // Secondary proxies
   proxies.push(
     { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text' },
+    { name: 'ThingProxy (Encoded)', url: `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`, type: 'text' },
     { name: 'YACDN', url: `https://yacdn.org/proxy/${url}`, type: 'text' },
+    { name: 'YACDN (Encoded)', url: `https://yacdn.org/proxy/${encodeURIComponent(url)}`, type: 'text' },
     { name: 'AllOrigins Raw (Buster)', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`, type: 'text' },
     { name: 'Cloudflare Worker', url: `https://cors-anywhere.azm.workers.dev/${url}`, type: 'text' },
-    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&_=${Date.now()}`, type: 'json' }
+    { name: 'Cloudflare Worker (Encoded)', url: `https://cors-anywhere.azm.workers.dev/${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
+    { name: 'AllOrigins JSON (Unencoded)', url: `https://api.allorigins.win/get?url=${url}`, type: 'json' }
   );
 
   let lastError: any;
@@ -147,7 +160,10 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
       }
       
       const response = await fetch(proxy.url, { 
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'Accept': isRss ? 'application/rss+xml, application/xml, text/xml, */*' : 'application/json, text/plain, */*'
+        }
       });
       clearTimeout(id);
       
@@ -172,9 +188,9 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         
         if (text && text.trim().length > 0) {
           if (isRss) {
-            const trimmed = text.trim();
+            const trimmed = text.trim().toLowerCase();
             // Check if it looks like XML or JSON
-            if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{')) {
+            if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:rdf') || trimmed.startsWith('{')) {
               console.log(`Successfully fetched via ${proxy.name}`);
               return text;
             } else {
@@ -184,8 +200,24 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
               continue;
             }
           } else {
-            console.log(`Successfully fetched via ${proxy.name}`);
-            return text;
+            const trimmed = text.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              try {
+                // Verify it's valid JSON
+                JSON.parse(trimmed);
+                console.log(`Successfully fetched via ${proxy.name}`);
+                return text;
+              } catch (e) {
+                lastError = new Error(`Proxy ${proxy.name} returned malformed JSON content.`);
+                console.warn(`${proxy.name} returned malformed JSON for ${url}`);
+                continue;
+              }
+            } else {
+              const snippet = trimmed.substring(0, 100).replace(/\n/g, ' ');
+              lastError = new Error(`Proxy ${proxy.name} returned invalid JSON content. Snippet: ${snippet}`);
+              console.warn(`${proxy.name} returned invalid JSON for ${url}. Snippet: ${snippet}`);
+              continue;
+            }
           }
         } else {
           lastError = new Error(`Proxy ${proxy.name} returned empty response`);

@@ -143,6 +143,7 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
       src={currentSrc || undefined}
       alt={alt}
       draggable={false}
+      referrerPolicy="no-referrer"
       className={cn(
         className,
         !isLoaded && "opacity-0",

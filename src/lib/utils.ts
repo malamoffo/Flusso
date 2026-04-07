@@ -52,6 +52,11 @@ export function getSafeUrl(url: string | null | undefined, fallback: any = ''): 
   if (url.startsWith('//')) {
     return `https:${url}`;
   }
+
+  // Upgrade http to https if the current page is https to avoid mixed content issues
+  if (url.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return url.replace('http://', 'https://');
+  }
   
   return url;
 }

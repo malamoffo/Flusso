@@ -102,18 +102,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         };
       };
 
+      const mappedQueue = queue.map(mapTrack);
+      const mappedRecent = recentPodcasts.map(mapTrack);
+      const mappedFavorites = favoritePodcasts.map(mapTrack);
+
       QueuePlugin.setQueue({ 
-        queue: queue.map(mapTrack),
-        recent: recentPodcasts.map(mapTrack),
-        favorites: favoritePodcasts.map(mapTrack)
+        queue: mappedQueue,
+        recent: mappedRecent,
+        favorites: mappedFavorites
       }).then(() => console.log("Queue sent to native:", { 
-        queueCount: queue.length, 
-        recentCount: recentPodcasts.length, 
-        favoritesCount: favoritePodcasts.length 
+        queueCount: mappedQueue.length, 
+        recentCount: mappedRecent.length, 
+        favoritesCount: mappedFavorites.length 
       })).catch(console.error);
 
-      Media3.setFavorites({ favorites: favoritePodcasts.map(mapTrack) }).catch(console.error);
-      Media3.setRecent({ recent: recentPodcasts.map(mapTrack) }).catch(console.error);
+      Media3.setFavorites({ favorites: mappedFavorites }).catch(console.error);
+      Media3.setRecent({ recent: mappedRecent }).catch(console.error);
     }
   }, [queue, recentPodcasts, favoritePodcasts, feeds]);
 
@@ -183,7 +187,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const handleError = (e: any) => {
       // Ignore AbortError as it's usually caused by a new play request
       if (e?.name === 'AbortError') return;
-      console.error("Audio error:", e);
+      
+      const audio = audioRef.current;
+      const error = audio?.error;
+      let errorMessage = "Unknown audio error";
+      
+      if (error) {
+        switch (error.code) {
+          case 1: errorMessage = "MEDIA_ERR_ABORTED: Fetching process aborted by user."; break;
+          case 2: errorMessage = "MEDIA_ERR_NETWORK: Network error occurred."; break;
+          case 3: errorMessage = "MEDIA_ERR_DECODE: Decoding error occurred."; break;
+          case 4: errorMessage = "MEDIA_ERR_SRC_NOT_SUPPORTED: The media resource indicated by the src attribute or assigned media provider object was not suitable."; break;
+        }
+        if (error.message) errorMessage += ` (${error.message})`;
+      }
+
+      console.error("[AUDIO] Web playback error:", errorMessage, {
+        src: audio?.src,
+        networkState: audio?.networkState,
+        readyState: audio?.readyState
+      });
+      
       setIsPlaying(false);
       setIsBuffering(false);
       if (Capacitor.getPlatform() === 'ios') MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
@@ -259,12 +283,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           image: track.imageUrl || feed?.imageUrl || ''
         }).catch(console.error);
       } else {
+        console.log("[AUDIO] Setting web src:", safeMediaUrl);
         audioRef.current.src = safeMediaUrl;
-        try {
-          audioRef.current.load();
-        } catch (e) {
-          console.error("Error loading audio:", e);
-        }
       }
       
       // Fetch chapters if needed
@@ -320,8 +340,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           console.log("[AUDIO] Web play aborted (new request)");
           return;
         }
-        console.error("[AUDIO] Web playback failed:", err);
-        setIsBuffering(false);
+        
+        // If it failed with a "not suitable" error, try a proxy as fallback
+        const audio = audioRef.current;
+        if (audio && (audio.error?.code === 4 || err.message?.includes('suitable'))) {
+          const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(safeMediaUrl)}`;
+          console.warn("[AUDIO] Web playback failed, retrying with proxy:", proxiedUrl);
+          audio.src = proxiedUrl;
+          audio.play().then(() => {
+            console.log("[AUDIO] Web play success via proxy");
+            setIsPlaying(true);
+            setIsBuffering(false);
+          }).catch(proxyErr => {
+            console.error("[AUDIO] Web playback failed even with proxy:", proxyErr);
+            setIsBuffering(false);
+          });
+        } else {
+          console.error("[AUDIO] Web playback failed:", err);
+          setIsBuffering(false);
+        }
       });
     }
     setIsBuffering(true);

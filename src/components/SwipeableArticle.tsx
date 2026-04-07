@@ -273,7 +273,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               className={cn(
                 "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
                 (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full h-auto mb-3' : 
-                (article.type === 'podcast' ? 'w-16 h-auto' : 'w-20 h-auto')
+                (article.type === 'podcast' ? 'w-16 h-16 object-cover' : 'w-20 h-auto')
               )}
               referrerPolicy="no-referrer"
             />

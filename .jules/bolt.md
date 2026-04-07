@@ -18,3 +18,6 @@
 **Learning:** Multiple components often need different counts derived from the same large array (e.g., `unreadCount`, `savedCount`). Using multiple `filter().length` calls triggers multiple O(N) passes.
 
 **Action:** Consolidate these into a single `useMemo` with a single `for` loop pass to calculate all necessary counters in one go. Export these counts from the context to save CPU cycles in all consuming components.
+## 2026-04-07 - Cache Mapped Arrays for Native Plugins
+**Learning:** Repeating  calls on large arrays inside  to sync data with multiple native plugins causes redundant CPU cycles and object allocation overhead.
+**Action:** Pre-calculate the mapped array once and reuse the cached array variable for all subsequent plugin calls within the effect block.

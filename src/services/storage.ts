@@ -969,33 +969,46 @@ export const storage = {
     
     for (const { feed, articles: newArticles } of results) {
       const existingFeedIndex = updatedFeeds.findIndex(f => f.feedUrl === feed.feedUrl);
+      const isNewFeed = existingFeedIndex === -1;
+      const feedId = isNewFeed ? feed.id : updatedFeeds[existingFeedIndex].id;
       
-      // Calculate the latest article date from the new articles using reduce for performance
-      const latestFromNew = newArticles.length > 0 
-        ? newArticles.reduce((max, a) => Math.max(max, a.pubDate), 0)
-        : 0;
+      let latestFromNew = 0;
       
-      if (existingFeedIndex === -1) {
+      for (const a of newArticles) {
+        if (a.pubDate > latestFromNew) {
+          latestFromNew = a.pubDate;
+        }
+
+        if (!existingLinks.has(a.link)) {
+          const { content, ...lightArticle } = a;
+          if (content) {
+            this.saveArticleContent(a.id, content).catch(err => console.error('Failed to save article content', err));
+          }
+          if (isNewFeed) {
+            allNewArticles.push(lightArticle as Article);
+          } else {
+            allNewArticles.push({
+              ...lightArticle,
+              feedId
+            } as Article);
+          }
+        } else if (!isNewFeed && a.chaptersUrl) {
+          // Update existing articles if they are missing chaptersUrl
+          const idx = articles.findIndex(ex => ex.link === a.link);
+          if (idx !== -1 && !articles[idx].chaptersUrl) {
+            articles[idx] = { ...articles[idx], chaptersUrl: a.chaptersUrl };
+            articlesModified = true;
+          }
+        }
+      }
+
+      if (isNewFeed) {
         updatedFeeds.push({
           ...feed,
           lastArticleDate: latestFromNew
         });
-        
-        // Process new articles: separate content and keep lightweight version
-        for (const a of newArticles) {
-          if (!existingLinks.has(a.link)) {
-            const { content, ...lightArticle } = a;
-            if (content) {
-              // Save content separately in background
-              this.saveArticleContent(a.id, content).catch(err => console.error('Failed to save article content', err));
-            }
-            allNewArticles.push(lightArticle as Article);
-          }
-        }
       } else {
-        const feedId = updatedFeeds[existingFeedIndex].id;
         const currentLastArticleDate = updatedFeeds[existingFeedIndex].lastArticleDate || 0;
-        
         updatedFeeds[existingFeedIndex] = {
           ...updatedFeeds[existingFeedIndex],
           lastFetched: Date.now(),
@@ -1003,26 +1016,6 @@ export const storage = {
           title: feed.title,
           imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
         };
-        
-        for (const a of newArticles) {
-          if (!existingLinks.has(a.link)) {
-            const { content, ...lightArticle } = a;
-            if (content) {
-              this.saveArticleContent(a.id, content).catch(err => console.error('Failed to save article content', err));
-            }
-            allNewArticles.push({
-              ...lightArticle,
-              feedId
-            } as Article);
-          } else if (a.chaptersUrl) {
-            // Update existing articles if they are missing chaptersUrl
-            const idx = articles.findIndex(ex => ex.link === a.link);
-            if (idx !== -1 && !articles[idx].chaptersUrl) {
-              articles[idx] = { ...articles[idx], chaptersUrl: a.chaptersUrl };
-              articlesModified = true;
-            }
-          }
-        }
       }
     }
     

@@ -3,12 +3,11 @@ import { useRss } from './context/RssContext';
 import { useAudioState } from './context/AudioPlayerContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
-import { AddFeedModal } from './components/AddFeedModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, Play, Pause, SkipBack, SkipForward, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
+import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { cn } from './lib/utils';
 import { Article } from './types';
@@ -293,6 +292,16 @@ export default function App() {
 
   const inboxArticles = baseFilteredArticlesInbox;
   const savedArticles = useMemo(() => baseFilteredArticlesSaved.filter(a => a.isFavorite || a.isQueued), [baseFilteredArticlesSaved]);
+
+  /**
+   * ⚡ Bolt: Optimize article navigation by pre-calculating the active list and current index.
+   * This avoids repeated O(N) findIndex calls on every render and navigation event.
+   */
+  const activeArticles = useMemo(() => (filter === 'inbox' ? inboxArticles : savedArticles), [filter, inboxArticles, savedArticles]);
+  const activeIndex = useMemo(() => {
+    if (!selectedArticle) return -1;
+    return activeArticles.findIndex(a => a.id === selectedArticle.id);
+  }, [selectedArticle, activeArticles]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
@@ -773,34 +782,37 @@ export default function App() {
         }} 
       />
 
-      <AnimatePresence>
-        {selectedArticle && (
-          <ArticleReader
-            article={selectedArticle}
-            onClose={() => setSelectedArticle(null)}
-            onSelectArticle={(a) => setSelectedArticle(a)}
-            onNext={() => {
-              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
-              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
-              if (idx < activeArticles.length - 1) {
-                const next = articles.find(a => a.id === activeArticles[idx + 1].id) || activeArticles[idx + 1];
-                setSelectedArticle(next);
-                if (!next.isRead) markAsRead(next.id);
-              }
-            }}
-            onPrev={() => {
-              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
-              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
-              if (idx > 0) {
-                const prev = articles.find(a => a.id === activeArticles[idx - 1].id) || activeArticles[idx - 1];
-                setSelectedArticle(prev);
-                if (!prev.isRead) markAsRead(prev.id);
-              }
-            }}
-            hasNext={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) < (filter === 'inbox' ? inboxArticles : savedArticles).length - 1}
-            hasPrev={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) > 0}
-          />
-        )}
+       <AnimatePresence>
+        {selectedArticle && (() => {
+          const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+          const selectedIdx = activeArticles.findIndex(a => a.id === selectedArticle.id);
+          const hasNext = selectedIdx !== -1 && selectedIdx < activeArticles.length - 1;
+          const hasPrev = selectedIdx > 0;
+          
+          return (
+            <ArticleReader
+              article={selectedArticle}
+              onClose={() => setSelectedArticle(null)}
+              onSelectArticle={(a) => setSelectedArticle(a)}
+              onNext={() => {
+                if (hasNext) {
+                  const next = articles.find(a => a.id === activeArticles[selectedIdx + 1].id) || activeArticles[selectedIdx + 1];
+                  setSelectedArticle(next);
+                  if (!next.isRead) markAsRead(next.id);
+                }
+              }}
+              onPrev={() => {
+                if (hasPrev) {
+                  const prev = articles.find(a => a.id === activeArticles[selectedIdx - 1].id) || activeArticles[selectedIdx - 1];
+                  setSelectedArticle(prev);
+                  if (!prev.isRead) markAsRead(prev.id);
+                }
+              }}
+              hasNext={hasNext}
+              hasPrev={hasPrev}
+            />
+          );
+        })()}
       </AnimatePresence>
 
       <PersistentPlayer onNavigate={(a) => setSelectedArticle(a)} />
