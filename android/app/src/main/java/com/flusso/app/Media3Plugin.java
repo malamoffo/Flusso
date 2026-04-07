@@ -12,13 +12,14 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "Media3Plugin")
+@CapacitorPlugin(name = "Media3")
 public class Media3Plugin extends Plugin {
     private static final String TAG = "Media3Plugin";
     private static Media3Plugin instance;
 
     public Media3Plugin() {
         super();
+        Log.d(TAG, "Media3Plugin constructor called");
         instance = this;
     }
 

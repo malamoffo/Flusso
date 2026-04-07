@@ -13,6 +13,6 @@ export interface Media3Plugin {
   addListener(eventName: 'playRequest', listenerFunc: (data: { id: string }) => void): Promise<any>;
 }
 
-const Media3 = registerPlugin<Media3Plugin>('Media3Plugin');
+const Media3 = registerPlugin<Media3Plugin>('Media3');
 
 export default Media3;
