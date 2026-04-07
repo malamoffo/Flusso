@@ -398,6 +398,40 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                 </section>
 
+                {/* Storage Settings */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Storage</h3>
+                  <div className="space-y-4">
+                    <button
+                      onClick={async (e) => {
+                        const btn = e.currentTarget;
+                        const originalText = btn.querySelector('span')!.innerText;
+                        try {
+                          btn.querySelector('span')!.innerText = 'Clearing...';
+                          const { imagePersistence } = await import('../utils/imagePersistence');
+                          await imagePersistence.cleanupOldImages(0); // 0 days = clear all
+                          btn.querySelector('span')!.innerText = 'Cache Cleared!';
+                          setTimeout(() => {
+                            if (btn) btn.querySelector('span')!.innerText = originalText;
+                          }, 2000);
+                        } catch (err) {
+                          console.error('Failed to clear image cache', err);
+                          btn.querySelector('span')!.innerText = 'Failed to clear';
+                          setTimeout(() => {
+                            if (btn) btn.querySelector('span')!.innerText = originalText;
+                          }, 2000);
+                        }
+                      }}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-800 text-white hover:bg-gray-700 transition-colors font-medium"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Trash2 className="w-5 h-5 text-red-400" />
+                        <span>Clear Image Cache</span>
+                      </div>
+                    </button>
+                  </div>
+                </section>
+
                 <section className="pt-4 border-t border-gray-800">
                   <button
                     onClick={() => setActiveTab('about')}

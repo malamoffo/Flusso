@@ -823,6 +823,16 @@ export const storage = {
     // but we can make it more explicit and run it in background
     console.log('[STORAGE] Running garbage collection...');
     await this.getArticles(0, 0);
+    
+    // Also clean up old cached images
+    try {
+      // Import dynamically to avoid circular dependencies if any
+      const { imagePersistence } = await import('../utils/imagePersistence');
+      await imagePersistence.cleanupOldImages(7);
+      console.log('[STORAGE] Image cache cleanup completed');
+    } catch (e) {
+      console.error('[STORAGE] Image cache cleanup failed', e);
+    }
   },
 
   async getArticleContent(id: string): Promise<string | null> {

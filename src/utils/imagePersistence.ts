@@ -156,4 +156,41 @@ export const imagePersistence = {
       reader.readAsDataURL(blob);
     });
   },
+
+  /**
+   * Cleans up cached images older than the specified number of days.
+   */
+  async cleanupOldImages(maxAgeDays = 7): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const dirResult = await Filesystem.readdir({
+        path: CACHE_DIR,
+        directory: Directory.Data
+      });
+      
+      const now = Date.now();
+      const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+      
+      for (const file of dirResult.files) {
+        try {
+          const path = `${CACHE_DIR}/${file.name}`;
+          const stat = await Filesystem.stat({
+            path,
+            directory: Directory.Data
+          });
+          
+          if (now - stat.mtime > maxAgeMs) {
+            await Filesystem.deleteFile({
+              path,
+              directory: Directory.Data
+            });
+          }
+        } catch (e) {
+          console.warn('[IMAGE_CACHE] Failed to check/delete cached image', e);
+        }
+      }
+    } catch (e) {
+      console.warn('[IMAGE_CACHE] Failed to read cache directory', e);
+    }
+  },
 };

@@ -261,7 +261,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [isPlaying, duration]);
 
-  const play = useCallback((track: Article) => {
+  const play = useCallback(async (track: Article) => {
     if (!audioRef.current) return;
 
     const safeMediaUrl = getSafeUrl(track.mediaUrl, '');
@@ -271,51 +271,33 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     const isNewTrack = currentTrack?.id !== track.id;
-    const isMissingSrc = !Capacitor.isNativePlatform() && (!audioRef.current.src || audioRef.current.src === window.location.href || audioRef.current.src.endsWith('/'));
+    const isMissingSrcWeb = !Capacitor.isNativePlatform() && (!audioRef.current.src || audioRef.current.src === window.location.href || audioRef.current.src.endsWith('/'));
 
-    if (isNewTrack || isMissingSrc) {
-      if (isNewTrack) {
-        setCurrentTrack(track);
-        updateArticle(track.id, { lastPlayedAt: Date.now() });
-      }
-
-      if (Capacitor.isNativePlatform()) {
-        if (isNewTrack) {
-          const feed = feeds.find(f => f.id === track.feedId);
-          Media3.updateMetadata({
-            id: track.id,
-            title: track.title,
-            artist: feed?.title || 'Podcast',
-            url: safeMediaUrl,
-            image: track.imageUrl || feed?.imageUrl || ''
-          }).catch(console.error);
-        }
-      } else {
-        console.log("[AUDIO] Setting web src:", safeMediaUrl);
-        audioRef.current.src = safeMediaUrl;
-      }
+    if (isNewTrack) {
+      setCurrentTrack(track);
+      updateArticle(track.id, { lastPlayedAt: Date.now() });
       
-      if (isNewTrack) {
-        // Fetch chapters if needed
-        if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
-          fetchWithProxy(track.chaptersUrl, false)
-            .then(text => JSON.parse(text))
-            .then(data => {
-              if (data && data.chapters && Array.isArray(data.chapters)) {
-                const mappedChapters = data.chapters.map((c: any) => ({
-                  startTime: Number(c.startTime) || 0,
-                  title: c.title || 'Untitled Chapter',
-                  url: c.url,
-                  imageUrl: c.img || c.image || c.imageUrl
-                }));
-                updateArticle(track.id, { chapters: mappedChapters });
-                setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
-              }
-            })
-            .catch(err => console.error('Failed to fetch chapters:', err));
-        }
+      // Fetch chapters if needed
+      if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
+        fetchWithProxy(track.chaptersUrl, false)
+          .then(text => JSON.parse(text))
+          .then(data => {
+            if (data && data.chapters && Array.isArray(data.chapters)) {
+              const mappedChapters = data.chapters.map((c: any) => ({
+                startTime: Number(c.startTime) || 0,
+                title: c.title || 'Untitled Chapter',
+                url: c.url,
+                imageUrl: c.img || c.image || c.imageUrl
+              }));
+              updateArticle(track.id, { chapters: mappedChapters });
+              setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
+            }
+          })
+          .catch(err => console.error('Failed to fetch chapters:', err));
       }
+    }
 
+    if (isNewTrack || isMissingSrcWeb) {
       // Resume from saved progress if available
       if (track.progress && track.progress > 0) {
         const resumeTime = track.progress * (track.duration ? parseDurationToSeconds(track.duration) : 0);
@@ -331,15 +313,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     
     if (Capacitor.isNativePlatform()) {
       console.log("[AUDIO] Native play request for:", track.id);
-      Media3.play().then(() => {
+      try {
+        const feed = feeds.find(f => f.id === track.feedId);
+        await Media3.updateMetadata({
+          id: track.id,
+          title: track.title,
+          artist: feed?.title || 'Podcast',
+          url: safeMediaUrl,
+          image: track.imageUrl || feed?.imageUrl || ''
+        });
+        await Media3.play();
         console.log("[AUDIO] Native play success");
         setIsPlaying(true);
         setIsBuffering(false);
-      }).catch(err => {
+      } catch (err) {
         console.error("[AUDIO] Native playback failed:", err);
         setIsBuffering(false);
-      });
+      }
     } else {
+      if (isNewTrack || isMissingSrcWeb) {
+        console.log("[AUDIO] Setting web src:", safeMediaUrl);
+        audioRef.current.src = safeMediaUrl;
+      }
       console.log("[AUDIO] Web play request for:", track.id);
       audioRef.current.play().then(() => {
         console.log("[AUDIO] Web play success");
@@ -372,7 +367,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       });
     }
     setIsBuffering(true);
-  }, [currentTrack, feeds]);
+  }, [currentTrack, feeds, updateArticle]);
 
   // Check for pending media ID from Android Auto
   useEffect(() => {
