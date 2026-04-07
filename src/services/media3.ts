@@ -3,6 +3,7 @@ import { registerPlugin } from '@capacitor/core';
 export interface Media3Plugin {
   updateMetadata(options: { id: string; title: string; artist: string; url: string; image: string }): Promise<void>;
   play(): Promise<void>;
+  resetAndPlay(): Promise<void>;
   pause(): Promise<void>;
   seek(options: { position: number }): Promise<void>;
   setFavorites(options: { favorites: any[] }): Promise<void>;
