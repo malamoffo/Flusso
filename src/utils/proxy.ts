@@ -103,19 +103,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
   
   // Primary proxies (more reliable)
   proxies.push(
-    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 25000 },
-    { name: 'AllOrigins Raw (Unencoded)', url: `https://api.allorigins.win/raw?url=${url}`, type: 'text', timeout: 25000 },
-    { name: 'CorsProxy.io', url: `https://corsproxy.io/?${url}`, type: 'text' },
-    { name: 'CorsProxy.io (Encoded)', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'CorsProxy.org', url: `https://corsproxy.org/?url=${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'CorsProxy.org (Unencoded)', url: `https://corsproxy.org/?url=${url}`, type: 'text' },
-    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${url}`, type: 'text' },
-    { name: 'CodeTabs (Encoded)', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'Proxy.cors.sh', url: `https://proxy.cors.sh/${url}`, type: 'text' },
-    { name: 'Proxy.cors.sh (Encoded)', url: `https://proxy.cors.sh/${encodeURIComponent(url)}`, type: 'text' }
+    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${url}`, type: 'text', timeout: 20000 },
+    { name: 'CodeTabs (Encoded)', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text', timeout: 20000 }
   );
 
-  // RSS specific proxy
+  // RSS specific proxy - very reliable for RSS
   if (isRss) {
     proxies.push(
       { name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 25000 },
@@ -123,17 +115,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     );
   }
 
-  // Secondary proxies
+  // Secondary proxies (fallbacks)
   proxies.push(
-    { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text' },
-    { name: 'ThingProxy (Encoded)', url: `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'YACDN', url: `https://yacdn.org/proxy/${url}`, type: 'text' },
-    { name: 'YACDN (Encoded)', url: `https://yacdn.org/proxy/${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'AllOrigins Raw (Buster)', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`, type: 'text' },
-    { name: 'Cloudflare Worker', url: `https://cors-anywhere.azm.workers.dev/${url}`, type: 'text' },
-    { name: 'Cloudflare Worker (Encoded)', url: `https://cors-anywhere.azm.workers.dev/${encodeURIComponent(url)}`, type: 'text' },
-    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' },
-    { name: 'AllOrigins JSON (Unencoded)', url: `https://api.allorigins.win/get?url=${url}`, type: 'json' }
+    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 25000 },
+    { name: 'Proxy.cors.sh', url: `https://proxy.cors.sh/${url}`, type: 'text' },
+    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' }
   );
 
   let lastError: any;
