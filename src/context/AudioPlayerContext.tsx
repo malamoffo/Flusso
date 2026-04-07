@@ -5,6 +5,7 @@ import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { fetchWithProxy } from '../utils/proxy';
 import { MediaSession } from '@capgo/capacitor-media-session';
 import { Capacitor } from '@capacitor/core';
+import { Media3 } from '../plugins/media3';
 
 interface AudioPlayerStateContextType {
   currentTrack: Article | null;
@@ -69,11 +70,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [articles, settings.lastPlayedArticleId]);
 
-  // Update Media3 metadata when currentTrack changes
-  useEffect(() => {
-    // Native metadata update removed
-  }, [currentTrack, feeds]);
-
   // Save last played track
   useEffect(() => {
     if (currentTrack && currentTrack.id !== settings.lastPlayedArticleId) {
@@ -103,11 +99,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
+  // Listen for playback state changes from Media3
+  useEffect(() => {
+    if (Capacitor.getPlatform() === 'android') {
+      const listener = Media3.addListener('onStateChanged', (state) => {
+        setIsPlaying(state.isPlaying);
+        setProgress(state.position / 1000);
+        setDuration(state.duration / 1000);
+        
+        if (state.id && currentTrackRef.current?.id !== state.id) {
+          const track = articles.find(a => a.id === state.id);
+          if (track) {
+            setCurrentTrack(track);
+          }
+        }
+      });
+      return () => {
+        listener.then((l: any) => l.remove());
+      };
+    }
+  }, [articles]);
+
   // Initialize audio element once
   useEffect(() => {
     const audio = new Audio();
-    // ⚡ Bolt: Removed crossOrigin = 'anonymous' to improve compatibility with podcast servers
-    // that don't support CORS. This is safe as we don't use the Web Audio API or Canvas with audio.
     audioRef.current = audio;
     
     const handleTimeUpdate = () => {
@@ -224,7 +239,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const setPlaybackRate = useCallback((rate: number) => {
     setPlaybackRateState(rate);
-    if (audioRef.current) {
+    if (Capacitor.getPlatform() === 'android') {
+      Media3.setPlaybackRate({ rate }).catch(console.error);
+    } else if (audioRef.current) {
       audioRef.current.playbackRate = rate;
       if (Capacitor.getPlatform() === 'ios' && isPlaying) {
         MediaSession.setPositionState({
@@ -237,7 +254,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [isPlaying, duration]);
 
   const play = useCallback(async (track: Article) => {
-    if (!audioRef.current) return;
+    if (!audioRef.current && Capacitor.getPlatform() !== 'android') return;
 
     const safeMediaUrl = getSafeUrl(track.mediaUrl, '');
     if (!safeMediaUrl) {
@@ -248,7 +265,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setIsBuffering(true);
 
     const isNewTrack = currentTrack?.id !== track.id;
-    const isMissingSrcWeb = !Capacitor.isNativePlatform() && (!audioRef.current.src || audioRef.current.src === window.location.href || audioRef.current.src.endsWith('/'));
+    const isMissingSrcWeb = !Capacitor.isNativePlatform() && (!audioRef.current?.src || audioRef.current?.src === window.location.href || audioRef.current?.src.endsWith('/'));
 
     if (isNewTrack) {
       setCurrentTrack(track);
@@ -260,7 +277,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       if (track.progress && track.progress > 0) {
         const resumeTime = track.progress * (track.duration ? parseDurationToSeconds(track.duration) : 0);
         if (resumeTime > 0) {
-          audioRef.current.currentTime = resumeTime;
+          if (audioRef.current) {
+            audioRef.current.currentTime = resumeTime;
+          }
           setProgress(resumeTime);
           lastSavedProgressRef.current = track.progress;
         }
@@ -269,13 +288,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
     }
     
-    if (false) { // Native playback disabled
+    if (Capacitor.getPlatform() === 'android') {
       console.log("[AUDIO] Native play request for:", track.id);
       
       const attemptPlay = async (retries: number): Promise<void> => {
         try {
           const feed = feeds.find(f => f.id === track.feedId);
-          // ... native logic removed
+          await Media3.play({
+            url: safeMediaUrl,
+            title: track.title,
+            artist: feed?.title || 'Podcast',
+            albumArt: track.imageUrl || feed?.imageUrl || '',
+            id: track.id
+          });
+          
+          if (track.progress && track.progress > 0) {
+            const resumeTime = track.progress * (track.duration ? parseDurationToSeconds(track.duration) : 0);
+            if (resumeTime > 0) {
+              await Media3.seekTo({ position: resumeTime * 1000 });
+            }
+          }
           
           console.log("[AUDIO] Native play success");
           setIsPlaying(true);
@@ -296,45 +328,43 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     } else {
       if (isNewTrack || isMissingSrcWeb) {
         console.log("[AUDIO] Setting web src:", safeMediaUrl);
-        audioRef.current.src = safeMediaUrl;
+        if (audioRef.current) audioRef.current.src = safeMediaUrl;
       }
       console.log("[AUDIO] Web play request for:", track.id);
-      audioRef.current.play().then(() => {
-        console.log("[AUDIO] Web play success");
-        setIsPlaying(true);
-        setIsBuffering(false);
-      }).catch(err => {
-        if (err.name === 'AbortError') {
-          console.log("[AUDIO] Web play aborted (new request)");
+      if (audioRef.current) {
+        audioRef.current.play().then(() => {
+          console.log("[AUDIO] Web play success");
+          setIsPlaying(true);
           setIsBuffering(false);
-          return;
-        }
-        
-        // If it failed with a "not suitable" error, try a proxy as fallback
-        const audio = audioRef.current;
-        if (audio && (audio.error?.code === 4 || err.message?.includes('suitable'))) {
-          const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(safeMediaUrl)}`;
-          console.warn("[AUDIO] Web playback failed, retrying with proxy:", proxiedUrl);
-          audio.src = proxiedUrl;
-          audio.play().then(() => {
-            console.log("[AUDIO] Web play success via proxy");
-            setIsPlaying(true);
+        }).catch(err => {
+          if (err.name === 'AbortError') {
+            console.log("[AUDIO] Web play aborted (new request)");
             setIsBuffering(false);
-          }).catch(proxyErr => {
-            console.error("[AUDIO] Web playback failed even with proxy:", proxyErr);
+            return;
+          }
+          
+          // If it failed with a "not suitable" error, try a proxy as fallback
+          const audio = audioRef.current;
+          if (audio && (audio.error?.code === 4 || err.message?.includes('suitable'))) {
+            const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(safeMediaUrl)}`;
+            console.warn("[AUDIO] Web playback failed, retrying with proxy:", proxiedUrl);
+            audio.src = proxiedUrl;
+            audio.play().then(() => {
+              console.log("[AUDIO] Web play success via proxy");
+              setIsPlaying(true);
+              setIsBuffering(false);
+            }).catch(proxyErr => {
+              console.error("[AUDIO] Web playback failed even with proxy:", proxyErr);
+              setIsBuffering(false);
+            });
+          } else {
+            console.error("[AUDIO] Web playback failed:", err);
             setIsBuffering(false);
-          });
-        } else {
-          console.error("[AUDIO] Web playback failed:", err);
-          setIsBuffering(false);
-        }
-      });
+          }
+        });
+      }
     }
   }, [currentTrack, feeds, updateArticle]);
-
-  // Check for pending media ID from Android Auto removed
-  useEffect(() => {
-  }, [articles, play]);
 
   const playNext = useCallback(() => {
     if (!currentTrackRef.current) return;
@@ -375,13 +405,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playNextRef.current = playNext;
   }, [playNext]);
 
-  // Listen for play requests from Android Auto removed
-  useEffect(() => {
-  }, [articles, play]);
-
   const pause = useCallback(() => {
-    if (false) { // Native pause disabled
-      // Media3.pause().catch(console.error);
+    if (Capacitor.getPlatform() === 'android') {
+      Media3.pause().catch(console.error);
       setIsPlaying(false);
     } else {
       if (!audioRef.current) return;
@@ -391,11 +417,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     
     if (Capacitor.getPlatform() === 'ios') {
       MediaSession.setPlaybackState({ playbackState: 'paused' }).catch(console.error);
-      const currentDuration = audioRef.current.duration;
+      const currentDuration = audioRef.current?.duration || duration;
       MediaSession.setPositionState({
         duration: isNaN(currentDuration) ? duration : currentDuration,
         playbackRate: 0,
-        position: audioRef.current.currentTime
+        position: audioRef.current?.currentTime || progress
       }).catch(console.error);
     }
     
@@ -416,8 +442,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [isPlaying, currentTrack, play, pause]);
 
   const seek = useCallback((time: number) => {
-    if (false) { // Native seek disabled
-      // Media3.seek({ position: time * 1000 }).catch(console.error);
+    if (Capacitor.getPlatform() === 'android') {
+      Media3.seekTo({ position: time * 1000 }).catch(console.error);
       setProgress(time);
     } else {
       if (!audioRef.current) return;
@@ -426,10 +452,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
     
     if (Capacitor.getPlatform() === 'ios') {
-      const currentDuration = audioRef.current.duration;
+      const currentDuration = audioRef.current?.duration || duration;
       MediaSession.setPositionState({
         duration: isNaN(currentDuration) ? duration : currentDuration,
-        playbackRate: isPlaying ? audioRef.current.playbackRate : 0,
+        playbackRate: isPlaying ? (audioRef.current?.playbackRate || 1) : 0,
         position: time
       }).catch(console.error);
     }
@@ -443,16 +469,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [currentTrack, duration, updateArticle, isPlaying]);
 
   const stop = useCallback(() => {
-    if (!audioRef.current) return;
-    
     // Save progress before stopping
     if (currentTrack && duration > 0) {
       const currentProgress = progress / duration;
       updateArticle(currentTrack.id, { progress: currentProgress });
     }
     
-    audioRef.current.pause();
-    audioRef.current.currentTime = 0;
+    if (Capacitor.getPlatform() === 'android') {
+      Media3.pause().catch(console.error);
+    } else if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
     setIsPlaying(false);
     setCurrentTrack(null);
     if (Capacitor.getPlatform() === 'ios') MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
@@ -512,10 +541,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     progress,
     duration
   }), [progress, duration]);
-
-  // Listen for playback state changes from Media3 removed
-  useEffect(() => {
-  }, []);
 
   return (
     <AudioPlayerStateContext.Provider value={stateValue}>

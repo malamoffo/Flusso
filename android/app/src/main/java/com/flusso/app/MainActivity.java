@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        registerPlugin(Media3Plugin.class);
         Log.d("MainActivity", "Plugins initialized.");
     }
 

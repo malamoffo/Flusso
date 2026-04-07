@@ -568,6 +568,38 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         if (!isNaN(epNum)) episode = epNum;
       }
 
+      let chaptersUrl: string | undefined = undefined;
+      const podcastChapters = tagDict['podcast:chapters'] || [];
+      if (podcastChapters.length > 0) {
+        chaptersUrl = podcastChapters[0].getAttribute('url') || undefined;
+      }
+
+      const chapters: any[] = [];
+      // Some feeds embed chapters directly (e.g., psc:chapters)
+      const pscChapters = tagDict['psc:chapters'] || [];
+      if (pscChapters.length > 0) {
+        const pscChapterElements = pscChapters[0].getElementsByTagName('psc:chapter');
+        for (let k = 0; k < pscChapterElements.length; k++) {
+          const ch = pscChapterElements[k];
+          const start = ch.getAttribute('start');
+          const title = ch.getAttribute('title');
+          if (start && title) {
+            const parts = start.split(':').map(Number);
+            let startTime = 0;
+            if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+            else startTime = parts[0];
+            
+            chapters.push({
+              startTime,
+              title,
+              url: ch.getAttribute('href') || undefined,
+              img: ch.getAttribute('image') || undefined
+            });
+          }
+        }
+      }
+
       articles.push({
         id: uuidv4(),
         feedId,
@@ -585,6 +617,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         episode,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
+        chaptersUrl,
+        chapters: chapters.length > 0 ? chapters : undefined
       });
     }
 

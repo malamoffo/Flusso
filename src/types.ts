@@ -38,6 +38,13 @@ export interface RefreshLog {
   type: 'timeout' | 'network' | 'parse' | 'unknown';
 }
 
+export interface PodcastChapter {
+  startTime: number;
+  title: string;
+  img?: string;
+  url?: string;
+}
+
 export interface Article {
   id: string;
   feedId: string;
@@ -58,6 +65,8 @@ export interface Article {
   type: 'article' | 'podcast';
   episode?: number;
   lastPlayedAt?: number;
+  chaptersUrl?: string;
+  chapters?: PodcastChapter[];
 }
 
 export interface FullArticleContent {
