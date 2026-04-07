@@ -32,7 +32,6 @@ public class Media3Plugin extends Plugin {
         super.load();
         instance = this;
         Log.d(TAG, "Media3Plugin loaded successfully. ClassLoader: " + this.getClass().getClassLoader());
-        Log.d(TAG, "Plugin name from annotation: " + this.getPluginHandle().getPluginName());
     }
 
     @PluginMethod
