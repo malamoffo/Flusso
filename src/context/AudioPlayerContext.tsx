@@ -4,8 +4,6 @@ import { useRss } from './RssContext';
 import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { fetchWithProxy } from '../utils/proxy';
 import { MediaSession } from '@capgo/capacitor-media-session';
-import QueuePlugin from '../plugins/QueuePlugin';
-import Media3 from '../services/media3';
 import { Capacitor } from '@capacitor/core';
 
 interface AudioPlayerStateContextType {
@@ -73,17 +71,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // Update Media3 metadata when currentTrack changes
   useEffect(() => {
-    if (Capacitor.isNativePlatform() && currentTrack) {
-      const feed = feeds.find(f => f.id === currentTrack.feedId);
-      const safeMediaUrl = getSafeUrl(currentTrack.mediaUrl, '');
-      Media3.updateMetadata({
-        id: currentTrack.id,
-        title: currentTrack.title,
-        artist: feed?.title || 'Podcast',
-        url: safeMediaUrl,
-        image: currentTrack.imageUrl || feed?.imageUrl || ''
-      }).catch(console.error);
-    }
+    // Native metadata update removed
   }, [currentTrack, feeds]);
 
   // Save last played track
@@ -106,36 +94,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   
   useEffect(() => {
     queueRef.current = queue;
-    if (Capacitor.isNativePlatform()) {
-      const mapTrack = (a: Article) => {
-        const feed = feeds.find(f => f.id === a.feedId);
-        return {
-          id: a.id,
-          title: a.title,
-          artist: feed?.title || 'Podcast',
-          album: 'Flusso',
-          artwork: a.imageUrl || feed?.imageUrl,
-          url: getSafeUrl(a.mediaUrl, '')
-        };
-      };
-
-      const mappedQueue = queue.map(mapTrack);
-      const mappedRecent = recentPodcasts.map(mapTrack);
-      const mappedFavorites = favoritePodcasts.map(mapTrack);
-
-      QueuePlugin.setQueue({ 
-        queue: mappedQueue,
-        recent: mappedRecent,
-        favorites: mappedFavorites
-      }).then(() => console.log("Queue sent to native:", { 
-        queueCount: mappedQueue.length, 
-        recentCount: mappedRecent.length, 
-        favoritesCount: mappedFavorites.length 
-      })).catch(console.error);
-
-      Media3.setFavorites({ favorites: mappedFavorites }).catch(console.error);
-      Media3.setRecent({ recent: mappedRecent }).catch(console.error);
-    }
   }, [queue, recentPodcasts, favoritePodcasts, feeds]);
 
   const playNextRef = useRef<() => void>(() => {});
@@ -295,25 +253,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (isNewTrack) {
       setCurrentTrack(track);
       updateArticle(track.id, { lastPlayedAt: Date.now() });
-      
-      // Fetch chapters if needed
-      if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
-        fetchWithProxy(track.chaptersUrl, false)
-          .then(text => JSON.parse(text))
-          .then(data => {
-            if (data && data.chapters && Array.isArray(data.chapters)) {
-              const mappedChapters = data.chapters.map((c: any) => ({
-                startTime: Number(c.startTime) || 0,
-                title: c.title || 'Untitled Chapter',
-                url: c.url,
-                imageUrl: c.img || c.image || c.imageUrl
-              }));
-              updateArticle(track.id, { chapters: mappedChapters });
-              setCurrentTrack(prev => prev?.id === track.id ? { ...prev, chapters: mappedChapters } : prev);
-            }
-          })
-          .catch(err => console.error('Failed to fetch chapters:', err));
-      }
     }
 
     if (isNewTrack || isMissingSrcWeb) {
@@ -330,22 +269,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
     }
     
-    if (Capacitor.isNativePlatform()) {
+    if (false) { // Native playback disabled
       console.log("[AUDIO] Native play request for:", track.id);
       
       const attemptPlay = async (retries: number): Promise<void> => {
         try {
           const feed = feeds.find(f => f.id === track.feedId);
-          await Media3.updateMetadata({
-            id: track.id,
-            title: track.title,
-            artist: feed?.title || 'Podcast',
-            url: safeMediaUrl,
-            image: track.imageUrl || feed?.imageUrl || ''
-          });
-          
-          // Use resetAndPlay for native to ensure a clean state
-          await Media3.resetAndPlay();
+          // ... native logic removed
           
           console.log("[AUDIO] Native play success");
           setIsPlaying(true);
@@ -402,18 +332,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [currentTrack, feeds, updateArticle]);
 
-  // Check for pending media ID from Android Auto
+  // Check for pending media ID from Android Auto removed
   useEffect(() => {
-    if (Capacitor.isNativePlatform() && articles.length > 0) {
-      QueuePlugin.getPendingMediaId().then(({ mediaId }) => {
-        if (mediaId) {
-          const trackToPlay = articles.find(a => a.id === mediaId);
-          if (trackToPlay) {
-            play(trackToPlay);
-          }
-        }
-      }).catch(console.error);
-    }
   }, [articles, play]);
 
   const playNext = useCallback(() => {
@@ -455,24 +375,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playNextRef.current = playNext;
   }, [playNext]);
 
-  // Listen for play requests from Android Auto
+  // Listen for play requests from Android Auto removed
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      const listener = QueuePlugin.addListener('playRequest', (data) => {
-        const trackToPlay = articles.find(a => a.id === data.id);
-        if (trackToPlay) {
-          play(trackToPlay);
-        }
-      });
-      return () => {
-        listener.then(l => l.remove());
-      };
-    }
   }, [articles, play]);
 
   const pause = useCallback(() => {
-    if (Capacitor.isNativePlatform()) {
-      Media3.pause().catch(console.error);
+    if (false) { // Native pause disabled
+      // Media3.pause().catch(console.error);
       setIsPlaying(false);
     } else {
       if (!audioRef.current) return;
@@ -507,8 +416,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [isPlaying, currentTrack, play, pause]);
 
   const seek = useCallback((time: number) => {
-    if (Capacitor.isNativePlatform()) {
-      Media3.seek({ position: time * 1000 }).catch(console.error);
+    if (false) { // Native seek disabled
+      // Media3.seek({ position: time * 1000 }).catch(console.error);
       setProgress(time);
     } else {
       if (!audioRef.current) return;
@@ -604,28 +513,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     duration
   }), [progress, duration]);
 
-  // Listen for playback state changes from Media3
+  // Listen for playback state changes from Media3 removed
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      const stateListener = Media3.addListener('onPlaybackStateChanged', (data) => {
-        setIsPlaying(data.isPlaying);
-      });
-      const positionListener = Media3.addListener('onPositionChanged', (data) => {
-        setProgress(data.position / 1000);
-        progressRef.current = data.position / 1000;
-      });
-      const playRequestListener = Media3.addListener('playRequest', (data) => {
-        const trackToPlay = articles.find(a => a.id === data.id);
-        if (trackToPlay) {
-          play(trackToPlay);
-        }
-      });
-      return () => {
-        stateListener.then(l => l.remove());
-        positionListener.then(l => l.remove());
-        playRequestListener.then(l => l.remove());
-      };
-    }
   }, []);
 
   return (

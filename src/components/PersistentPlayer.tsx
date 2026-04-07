@@ -88,12 +88,6 @@ const PlayerTitle = React.memo(function PlayerTitle({ track }: { track: Article 
   const [textWidth, setTextWidth] = React.useState(0);
   
   let displayTitle = track.title;
-  if (track.chapters && track.chapters.length > 0) {
-    const currentChapter = [...track.chapters].reverse().find(c => progress >= c.startTime);
-    if (currentChapter) {
-      displayTitle = `${currentChapter.title} • ${track.title}`;
-    }
-  }
 
   React.useEffect(() => {
     if (containerRef.current && textRef.current) {

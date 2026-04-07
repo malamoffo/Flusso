@@ -3,8 +3,6 @@ import { Feed, Article, Settings, RefreshLog } from '../types';
 import { storage, defaultSettings } from '../services/storage';
 import packageJson from '../../package.json';
 import { Capacitor } from '@capacitor/core';
-import { BackgroundPlugin } from '../plugins/BackgroundPlugin';
-import Media3 from '../services/media3';
 
 interface ProgressInfo {
   current: number;
@@ -313,10 +311,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return updatedArticles;
     });
     
-    if (Capacitor.isNativePlatform()) {
-      const favorites = updatedArticles.filter(a => a.isFavorite);
-      Media3.setFavorites({ favorites }).catch(console.error);
-    }
+    // Native favorites sync removed
   }, []);
 
   const toggleQueue = useCallback(async (id: string) => {
@@ -335,10 +330,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return updatedArticles;
     });
     
-    if (Capacitor.isNativePlatform()) {
-      const favorites = updatedArticles.filter(a => a.isFavorite);
-      Media3.setFavorites({ favorites }).catch(console.error);
-    }
+    // Native favorites sync removed
   }, []);
 
   const updateArticle = useCallback(async (id: string, updates: Partial<Article>) => {
@@ -493,12 +485,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                         }
                         merged.splice(low, 0, newArticle);
                       } else {
-                        // Update existing article with chaptersUrl if missing
-                        const existingIndex = merged.findIndex(a => a.link === newArticle.link);
-                        if (existingIndex !== -1 && !merged[existingIndex].chaptersUrl && newArticle.chaptersUrl) {
-                          merged[existingIndex] = { ...merged[existingIndex], chaptersUrl: newArticle.chaptersUrl };
-                          hasNew = true;
-                        }
+                        // Article already exists, no update needed
                       }
                     }
                     
@@ -602,41 +589,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => { mounted = false; };
   }, []);
 
+  // Background sync effect removed
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      const handleBackgroundSync = async (data: { feeds: string[] }) => {
-        console.log('[BACKGROUND] Sync triggered from native plugin:', data);
-        const feedsToRefresh = feeds.filter(f => data.feeds.includes(f.id));
-        if (feedsToRefresh.length > 0) {
-          await refreshFeeds(feedsToRefresh);
-          updateSettings({ lastBackgroundRefresh: Date.now() });
-        } else {
-          await refreshFeeds();
-          updateSettings({ lastBackgroundRefresh: Date.now() });
-        }
-      };
-
-      const listener = BackgroundPlugin.addListener('backgroundSync', handleBackgroundSync);
-      
-      if (feeds.length > 0 && settings.refreshInterval > 0) {
-        const syncFeeds = feeds.map(f => ({
-          id: f.id,
-          url: f.feedUrl,
-          title: f.title,
-          lastFetched: f.lastFetched || 0
-        }));
-        BackgroundPlugin.setupBackgroundSync({
-          feeds: syncFeeds,
-          intervalMinutes: settings.refreshInterval
-        }).catch(console.error);
-      } else {
-        BackgroundPlugin.stopBackgroundSync().catch(console.error);
-      }
-
-      return () => {
-        listener.then(l => l.remove());
-      };
-    }
   }, [feeds, settings.refreshInterval, refreshFeeds, updateSettings]);
 
   const value = useMemo(() => ({

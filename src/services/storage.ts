@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
-import { Feed, Article, Settings, PodcastChapter, FullArticleContent, RefreshLog } from '../types';
+import { Feed, Article, Settings, FullArticleContent, RefreshLog } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../utils/proxy';
 import DOMPurify from 'dompurify';
@@ -392,68 +392,12 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         duration = mediaContentElements[0].getAttribute('duration') || '';
       }
 
-      let chapters: PodcastChapter[] | undefined = undefined;
-      let chaptersUrl: string | undefined = undefined;
       let episode: number | undefined = undefined;
 
       const episodeText = getSingleTagText(tagDict, ['itunes:episode', 'podcast:episode', 'episode']);
       if (episodeText) {
         const epNum = parseInt(episodeText, 10);
         if (!isNaN(epNum)) episode = epNum;
-      }
-
-      // 1. Look for inline chapters (PSC or similar)
-      const chapterContainers = [
-        ...(tagDict['chapters'] || []),
-        ...(tagDict['podcast:chapters'] || []),
-        ...(tagDict['structure'] || [])
-      ];
-
-      for (const container of chapterContainers) {
-        // Check if it has a URL (Podcast Index or external PSC)
-        const url = container.getAttribute('url') || container.getAttribute('href');
-        if (url) {
-          chaptersUrl = resolveUrl(url, feedUrl);
-          // If it's a JSON chapters file, we might want to fetch it now or let the UI handle it.
-          // Given the current architecture, let's keep it as chaptersUrl.
-        }
-
-        const chapterNodes = getElementsByLocalName(container, 'chapter');
-        if (chapterNodes.length > 0) {
-          const foundChapters: PodcastChapter[] = [];
-          for (const node of chapterNodes) {
-            const start = node.getAttribute('start') || node.getAttribute('startTime');
-            const title = node.getAttribute('title') || node.getAttribute('text');
-            const href = node.getAttribute('href') || node.getAttribute('url');
-            const image = node.getAttribute('image') || node.getAttribute('img');
-            if (start && title) {
-              foundChapters.push({
-                startTime: parseTime(start),
-                title: title,
-                url: href || undefined,
-                imageUrl: image || undefined,
-                img: image || undefined
-              });
-            }
-          }
-          if (foundChapters.length > 0) {
-            chapters = foundChapters;
-          }
-        }
-      }
-
-      // 2. Check for atom:link with rel="chapters"
-      if (!chaptersUrl) {
-        const atomLinks = tagDict['link'] || [];
-        for (const link of atomLinks) {
-          if (link.getAttribute('rel') === 'chapters') {
-            const href = link.getAttribute('href');
-            if (href) {
-              chaptersUrl = resolveUrl(href, feedUrl);
-              break;
-            }
-          }
-        }
       }
 
       articles.push({
@@ -470,8 +414,6 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         isFavorite: false,
         isQueued: false,
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
-        chapters,
-        chaptersUrl,
         episode,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
@@ -618,68 +560,12 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         duration = mediaContentElements[0].getAttribute('duration') || '';
       }
 
-      let chapters: PodcastChapter[] | undefined = undefined;
-      let chaptersUrl: string | undefined = undefined;
       let episode: number | undefined = undefined;
 
       const episodeText = getSingleTagText(tagDict, ['itunes:episode', 'podcast:episode', 'episode']);
       if (episodeText) {
         const epNum = parseInt(episodeText, 10);
         if (!isNaN(epNum)) episode = epNum;
-      }
-
-      // 1. Look for inline chapters (PSC or similar)
-      const chapterContainers = [
-        ...(tagDict['chapters'] || []),
-        ...(tagDict['podcast:chapters'] || []),
-        ...(tagDict['structure'] || [])
-      ];
-
-      for (const container of chapterContainers) {
-        // Check if it has a URL (Podcast Index or external PSC)
-        const url = container.getAttribute('url') || container.getAttribute('href');
-        console.log('[CHAPTERS] Found potential chapter container:', container.tagName, 'URL:', url);
-        if (url) {
-          chaptersUrl = resolveUrl(url, feedUrl);
-          console.log('[CHAPTERS] Resolved chaptersUrl:', chaptersUrl);
-        }
-
-        const chapterNodes = getElementsByLocalName(container, 'chapter');
-        if (chapterNodes.length > 0) {
-          const foundChapters: PodcastChapter[] = [];
-          for (const node of chapterNodes) {
-            const start = node.getAttribute('start') || node.getAttribute('startTime');
-            const title = node.getAttribute('title') || node.getAttribute('text');
-            const href = node.getAttribute('href') || node.getAttribute('url');
-            const image = node.getAttribute('image') || node.getAttribute('img');
-            if (start && title) {
-              foundChapters.push({
-                startTime: parseTime(start),
-                title: title,
-                url: href || undefined,
-                imageUrl: image || undefined,
-                img: image || undefined
-              });
-            }
-          }
-          if (foundChapters.length > 0) {
-            chapters = foundChapters;
-          }
-        }
-      }
-
-      // 2. Check for links with rel="chapters"
-      if (!chaptersUrl) {
-        const rssLinks = getElementsByLocalName(item, 'link');
-        for (const link of rssLinks) {
-          if (link.getAttribute('rel') === 'chapters') {
-            const href = link.getAttribute('href');
-            if (href) {
-              chaptersUrl = resolveUrl(href, feedUrl);
-              break;
-            }
-          }
-        }
       }
 
       articles.push({
@@ -696,8 +582,6 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
         isFavorite: false,
         isQueued: false,
         type: mediaType?.startsWith('audio/') ? 'podcast' : 'article',
-        chapters,
-        chaptersUrl,
         episode,
         contentSnippet: sanitizeSnippet(decodeHtmlEntities(content)),
         content: content,
@@ -1007,13 +891,6 @@ export const storage = {
               ...lightArticle,
               feedId
             } as Article);
-          }
-        } else if (!isNewFeed && a.chaptersUrl) {
-          // Update existing articles if they are missing chaptersUrl
-          const idx = articles.findIndex(ex => ex.link === a.link);
-          if (idx !== -1 && !articles[idx].chaptersUrl) {
-            articles[idx] = { ...articles[idx], chaptersUrl: a.chaptersUrl };
-            articlesModified = true;
           }
         }
       }

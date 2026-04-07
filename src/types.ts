@@ -38,14 +38,6 @@ export interface RefreshLog {
   type: 'timeout' | 'network' | 'parse' | 'unknown';
 }
 
-export interface PodcastChapter {
-  startTime: number;
-  title: string;
-  url?: string;
-  imageUrl?: string;
-  img?: string;
-}
-
 export interface Article {
   id: string;
   feedId: string;
@@ -64,8 +56,6 @@ export interface Article {
   isFavorite: boolean;
   isQueued: boolean;
   type: 'article' | 'podcast';
-  chapters?: PodcastChapter[];
-  chaptersUrl?: string;
   episode?: number;
   lastPlayedAt?: number;
 }
