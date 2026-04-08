@@ -800,6 +800,11 @@ export const storage = {
       } else {
         hasChanged = true;
       }
+      
+      // Yield to main thread every 500 articles to keep UI responsive
+      if (i % 500 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
     }
     
     if (hasChanged) {

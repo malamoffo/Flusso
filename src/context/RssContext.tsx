@@ -468,7 +468,12 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           try {
             // Find the latest article date for this feed to only fetch newer articles
             const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
-            const sinceDate = latestArticleDate || feed.lastArticleDate;
+            
+            const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+            const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
+            const hardSinceDate = Date.now() - (feed.type === 'podcast' ? TWO_WEEKS : THREE_DAYS);
+            
+            const sinceDate = Math.max(latestArticleDate || feed.lastArticleDate || 0, hardSinceDate);
             
             // Global timeout for this specific feed fetch
             const controller = new AbortController();
@@ -522,6 +527,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     
                     return hasNew ? merged : prev;
                   });
+                  await new Promise(resolve => setTimeout(resolve, 50));
                 }
               }
             } finally {
