@@ -154,8 +154,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
           "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
-          "mx-auto max-w-full",
-          post.isRead ? "opacity-60" : "opacity-100"
+          "mx-auto max-w-full"
         )}
       >
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />

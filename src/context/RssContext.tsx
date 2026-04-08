@@ -460,6 +460,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       let queueIndex = 0;
       const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
       
+      const allNewArticles: Article[] = [];
+      
       const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
         while (queueIndex < queue.length) {
           const feed = queue[queueIndex++];
@@ -491,43 +493,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   // Update the results array so storage.saveAllFeedData also uses the correct ID
                   data.articles = articlesWithCorrectId;
                   
-                  setArticles(prev => {
-                    const merged = [...prev];
-                    const existingLinks = new Set(merged.map(a => a.link));
-                    let hasNew = false;
-                    
-                    for (let i = 0; i < articlesWithCorrectId.length; i++) {
-                      const newArticle = articlesWithCorrectId[i];
-                      // Check for duplicate link using Set for O(1) lookup
-                      if (!existingLinks.has(newArticle.link)) {
-                        hasNew = true;
-                        existingLinks.add(newArticle.link);
-                        
-                        // Ottimizzazione: se è più recente del primo, inserisci in testa
-                        if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
-                          merged.unshift(newArticle);
-                          continue;
-                        }
-
-                        // Ricerca Binaria per trovare la posizione corretta (O(log n))
-                        // Partendo dal "più recente" (inizio lista) in modo efficiente
-                        let low = 0;
-                        let high = merged.length;
-                        while (low < high) {
-                          const mid = (low + high) >>> 1;
-                          if (merged[mid].pubDate > newArticle.pubDate) {
-                            low = mid + 1;
-                          } else {
-                            high = mid;
-                          }
-                        }
-                        merged.splice(low, 0, newArticle);
-                      }
-                    }
-                    
-                    return hasNew ? merged : prev;
-                  });
-                  await new Promise(resolve => setTimeout(resolve, 50));
+                  allNewArticles.push(...articlesWithCorrectId);
                 }
               }
             } finally {
@@ -547,6 +513,44 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       
       await Promise.all(workers);
+      
+      if (allNewArticles.length > 0) {
+        setArticles(prev => {
+          const merged = [...prev];
+          const existingLinks = new Set(merged.map(a => a.link));
+          let hasNew = false;
+          
+          for (const newArticle of allNewArticles) {
+            // Check for duplicate link using Set for O(1) lookup
+            if (!existingLinks.has(newArticle.link)) {
+              hasNew = true;
+              existingLinks.add(newArticle.link);
+              
+              // Ottimizzazione: se è più recente del primo, inserisci in testa
+              if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
+                merged.unshift(newArticle);
+                continue;
+              }
+
+              // Ricerca Binaria per trovare la posizione corretta (O(log n))
+              // Partendo dal "più recente" (inizio lista) in modo efficiente
+              let low = 0;
+              let high = merged.length;
+              while (low < high) {
+                const mid = (low + high) >>> 1;
+                if (merged[mid].pubDate > newArticle.pubDate) {
+                  low = mid + 1;
+                } else {
+                  high = mid;
+                }
+              }
+              merged.splice(low, 0, newArticle);
+            }
+          }
+          
+          return hasNew ? merged : prev;
+        });
+      }
       
       if (results.length > 0) {
         setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
