@@ -125,7 +125,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setRedditPosts(loadedRedditPosts.sort((a, b) => b.createdUtc - a.createdUtc));
       setSettings(loadedSettings);
       
-      return { loadedFeeds, loadedArticles, loadedSettings };
+      return { loadedFeeds, loadedArticles, loadedSubreddits, loadedRedditPosts, loadedSettings };
     } catch (err) {
       logError("Failed to load data");
       console.error(err);
