@@ -6,6 +6,7 @@ import { cn } from '../lib/utils';
 import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
 import packageJson from '../../package.json';
+import { CachedImage } from './CachedImage';
 
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
@@ -382,7 +383,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                         className="overflow-hidden"
                       >
                         <div className="p-2 space-y-1 bg-black">
-                          {feeds.filter(f => f.type !== 'podcast').map(feed => {
+                          {feeds.filter(f => f.type !== 'podcast' && !f.feedUrl.includes('reddit.com')).map(feed => {
                             const domain = feed.link ? new URL(feed.link).hostname : '';
                             return (
                               <div 
@@ -392,7 +393,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                   {domain && (
-                                    <img 
+                                    <CachedImage 
                                       src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
                                       alt="" 
                                       className="w-4 h-4 rounded-sm flex-shrink-0"
@@ -448,7 +449,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                                 onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); setEditUrl(feed.feedUrl); }}
                               >
                                 {feed.imageUrl ? (
-                                  <img 
+                                  <CachedImage 
                                     src={feed.imageUrl} 
                                     alt={feed.title} 
                                     className="w-full h-full object-cover"
@@ -499,7 +500,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {sub.iconUrl ? (
-                                  <img 
+                                  <CachedImage 
                                     src={sub.iconUrl} 
                                     alt="" 
                                     className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
@@ -522,6 +523,37 @@ export const SettingsModal = React.memo(function SettingsModal({
                               </button>
                             </div>
                           ))}
+                          {feeds.filter(f => f.feedUrl.includes('reddit.com')).map(feed => {
+                            const domain = feed.link ? new URL(feed.link).hostname : '';
+                            return (
+                              <div 
+                                key={feed.id} 
+                                className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all cursor-pointer" 
+                                onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); setEditUrl(feed.feedUrl); }}
+                              >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  {domain && (
+                                    <CachedImage 
+                                      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
+                                      alt="" 
+                                      className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+                                      referrerPolicy="no-referrer"
+                                      onError={(e) => {
+                                        const img = e.target as HTMLImageElement;
+                                        img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                                      }}
+                                    />
+                                  )}
+                                  <div className="min-w-0">
+                                    <span className="text-sm font-medium text-white truncate block">{feed.title}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </motion.div>
                     )}

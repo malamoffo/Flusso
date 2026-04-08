@@ -36,6 +36,7 @@ interface RssContextType {
   removeSubreddit: (id: string) => void;
   refreshFeeds: (feedsToRefresh?: Feed[], currentArticles?: Article[]) => Promise<void>;
   refreshReddit: (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[]) => Promise<void>;
+  loadMoreReddit: () => Promise<void>;
   toggleRead: (id: string) => void;
   markAsRead: (id: string) => void;
   markArticlesAsRead: (ids: string[]) => void;
@@ -137,8 +138,15 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     let mounted = true;
     loadData().then(data => {
-      if (mounted && data && data.loadedFeeds.length > 0) {
-        refreshFeeds(data.loadedFeeds, data.loadedArticles);
+      if (mounted && data) {
+        const promises = [];
+        if (data.loadedFeeds.length > 0) {
+          promises.push(refreshFeeds(data.loadedFeeds, data.loadedArticles));
+        }
+        if (data.loadedSubreddits && data.loadedSubreddits.length > 0) {
+          promises.push(refreshReddit(data.loadedSubreddits, data.loadedRedditPosts));
+        }
+        Promise.all(promises).catch(console.error);
       }
     });
     return () => { mounted = false; };
@@ -624,6 +632,63 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
+  const loadMoreReddit = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const sToRefresh = await storage.getSubreddits();
+      const cPosts = await storage.getRedditPosts();
+
+      if (sToRefresh.length === 0) return;
+
+      const results: RedditPost[] = [];
+
+      await Promise.all(sToRefresh.map(async (sub) => {
+        try {
+          // Find the oldest post for this subreddit to use as 'after' token
+          const subPosts = cPosts.filter(p => p.subredditId === sub.id || p.subredditName.toLowerCase() === sub.name.toLowerCase());
+          let afterToken: string | undefined = undefined;
+          if (subPosts.length > 0) {
+            // Posts are sorted newest first, so the oldest is at the end
+            const oldestPost = subPosts[subPosts.length - 1];
+            afterToken = oldestPost.id;
+          }
+
+          const posts = await storage.fetchSubredditPosts(sub.name, undefined, afterToken);
+          results.push(...posts);
+        } catch (e) {
+          console.error(`Failed to load more for subreddit ${sub.name}`, e);
+        }
+      }));
+
+      if (results.length > 0) {
+        setRedditPosts(prev => {
+          const merged = [...prev];
+          const existingIds = new Set(merged.map(p => p.id));
+          let hasNew = false;
+
+          for (const newPost of results) {
+            if (!existingIds.has(newPost.id)) {
+              hasNew = true;
+              existingIds.add(newPost.id);
+              merged.push(newPost);
+            }
+          }
+
+          if (hasNew) {
+            merged.sort((a, b) => b.createdUtc - a.createdUtc);
+            storage.saveRedditPosts(merged);
+            return merged;
+          }
+          return prev;
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load more reddit posts", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   /**
    * ⚡ Bolt: Consolidate article counters into a single pass O(N) iteration.
    * This avoids multiple filter().length calls (O(N) each) across the app, 
@@ -644,13 +709,13 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const value = useMemo(() => ({
     feeds, articles, subreddits, redditPosts, settings, isLoading, progress, error, errorLogs, clearErrorLogs,
     addFeedOrSubreddit, importOpml, toggleRead, markAsRead, markArticlesAsRead,
-    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, refreshReddit, removeFeed, removeSubreddit,
+    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, refreshReddit, loadMoreReddit, removeFeed, removeSubreddit,
     updateFeed, updateArticle, updateRedditPost, toggleRedditRead, markRedditAsRead, toggleRedditFavorite, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates
   }), [
     feeds, articles, subreddits, redditPosts, settings, isLoading, progress, error, errorLogs, clearErrorLogs,
     addFeedOrSubreddit, importOpml, toggleRead, markAsRead, markArticlesAsRead,
-    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, refreshReddit, removeFeed, removeSubreddit,
+    toggleFavorite, toggleQueue, removeFromSaved, markAllAsRead, refreshFeeds, refreshReddit, loadMoreReddit, removeFeed, removeSubreddit,
     updateFeed, updateArticle, updateRedditPost, toggleRedditRead, markRedditAsRead, toggleRedditFavorite, updateSettings, exportFeeds,
     searchQuery, setSearchQuery, unreadCount, savedCount, updateInfo, checkUpdates
   ]);

@@ -139,7 +139,7 @@ export default function App() {
 
   const {
     articles, feeds, subreddits, redditPosts, settings, isLoading, error,
-    refreshFeeds, refreshReddit, toggleRead, markAsRead, markArticlesAsRead,
+    refreshFeeds, refreshReddit, loadMoreReddit, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, searchQuery, setSearchQuery, unreadCount, savedCount,
     toggleFavorite, toggleQueue, removeFromSaved, loadMoreArticles, hasMoreArticles,
     markRedditAsRead, toggleRedditRead, toggleRedditFavorite
@@ -209,6 +209,8 @@ export default function App() {
     const handleBackButton = async ({ canGoBack }: any) => {
       if (selectedArticle) {
         setSelectedArticle(null);
+      } else if (selectedRedditPost) {
+        setSelectedRedditPost(null);
       } else if (isSettingsOpen) {
         setIsSettingsOpen(false);
         setSettingsTab(undefined);
@@ -237,7 +239,7 @@ export default function App() {
     return () => {
       if (listener) listener.remove();
     };
-  }, [selectedArticle, isSettingsOpen, isSearchOpen, filter, sourceFilter, timeFilter, setSearchQuery]);
+  }, [selectedArticle, selectedRedditPost, isSettingsOpen, isSearchOpen, filter, sourceFilter, timeFilter, setSearchQuery]);
 
   /**
    * ⚡ Bolt: Consolidated single-pass filtering for Inbox and Saved views.
@@ -532,51 +534,53 @@ export default function App() {
           </div>
         </header>
 
-        <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {filter === 'inbox' ? (
+        {filter !== 'reddit' && (
+          <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            {filter === 'inbox' ? (
+              <button
+                onClick={() => handleTypeFilterChange(inboxTypeFilter === 'unread' ? 'all' : 'unread')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap bg-indigo-600 text-white shadow-sm"
+                )}
+              >
+                {inboxTypeFilter === 'unread' ? (
+                  <><Inbox className="w-3.5 h-3.5" /> Unread</>
+                ) : (
+                  <><Layers className="w-3.5 h-3.5" /> All</>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleTypeFilterChange('all')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                  savedTypeFilter === 'all' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                )}
+              >
+                <Layers className="w-3.5 h-3.5" /> All
+              </button>
+            )}
+            
             <button
-              onClick={() => handleTypeFilterChange(inboxTypeFilter === 'unread' ? 'all' : 'unread')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap bg-indigo-600 text-white shadow-sm"
-              )}
-            >
-              {inboxTypeFilter === 'unread' ? (
-                <><Inbox className="w-3.5 h-3.5" /> Unread</>
-              ) : (
-                <><Layers className="w-3.5 h-3.5" /> All</>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => handleTypeFilterChange('all')}
+              onClick={() => handleTypeFilterChange('article')}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                savedTypeFilter === 'all' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'article' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
             >
-              <Layers className="w-3.5 h-3.5" /> All
+              <FileText className="w-3.5 h-3.5" /> Articles
             </button>
-          )}
-          
-          <button
-            onClick={() => handleTypeFilterChange('article')}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-              (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'article' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            )}
-          >
-            <FileText className="w-3.5 h-3.5" /> Articles
-          </button>
-          <button
-            onClick={() => handleTypeFilterChange('podcast')}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-              (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'podcast' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            )}
-          >
-            <Headphones className="w-3.5 h-3.5" /> Podcasts
-          </button>
-        </div>
+            <button
+              onClick={() => handleTypeFilterChange('podcast')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                (filter === 'inbox' ? inboxTypeFilter : savedTypeFilter) === 'podcast' ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              )}
+            >
+              <Headphones className="w-3.5 h-3.5" /> Podcasts
+            </button>
+          </div>
+        )}
 
         {isSearchOpen && (
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
@@ -611,9 +615,20 @@ export default function App() {
                 className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
               >
                 <option value="all">All Sources</option>
-                {feeds.map(f => (
-                  <option key={f.id} value={f.id}>{f.title}</option>
-                ))}
+                {filter === 'reddit' ? (
+                  <>
+                    {subreddits.map(s => (
+                      <option key={s.id} value={s.id}>r/{s.name}</option>
+                    ))}
+                    {feeds.filter(f => f.feedUrl.includes('reddit.com')).map(f => (
+                      <option key={f.id} value={f.id}>{f.title}</option>
+                    ))}
+                  </>
+                ) : (
+                  feeds.filter(f => !f.feedUrl.includes('reddit.com')).map(f => (
+                    <option key={f.id} value={f.id}>{f.title}</option>
+                  ))
+                )}
               </select>
               <select
                 value={timeFilter}
@@ -689,6 +704,7 @@ export default function App() {
           onPostClick={setSelectedRedditPost}
           isLoading={isLoading}
           refreshReddit={refreshReddit}
+          loadMoreReddit={loadMoreReddit}
           settings={settings}
           onMarkAsRead={markRedditAsRead}
           toggleRead={toggleRedditRead}
@@ -830,12 +846,22 @@ export default function App() {
       />
 
       <AnimatePresence>
-        {selectedRedditPost && (
-          <RedditPostReader
-            post={selectedRedditPost}
-            onClose={() => setSelectedRedditPost(null)}
-          />
-        )}
+        {selectedRedditPost && (() => {
+          const activeRedditIndex = redditPosts.findIndex(p => p.id === selectedRedditPost.id);
+          const hasNextReddit = activeRedditIndex !== -1 && activeRedditIndex < redditPosts.length - 1;
+          const hasPrevReddit = activeRedditIndex > 0;
+
+          return (
+            <RedditPostReader
+              post={selectedRedditPost}
+              onClose={() => setSelectedRedditPost(null)}
+              onNext={hasNextReddit ? () => setSelectedRedditPost(redditPosts[activeRedditIndex + 1]) : undefined}
+              onPrev={hasPrevReddit ? () => setSelectedRedditPost(redditPosts[activeRedditIndex - 1]) : undefined}
+              hasNext={hasNextReddit}
+              hasPrev={hasPrevReddit}
+            />
+          );
+        })()}
       </AnimatePresence>
 
        <AnimatePresence>

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion } from 'framer-motion';
+import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { format, isToday } from 'date-fns';
-import { Check, Trash2, Bookmark, MessageSquare } from 'lucide-react';
+import { Check, Trash2, Bookmark, MessageSquare, X } from 'lucide-react';
 import { RedditPost, Settings } from '../types';
 import { useInView } from 'react-intersection-observer';
 import { cn, getSafeUrl } from '../lib/utils';
 import DOMPurify from 'dompurify';
+import { CachedImage } from './CachedImage';
 
 interface SwipeableRedditPostProps {
   post: RedditPost;
@@ -62,6 +63,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   const backgroundTransform = useTransform(x, [-100, 0, 100], [leftBackground, middleBackground, rightBackground]);
 
   const [exitX, setExitX] = useState<number | string>(0);
+  const [isFullScreenImage, setIsFullScreenImage] = useState(false);
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 40;
@@ -161,11 +163,15 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         <div className="flex flex-col gap-2">
           {/* Image at the top */}
           {post.imageUrl && (
-            <img 
+            <CachedImage 
               src={getSafeUrl(post.imageUrl)}
               alt="" 
-              className="rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full h-auto min-h-[120px] object-cover mb-1"
+              className="rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full h-auto min-h-[120px] object-cover mb-1 cursor-pointer"
               referrerPolicy="no-referrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFullScreenImage(true);
+              }}
             />
           )}
 
@@ -197,6 +203,31 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {isFullScreenImage && post.imageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
+            onClick={(e) => { e.stopPropagation(); setIsFullScreenImage(false); }}
+          >
+            <button 
+              className="absolute top-4 right-4 p-2 bg-gray-800/50 rounded-full text-white hover:bg-gray-700 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setIsFullScreenImage(false); }}
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img 
+              src={getSafeUrl(post.imageUrl)} 
+              alt="Fullscreen" 
+              className="max-w-full max-h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 });

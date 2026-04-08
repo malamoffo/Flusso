@@ -90,7 +90,7 @@ const PodcastChapters = ({ article, isCurrentTrack }: { article: Article, isCurr
               )}
             >
               {chapter.imageUrl && (
-                <img src={chapter.imageUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                <CachedImage src={chapter.imageUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <div className={cn("font-medium truncate", isCurrentChapter ? "text-indigo-300" : "text-gray-200")}>

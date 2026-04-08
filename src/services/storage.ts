@@ -583,9 +583,12 @@ export const storage = {
     }
   },
 
-  async fetchSubredditPosts(subredditName: string, sinceDate?: number): Promise<RedditPost[]> {
+  async fetchSubredditPosts(subredditName: string, sinceDate?: number, after?: string): Promise<RedditPost[]> {
     try {
-      const url = `https://www.reddit.com/r/${subredditName}/new.json?limit=25`;
+      let url = `https://www.reddit.com/r/${subredditName}/new.json?limit=25`;
+      if (after) {
+        url += `&after=t3_${after}`;
+      }
       const data = await this.fetchJsonWithProxy(url);
 
       if (!data || !data.data || !data.data.children) return [];
@@ -597,7 +600,9 @@ export const storage = {
         if (sinceDate && createdUtc <= sinceDate) return null;
 
         let imageUrl = undefined;
-        if (post.url && (post.url.endsWith('.jpg') || post.url.endsWith('.png') || post.url.endsWith('.gif'))) {
+        if (post.preview && post.preview.images && post.preview.images.length > 0) {
+          imageUrl = post.preview.images[0].source.url;
+        } else if (post.url && (post.url.endsWith('.jpg') || post.url.endsWith('.png') || post.url.endsWith('.gif'))) {
           imageUrl = post.url;
         } else if (post.thumbnail && post.thumbnail.startsWith('http')) {
           imageUrl = post.thumbnail;

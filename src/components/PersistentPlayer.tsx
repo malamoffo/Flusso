@@ -4,6 +4,7 @@ import { Play, Pause, X, RotateCcw, RotateCw, RefreshCw } from 'lucide-react';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 import { Article } from '../types';
 import { cn, formatTime } from '../lib/utils';
+import { CachedImage } from './CachedImage';
 
 export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigate }: { onNavigate?: (article: Article) => void }) {
   const { currentTrack, isPlaying, isBuffering, toggle, seek, stop } = useAudioState();
@@ -43,7 +44,7 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
         <div className="px-3 py-2.5 flex items-center gap-2">
           {/* Thumbnail */}
           {currentTrack.imageUrl && (
-            <img 
+            <CachedImage 
               src={currentTrack.imageUrl} 
               alt="" 
               className="w-10 h-10 rounded-lg object-cover flex-shrink-0"

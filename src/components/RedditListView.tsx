@@ -11,6 +11,7 @@ interface RedditListViewProps {
   onPostClick: (post: RedditPost) => void;
   isLoading: boolean;
   refreshReddit: () => void;
+  loadMoreReddit: () => void;
   settings: Settings;
   onMarkAsRead: (id: string) => void;
   toggleRead: (id: string) => void;
@@ -23,6 +24,7 @@ export const RedditListView = memo(({
   onPostClick, 
   isLoading, 
   refreshReddit,
+  loadMoreReddit,
   settings,
   onMarkAsRead,
   toggleRead,
@@ -62,7 +64,7 @@ export const RedditListView = memo(({
           {posts.length > 0 && (
             <div className="py-8 flex justify-center">
               <button 
-                onClick={(e) => { e.stopPropagation(); refreshReddit(); }}
+                onClick={(e) => { e.stopPropagation(); loadMoreReddit(); }}
                 className="px-6 py-2 bg-gray-800 text-gray-300 rounded-full font-medium hover:bg-gray-700 transition-colors flex items-center gap-2"
               >
                 <RefreshCw className={cn("w-4 h-4", isLoading ? "animate-spin" : "")} />
