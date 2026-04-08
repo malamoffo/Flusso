@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 console.log('Generating assets...');
 try {
   execSync('npx @capacitor/assets generate', { stdio: 'inherit' });
