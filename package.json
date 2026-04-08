@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/generate-icons.js && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "postinstall": "node scripts/generate-icons.js || true",
+    "postinstall": "echo 'Skipping icon generation in postinstall'",
     "lint": "tsc --noEmit",
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android"
