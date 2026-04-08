@@ -290,6 +290,15 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const entries = Array.from(xmlDoc.getElementsByTagName('entry'));
     const articles: Article[] = [];
     
+    const isBluesky = feedUrl.includes('bsky.app');
+    let profileImageUrl: string | undefined = undefined;
+    if (isBluesky) {
+      const feedImage = xmlDoc.getElementsByTagName('image')[0] || xmlDoc.getElementsByTagName('logo')[0] || xmlDoc.getElementsByTagName('icon')[0];
+      if (feedImage) {
+        profileImageUrl = feedImage.textContent || undefined;
+      }
+    }
+
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       
@@ -465,7 +474,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
         link: resolveUrl(entryLink, feedUrl),
         pubDate,
         imageUrl: imageUrl ? resolveUrl(imageUrl, feedUrl) : undefined,
-        profileImageUrl: undefined, // Placeholder for now, need to find where it is
+        profileImageUrl: isBluesky ? (profileImageUrl ? resolveUrl(profileImageUrl, feedUrl) : undefined) : undefined,
         postImageUrls: extractAllImages(content, resolveUrl(entryLink, feedUrl)),
         duration,
         mediaUrl: mediaUrl ? resolveUrl(mediaUrl, feedUrl) : undefined,
@@ -482,7 +491,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       });
     }
 
-    const isPodcast = articles.some(a => a.type === 'podcast');
+    const isPodcast = articles.some(a => a.type === 'podcast') || 
+                      xmlDoc.getElementsByTagName('itunes:author').length > 0 ||
+                      xmlDoc.getElementsByTagName('itunes:image').length > 0 ||
+                      xmlDoc.getElementsByTagName('itunes:category').length > 0;
 
     return {
       feed: {
@@ -517,6 +529,15 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const items = Array.from(xmlDoc.getElementsByTagName('item'));
     const articles: Article[] = [];
     
+    const isBluesky = feedUrl.includes('bsky.app');
+    let profileImageUrl: string | undefined = undefined;
+    if (isBluesky) {
+      const feedImage = xmlDoc.getElementsByTagName('image')[0];
+      if (feedImage) {
+        profileImageUrl = feedImage.getElementsByTagName('url')[0]?.textContent || undefined;
+      }
+    }
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       
@@ -691,7 +712,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
         link: resolveUrl(itemLink, feedUrl),
         pubDate,
         imageUrl: imageUrl ? resolveUrl(imageUrl, feedUrl) : undefined,
-        profileImageUrl: undefined, // Placeholder for now
+        profileImageUrl: isBluesky ? (profileImageUrl ? resolveUrl(profileImageUrl, feedUrl) : undefined) : undefined,
         postImageUrls: extractAllImages(content, resolveUrl(itemLink, feedUrl)),
         duration,
         mediaUrl: mediaUrl ? resolveUrl(mediaUrl, feedUrl) : undefined,
@@ -708,6 +729,11 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       });
     }
 
+    const isPodcast = articles.some(a => a.type === 'podcast') || 
+                      xmlDoc.getElementsByTagName('itunes:author').length > 0 ||
+                      xmlDoc.getElementsByTagName('itunes:image').length > 0 ||
+                      xmlDoc.getElementsByTagName('itunes:category').length > 0;
+
     return {
       feed: {
         id: feedId,
@@ -717,7 +743,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
         feedUrl: getSafeUrl(feedUrl),
         lastFetched: Date.now(),
         lastRefreshStatus: 'success',
-        type: articles.some(a => a.type === 'podcast') ? 'podcast' : 'article'
+        type: isPodcast ? 'podcast' : 'article'
       },
       articles
     };

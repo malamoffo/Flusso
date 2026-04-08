@@ -325,7 +325,8 @@ export const storage = {
           lastFetched: Date.now(),
           lastArticleDate: Math.max(currentLastArticleDate, latestFromNew),
           title: feed.title,
-          imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
+          imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl,
+          type: feed.type || updatedFeeds[existingFeedIndex].type
         };
       }
     }

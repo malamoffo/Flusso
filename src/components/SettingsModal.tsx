@@ -383,7 +383,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                         className="overflow-hidden"
                       >
                         <div className="p-2 space-y-1 bg-black">
-                          {feeds.filter(f => f.type !== 'podcast' && !f.feedUrl.includes('reddit.com')).map(feed => {
+                          {feeds.filter(f => f.type === 'article' && !f.feedUrl.includes('reddit.com')).map(feed => {
                             const domain = feed.link ? new URL(feed.link).hostname : '';
                             return (
                               <div 
@@ -493,6 +493,11 @@ export const SettingsModal = React.memo(function SettingsModal({
                         className="overflow-hidden"
                       >
                         <div className="p-2 space-y-1 bg-black">
+                          {subreddits.length === 0 && feeds.filter(f => f.feedUrl.includes('reddit.com')).length === 0 && (
+                            <div className="p-4 text-center text-gray-500 text-xs italic">
+                              No subreddits added yet.
+                            </div>
+                          )}
                           {subreddits.map(sub => (
                             <div 
                               key={sub.id} 

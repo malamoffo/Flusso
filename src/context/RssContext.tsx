@@ -585,12 +585,13 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const currentSort = sort || redditSort;
       const results: RedditPost[] = [];
-      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+      // For 'new' sort, we only want recent posts. For 'top' or 'hot', we want what Reddit gives us.
+      const sinceDate = currentSort === 'new' ? Date.now() - (3 * 24 * 60 * 60 * 1000) : undefined;
 
       // Fetch sequentially or in parallel (parallel is fine for Reddit JSON)
       await Promise.all(sToRefresh.map(async (sub) => {
         try {
-          const posts = await storage.fetchSubredditPosts(sub.name, threeDaysAgo, undefined, currentSort);
+          const posts = await storage.fetchSubredditPosts(sub.name, sinceDate, undefined, currentSort);
           results.push(...posts);
           
           // Update lastFetched

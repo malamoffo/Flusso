@@ -11,6 +11,9 @@ import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.t
 import DOMPurify from 'dompurify';
 import { getColorSync } from 'colorthief';
 
+// Global cache for feed colors to avoid repeated fetches and re-renders
+const feedColorCache = new Map<string, string>();
+
 interface SwipeableArticleProps {
   key?: React.Key;
   article: Article;
@@ -50,10 +53,12 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   style
 }: SwipeableArticleProps) {
   const x = useMotionValue(0);
-  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(null);
+  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(() => {
+    return feedImageUrl ? feedColorCache.get(feedImageUrl) || null : null;
+  });
 
   useEffect(() => {
-    if (feedImageUrl) {
+    if (feedImageUrl && !feedColorCache.has(feedImageUrl)) {
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedImageUrl)}`;
@@ -61,7 +66,9 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         try {
           const color = getColorSync(img);
           if (color) {
-            setFeedThemeColor(color.hex());
+            const hex = color.hex();
+            feedColorCache.set(feedImageUrl, hex);
+            setFeedThemeColor(hex);
           }
         } catch (e) {
           console.error("Failed to extract color:", e);
