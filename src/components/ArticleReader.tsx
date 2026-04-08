@@ -14,7 +14,7 @@ import { imagePersistence } from '../utils/imagePersistence';
 import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
-import { extractBestImage } from '../services/storage';
+import { extractBestImage } from '../services/rssParser';
 import { getColorSync } from 'colorthief';
 
 interface ArticleReaderProps {
