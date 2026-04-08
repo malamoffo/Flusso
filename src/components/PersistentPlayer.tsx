@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, X, RotateCcw, RotateCw, RefreshCw } from 'lucide-react';
-import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 import { Article } from '../types';
 import { cn, formatTime } from '../lib/utils';
 

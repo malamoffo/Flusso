@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo, useDeferredValue } from 'react';
 import { useRss } from './context/RssContext';
-import { useAudioState } from './context/AudioPlayerContext';
+import { useAudioState } from './context/AudioPlayerContext.tsx';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';

@@ -7,7 +7,7 @@ import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
 import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
-import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 import DOMPurify from 'dompurify';
 import { getColorSync } from 'colorthief';
 

@@ -3,7 +3,7 @@ import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play
 import { Article, FullArticleContent, PodcastChapter } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
-import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext';
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 import DOMPurify from 'dompurify';
 import he from 'he';
 import { CachedImage } from './CachedImage';
