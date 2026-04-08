@@ -13,8 +13,6 @@ export interface Settings {
   autoCheckUpdates: boolean;
   theme: Theme;
   pureBlack: boolean;
-  lastBackgroundRefresh?: number;
-  lastPlayedArticleId?: string;
 }
 
 export interface Feed {
@@ -27,22 +25,13 @@ export interface Feed {
   lastFetched?: number;
   lastArticleDate?: number;
   error?: string;
-  lastRefreshStatus?: 'success' | 'warning' | 'error';
-}
-
-export interface RefreshLog {
-  feedId: string;
-  feedTitle: string;
-  timestamp: number;
-  error: string;
-  type: 'timeout' | 'network' | 'parse' | 'unknown';
 }
 
 export interface PodcastChapter {
   startTime: number;
   title: string;
-  img?: string;
   url?: string;
+  imageUrl?: string;
 }
 
 export interface Article {
@@ -63,10 +52,8 @@ export interface Article {
   isFavorite: boolean;
   isQueued: boolean;
   type: 'article' | 'podcast';
-  episode?: number;
-  lastPlayedAt?: number;
-  chaptersUrl?: string;
   chapters?: PodcastChapter[];
+  chaptersUrl?: string;
 }
 
 export interface FullArticleContent {

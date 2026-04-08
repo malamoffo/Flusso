@@ -1,64 +1,19 @@
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
-
 export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDate?: number, externalSignal?: AbortSignal): Promise<string> {
-  // Check if we are on a native platform (Android/iOS)
-  const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform();
-
-  if (isNative) {
-    try {
-      if (externalSignal?.aborted) throw new Error('Aborted');
-      console.log(`[PROXY] Native direct fetch via CapacitorHttp: ${url}`);
-      
-      const headers: Record<string, string> = {
-        ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : { 'Accept': 'application/json, text/plain, */*' })
-      };
-
-      if (sinceDate) {
-        headers['If-Modified-Since'] = new Date(sinceDate).toUTCString();
-      }
-
-      const response = await CapacitorHttp.get({
-        url,
-        headers,
-        connectTimeout: 15000,
-        readTimeout: 15000
-      });
-
-      if (response.status === 304) {
-        return '';
-      }
-
-      if (response.status === 200) {
-        const dataString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        if (dataString && dataString.trim().length > 0) {
-          return dataString;
-        }
-      }
-      console.warn(`Native fetch failed for ${url} with status ${response.status}`);
-    } catch (e: any) {
-      if (externalSignal?.aborted) throw new Error('Aborted');
-      console.warn(`Native fetch failed for ${url}: ${e.message || e}`);
-      // Fallback to web proxies if native fetch fails for some reason
-    }
-  }
-
   // First try direct fetch (in case CORS is enabled on the target server)
   try {
     if (externalSignal?.aborted) throw new Error('Aborted');
 
     const directController = new AbortController();
-    const directTimeoutId = setTimeout(() => directController.abort(), 20000);
+    const directTimeoutId = setTimeout(() => directController.abort(), 10000);
     
     // Link external signal to our internal controller
     if (externalSignal) {
       externalSignal.addEventListener('abort', () => directController.abort(), { once: true });
     }
 
-    // Note: User-Agent is a forbidden header in browsers, but we keep it for non-browser environments if applicable.
-    // In browser, it will likely be ignored or cause a warning, but shouldn't crash.
     const headers: Record<string, string> = {
-      ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : { 'Accept': 'application/json, text/plain, */*' }),
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {})
     };
 
     if (sinceDate) {
@@ -79,16 +34,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     if (directResponse.ok) {
       const text = await directResponse.text();
       if (isRss) {
-        const trimmed = text.trim();
-        if (trimmed.length > 0 && (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{'))) {
-          console.log(`Successfully fetched directly: ${url}`);
+        if (text && text.trim().length > 0 && (text.includes('<rss') || text.includes('<feed') || text.includes('<?xml') || text.includes('<rdf:RDF'))) {
           return text;
         }
       } else {
-        if (text && text.trim().length > 0) {
-          console.log(`Successfully fetched directly: ${url}`);
-          return text;
-        }
+        return text;
       }
     } else {
       console.warn(`Direct fetch failed for ${url} with status ${directResponse.status}`);
@@ -101,29 +51,22 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
 
   const proxies: { name: string, url: string, type: 'text' | 'json' | 'rss2json', timeout?: number }[] = [];
   
-  // Primary proxies (more reliable)
-  proxies.push(
-    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${url}`, type: 'text', timeout: 20000 },
-    { name: 'CodeTabs (Encoded)', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text', timeout: 20000 }
-  );
-
-  // RSS specific proxy - very reliable for RSS
   if (isRss) {
-    proxies.push(
-      { name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 25000 },
-      { name: 'RSS2JSON (Unencoded)', url: `https://api.rss2json.com/v1/api.json?rss_url=${url}`, type: 'rss2json', timeout: 25000 }
-    );
+    proxies.push({ name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 20000 });
   }
 
-  // Secondary proxies (fallbacks)
   proxies.push(
-    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 25000 },
-    { name: 'Proxy.cors.sh', url: `https://proxy.cors.sh/${url}`, type: 'text' },
-    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json' }
+    { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text' },
+    { name: 'CorsProxy.org', url: `https://corsproxy.org/?url=${encodeURIComponent(url)}`, type: 'text' },
+    { name: 'Cloudflare Worker', url: `https://cors-anywhere.azm.workers.dev/${url}`, type: 'text' },
+    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&_=${Date.now()}`, type: 'json' }
   );
 
   let lastError: any;
-  const defaultTimeout = 15000; // Increased to 15 seconds timeout per proxy
+  const defaultTimeout = 10000; // 10 seconds timeout per proxy
 
   for (let i = 0; i < proxies.length; i++) {
     if (externalSignal?.aborted) throw new Error('Aborted');
@@ -135,7 +78,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     let id: any;
     try {
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 800)); // 800ms delay between retries to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between retries
       }
       
       const controller = new AbortController();
@@ -147,13 +90,9 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
       }
       
       const response = await fetch(proxy.url, { 
-        signal: controller.signal,
-        headers: {
-          'Accept': isRss ? 'application/rss+xml, application/xml, text/xml, */*' : 'application/json, text/plain, */*'
-        }
+        signal: controller.signal
       });
       clearTimeout(id);
-      
       if (response.ok) {
         let text = '';
         if (proxy.type === 'json') {
@@ -175,48 +114,29 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         
         if (text && text.trim().length > 0) {
           if (isRss) {
-            const trimmed = text.trim().toLowerCase();
-            // Check if it looks like XML or JSON
-            if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:rdf') || trimmed.startsWith('{')) {
+            const trimmed = text.trim();
+            if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{')) {
               console.log(`Successfully fetched via ${proxy.name}`);
               return text;
             } else {
-              const snippet = trimmed.substring(0, 100).replace(/\n/g, ' ');
-              lastError = new Error(`Proxy ${proxy.name} returned invalid content (not XML/RSS). Snippet: ${snippet}`);
-              console.warn(`${proxy.name} returned invalid content for ${url}. Snippet: ${snippet}`);
+              lastError = new Error(`Proxy ${proxy.name} returned invalid content (not XML/RSS)`);
+              console.warn(`${proxy.name} returned invalid content for ${url}`);
               continue;
             }
           } else {
-            const trimmed = text.trim();
-            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-              try {
-                // Verify it's valid JSON
-                JSON.parse(trimmed);
-                console.log(`Successfully fetched via ${proxy.name}`);
-                return text;
-              } catch (e) {
-                lastError = new Error(`Proxy ${proxy.name} returned malformed JSON content.`);
-                console.warn(`${proxy.name} returned malformed JSON for ${url}`);
-                continue;
-              }
-            } else {
-              const snippet = trimmed.substring(0, 100).replace(/\n/g, ' ');
-              lastError = new Error(`Proxy ${proxy.name} returned invalid JSON content. Snippet: ${snippet}`);
-              console.warn(`${proxy.name} returned invalid JSON for ${url}. Snippet: ${snippet}`);
-              continue;
-            }
+            console.log(`Successfully fetched via ${proxy.name}`);
+            return text;
           }
         } else {
           lastError = new Error(`Proxy ${proxy.name} returned empty response`);
           console.warn(`${proxy.name} returned empty response for ${url}`);
           continue;
         }
-      } else {
-        lastError = new Error(`Proxy ${proxy.name} returned status ${response.status}`);
-        console.warn(`${proxy.name} failed with status ${response.status} for ${url}`);
       }
+      lastError = new Error(`Proxy ${proxy.name} returned status ${response.status}`);
+      console.warn(`${proxy.name} failed with status ${response.status} for ${url}`);
     } catch (e: any) {
-      if (id) clearTimeout(id);
+      clearTimeout(id);
       if (e.name === 'AbortError') {
         lastError = new Error(`Proxy ${proxy.name} timed out after ${timeout}ms`);
         console.warn(`${proxy.name} timed out for ${url}`);

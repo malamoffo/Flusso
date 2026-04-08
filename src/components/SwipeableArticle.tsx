@@ -55,11 +55,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
     rootMargin: '-120px 0px 0px 0px', // Offset for the sticky header
   });
 
-  const hasBeenInView = useRef(false);
-  if (inView) {
-    hasBeenInView.current = true;
-  }
-
   const { ref: prefetchRef, inView: prefetchInView } = useInView({
     threshold: 0,
     rootMargin: '200px 0px', // Trigger prefetch slightly before it enters the screen
@@ -75,7 +70,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   useEffect(() => {
     // Mark as read when the article exits the top of the screen (past the sticky header)
     // Only apply this logic when in the 'inbox' filter section
-    if (filter === 'inbox' && hasBeenInView.current && !inView && entry && entry.boundingClientRect.top < 120 && !article.isRead) {
+    if (filter === 'inbox' && !inView && entry && entry.boundingClientRect.top < 120 && !article.isRead) {
       onMarkAsRead(article.id);
     }
   }, [inView, entry, article.id, article.isRead, onMarkAsRead, filter]);
@@ -184,8 +179,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   return (
     <motion.div 
       layout={shouldReduceMotion ? false : "position"}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0, height: 'auto' }}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
         opacity: 0, 
         height: 0,
@@ -201,9 +196,11 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         prefetchRef(node);
       }} 
       className={cn(
-        "relative w-full overflow-hidden border border-gray-700 rounded-2xl mb-2 shadow-sm will-change-transform"
+        "relative w-full overflow-hidden border-b border-gray-800 will-change-transform"
       )}
       style={{
+        contentVisibility: 'auto',
+        containIntrinsicSize: '0 120px', // Rough estimate of article height
         transform: 'translateZ(0)', // GPU acceleration
         ...style
       } as React.CSSProperties}
@@ -257,7 +254,7 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         onClick={handleArticleClick}
         exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-20 w-full p-2.5 cursor-pointer shadow-sm transition-colors bg-black select-none",
+          "relative z-20 w-full p-4 cursor-pointer shadow-sm transition-colors bg-black select-none",
           "opacity-100"
         )}
       >
@@ -272,8 +269,8 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
               alt="" 
               className={cn(
                 "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
-                (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full h-auto mb-3' : 
-                (article.type === 'podcast' ? 'w-16 h-16 object-cover' : 'w-20 h-auto')
+                (article.type !== 'podcast' && settings.imageDisplay === 'large') ? 'w-full h-auto min-h-[200px] max-h-[800px] mb-3 object-cover' : 
+                (article.type === 'podcast' ? 'h-16 w-16 object-cover' : 'w-20 h-auto min-h-[80px] max-h-[160px] object-cover')
               )}
               referrerPolicy="no-referrer"
             />

@@ -3,12 +3,12 @@ import { useRss } from './context/RssContext';
 import { useAudioState } from './context/AudioPlayerContext';
 import { SwipeableArticle } from './components/SwipeableArticle';
 import { ArticleReader } from './components/ArticleReader';
+import { AddFeedModal } from './components/AddFeedModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
-import { useInView } from 'react-intersection-observer';
+import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, Play, Pause, SkipBack, SkipForward, RefreshCw, Layers, Headphones, FileText, Inbox } from 'lucide-react';
 import { cn } from './lib/utils';
 import { Article } from './types';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -29,7 +29,9 @@ const ProgressBanner = memo(() => {
 const ArticleListView = memo(({
   isActive,
   articles,
+  visibleCount,
   scrollRef,
+  bottomRef,
   handleScroll,
   currentTrack,
   feedsMap,
@@ -43,21 +45,9 @@ const ArticleListView = memo(({
   isSavedSection,
   feeds,
   setSettingsTab,
-  setIsSettingsOpen,
-  hasMoreArticles,
-  isLoading,
-  loadMoreArticles
+  setIsSettingsOpen
 }: any) => {
-  const { ref, inView } = useInView({
-    threshold: 0,
-    rootMargin: '200px',
-  });
-
-  useEffect(() => {
-    if (inView && hasMoreArticles && !isLoading) {
-      loadMoreArticles();
-    }
-  }, [inView, hasMoreArticles, isLoading, loadMoreArticles]);
+  const visibleArticles = useMemo(() => articles.slice(0, visibleCount), [articles, visibleCount]);
 
   return (
     <motion.main
@@ -70,7 +60,7 @@ const ArticleListView = memo(({
       onScroll={handleScroll}
       initial={false}
     >
-      {articles.length === 0 && !isLoading ? (
+      {articles.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400 px-6 text-center">
           <CheckCircle2 className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
           <p className="text-lg font-medium text-gray-900 dark:text-white mb-1">No articles found</p>
@@ -92,9 +82,9 @@ const ArticleListView = memo(({
           </div>
         </div>
       ) : (
-        <div className="flex-1 max-w-3xl mx-auto px-2 py-2">
+        <div className="flex-1 max-w-3xl mx-auto">
           <AnimatePresence initial={false}>
-            {articles.map((article: Article) => {
+            {visibleArticles.map((article: Article) => {
               const feed = feedsMap.get(article.feedId);
               return (
                 <SwipeableArticle
@@ -115,9 +105,8 @@ const ArticleListView = memo(({
               );
             })}
           </AnimatePresence>
-          
-          <div ref={ref} className="h-20 flex items-center justify-center">
-            {(hasMoreArticles || isLoading) && (
+          <div ref={bottomRef} className="h-20 flex items-center justify-center">
+            {visibleCount < articles.length && (
               <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
             )}
           </div>
@@ -139,7 +128,7 @@ export default function App() {
     articles, feeds, settings, isLoading, error,
     refreshFeeds, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, searchQuery, setSearchQuery, unreadCount, savedCount,
-    toggleFavorite, toggleQueue, removeFromSaved, loadMoreArticles, hasMoreArticles
+    toggleFavorite, toggleQueue, removeFromSaved
   } = useRss();
 
   const { currentTrack } = useAudioState();
@@ -162,6 +151,9 @@ export default function App() {
   const pullOpacity = useTransform(pullProgress, v => v / PULL_THRESHOLD);
   const [isPulling, setIsPulling] = useState(false);
 
+  const [visibleCountInbox, setVisibleCountInbox] = useState(PAGE_SIZE);
+  const [visibleCountSaved, setVisibleCountSaved] = useState(PAGE_SIZE);
+
   const handleFilterChange = (newFilter: 'inbox' | 'saved') => {
     if (newFilter === filter) return;
     
@@ -174,10 +166,12 @@ export default function App() {
       if (newType === inboxTypeFilter) return;
       if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
       setInboxTypeFilter(newType as any);
+      setVisibleCountInbox(PAGE_SIZE);
     } else {
       if (newType === savedTypeFilter) return;
       if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
       setSavedTypeFilter(newType as any);
+      setVisibleCountSaved(PAGE_SIZE);
     }
     isAtTop.current = true;
   };
@@ -196,6 +190,8 @@ export default function App() {
       if (inboxScrollRef.current) inboxScrollRef.current.scrollTop = 0;
       if (savedScrollRef.current) savedScrollRef.current.scrollTop = 0;
       isAtTop.current = true;
+      setVisibleCountInbox(PAGE_SIZE);
+      setVisibleCountSaved(PAGE_SIZE);
     }
   }, [isSearchOpen, searchQuery, sourceFilter, timeFilter]);
 
@@ -293,16 +289,6 @@ export default function App() {
   const inboxArticles = baseFilteredArticlesInbox;
   const savedArticles = useMemo(() => baseFilteredArticlesSaved.filter(a => a.isFavorite || a.isQueued), [baseFilteredArticlesSaved]);
 
-  /**
-   * ⚡ Bolt: Optimize article navigation by pre-calculating the active list and current index.
-   * This avoids repeated O(N) findIndex calls on every render and navigation event.
-   */
-  const activeArticles = useMemo(() => (filter === 'inbox' ? inboxArticles : savedArticles), [filter, inboxArticles, savedArticles]);
-  const activeIndex = useMemo(() => {
-    if (!selectedArticle) return -1;
-    return activeArticles.findIndex(a => a.id === selectedArticle.id);
-  }, [selectedArticle, activeArticles]);
-
   const handleTouchStart = (e: React.TouchEvent) => {
     const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
     const scrollTop = activeScrollRef.current?.scrollTop || 0;
@@ -341,109 +327,43 @@ export default function App() {
     }
   }, [isLoading, pullProgress]);
 
-  const inboxArticlesRef = useRef(inboxArticles);
-  useEffect(() => { inboxArticlesRef.current = inboxArticles; }, [inboxArticles]);
-
-  const savedArticlesRef = useRef(savedArticles);
-  useEffect(() => { savedArticlesRef.current = savedArticles; }, [savedArticles]);
-
-  const inboxTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Handle marking as read when scrolling to bottom
   useEffect(() => {
-    const inboxContainer = inboxScrollRef.current;
-    if (!inboxContainer) return;
-    
-    const checkAtBottom = () => {
-      if (filter !== 'inbox') {
-        if (inboxTimerRef.current) {
-          clearTimeout(inboxTimerRef.current);
-          inboxTimerRef.current = null;
-        }
-        return;
-      }
-
-      const isAtBottom = inboxContainer.scrollHeight - inboxContainer.scrollTop <= inboxContainer.clientHeight + 50;
-      const allVisible = !hasMoreArticles;
-
-      if (isAtBottom && allVisible) {
-        const hasUnread = inboxArticlesRef.current.some(a => !a.isRead);
-        if (hasUnread && !inboxTimerRef.current) {
-          console.log('[SCROLL] Starting 5s timer for inbox mark as read');
-          inboxTimerRef.current = setTimeout(() => {
-            const toMark = inboxArticlesRef.current.filter(a => !a.isRead).map(a => a.id);
-            if (toMark.length > 0) {
-              markArticlesAsRead(toMark);
-            }
-            inboxTimerRef.current = null;
-          }, 5000);
-        }
-      } else {
-        if (inboxTimerRef.current) {
-          console.log('[SCROLL] Clearing inbox timer (not at bottom)');
-          clearTimeout(inboxTimerRef.current);
-          inboxTimerRef.current = null;
+    if (!inboxBottomRef.current || inboxArticles.slice(0, visibleCountInbox).length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        if (visibleCountInbox < inboxArticles.length) {
+          setVisibleCountInbox(prev => Math.min(prev + PAGE_SIZE, inboxArticles.length));
+        } else if (filter === 'inbox') {
+          const toMark = inboxArticles.filter(a => !a.isRead).map(a => a.id);
+          if (toMark.length > 0) {
+            console.log(`[SCROLL] Reached bottom, marking ${toMark.length} articles as read`);
+            markArticlesAsRead(toMark);
+          }
         }
       }
-    };
-    
-    inboxContainer.addEventListener('scroll', checkAtBottom);
-    // Also check immediately in case the list is already at the bottom
-    checkAtBottom();
-    
-    return () => {
-      inboxContainer.removeEventListener('scroll', checkAtBottom);
-      if (inboxTimerRef.current) clearTimeout(inboxTimerRef.current);
-    };
-  }, [filter, hasMoreArticles, markArticlesAsRead]);
+    }, { threshold: 0.1 });
+    observer.observe(inboxBottomRef.current);
+    return () => observer.disconnect();
+  }, [inboxArticles, visibleCountInbox, markArticlesAsRead, filter]);
 
   useEffect(() => {
-    const savedContainer = savedScrollRef.current;
-    if (!savedContainer) return;
-    
-    const checkAtBottom = () => {
-      if (filter !== 'saved') {
-        if (savedTimerRef.current) {
-          clearTimeout(savedTimerRef.current);
-          savedTimerRef.current = null;
-        }
-        return;
-      }
-
-      const isAtBottom = savedContainer.scrollHeight - savedContainer.scrollTop <= savedContainer.clientHeight + 50;
-      const allVisible = !hasMoreArticles;
-
-      if (isAtBottom && allVisible) {
-        const hasUnread = savedArticlesRef.current.some(a => !a.isRead);
-        if (hasUnread && !savedTimerRef.current) {
-          console.log('[SCROLL] Starting 5s timer for saved mark as read');
-          savedTimerRef.current = setTimeout(() => {
-            const toMark = savedArticlesRef.current.filter(a => !a.isRead).map(a => a.id);
-            if (toMark.length > 0) {
-              markArticlesAsRead(toMark);
-            }
-            savedTimerRef.current = null;
-          }, 5000);
-        }
-      } else {
-        if (savedTimerRef.current) {
-          console.log('[SCROLL] Clearing saved timer (not at bottom)');
-          clearTimeout(savedTimerRef.current);
-          savedTimerRef.current = null;
+    if (!savedBottomRef.current || savedArticles.slice(0, visibleCountSaved).length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        if (visibleCountSaved < savedArticles.length) {
+          setVisibleCountSaved(prev => Math.min(prev + PAGE_SIZE, savedArticles.length));
+        } else if (filter === 'saved') {
+          const toMark = savedArticles.filter(a => !a.isRead).map(a => a.id);
+          if (toMark.length > 0) {
+            console.log(`[SCROLL] Reached bottom, marking ${toMark.length} articles as read`);
+            markArticlesAsRead(toMark);
+          }
         }
       }
-    };
-    
-    savedContainer.addEventListener('scroll', checkAtBottom);
-    // Also check immediately in case the list is already at the bottom
-    checkAtBottom();
-    
-    return () => {
-      savedContainer.removeEventListener('scroll', checkAtBottom);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-    };
-  }, [filter, hasMoreArticles, markArticlesAsRead]);
+    }, { threshold: 0.1 });
+    observer.observe(savedBottomRef.current);
+    return () => observer.disconnect();
+  }, [savedArticles, visibleCountSaved, markArticlesAsRead, filter]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
@@ -618,7 +538,9 @@ export default function App() {
         <ArticleListView
           isActive={filter === 'inbox'}
           articles={inboxArticles}
+          visibleCount={visibleCountInbox}
           scrollRef={inboxScrollRef}
+          bottomRef={inboxBottomRef}
           handleScroll={handleScroll}
           currentTrack={currentTrack}
           feedsMap={feedsMap}
@@ -633,14 +555,13 @@ export default function App() {
           feeds={feeds}
           setSettingsTab={setSettingsTab}
           setIsSettingsOpen={setIsSettingsOpen}
-          hasMoreArticles={hasMoreArticles}
-          isLoading={isLoading}
-          loadMoreArticles={loadMoreArticles}
         />
         <ArticleListView
           isActive={filter === 'saved'}
           articles={savedArticles}
+          visibleCount={visibleCountSaved}
           scrollRef={savedScrollRef}
+          bottomRef={savedBottomRef}
           handleScroll={handleScroll}
           currentTrack={currentTrack}
           feedsMap={feedsMap}
@@ -655,9 +576,6 @@ export default function App() {
           feeds={feeds}
           setSettingsTab={setSettingsTab}
           setIsSettingsOpen={setIsSettingsOpen}
-          hasMoreArticles={hasMoreArticles}
-          isLoading={isLoading}
-          loadMoreArticles={loadMoreArticles}
         />
       </div>
 
@@ -782,37 +700,34 @@ export default function App() {
         }} 
       />
 
-       <AnimatePresence>
-        {selectedArticle && (() => {
-          const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
-          const selectedIdx = activeArticles.findIndex(a => a.id === selectedArticle.id);
-          const hasNext = selectedIdx !== -1 && selectedIdx < activeArticles.length - 1;
-          const hasPrev = selectedIdx > 0;
-          
-          return (
-            <ArticleReader
-              article={selectedArticle}
-              onClose={() => setSelectedArticle(null)}
-              onSelectArticle={(a) => setSelectedArticle(a)}
-              onNext={() => {
-                if (hasNext) {
-                  const next = articles.find(a => a.id === activeArticles[selectedIdx + 1].id) || activeArticles[selectedIdx + 1];
-                  setSelectedArticle(next);
-                  if (!next.isRead) markAsRead(next.id);
-                }
-              }}
-              onPrev={() => {
-                if (hasPrev) {
-                  const prev = articles.find(a => a.id === activeArticles[selectedIdx - 1].id) || activeArticles[selectedIdx - 1];
-                  setSelectedArticle(prev);
-                  if (!prev.isRead) markAsRead(prev.id);
-                }
-              }}
-              hasNext={hasNext}
-              hasPrev={hasPrev}
-            />
-          );
-        })()}
+      <AnimatePresence>
+        {selectedArticle && (
+          <ArticleReader
+            article={selectedArticle}
+            onClose={() => setSelectedArticle(null)}
+            onSelectArticle={(a) => setSelectedArticle(a)}
+            onNext={() => {
+              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
+              if (idx < activeArticles.length - 1) {
+                const next = articles.find(a => a.id === activeArticles[idx + 1].id) || activeArticles[idx + 1];
+                setSelectedArticle(next);
+                if (!next.isRead) markAsRead(next.id);
+              }
+            }}
+            onPrev={() => {
+              const activeArticles = filter === 'inbox' ? inboxArticles : savedArticles;
+              const idx = activeArticles.findIndex(a => a.id === selectedArticle.id);
+              if (idx > 0) {
+                const prev = articles.find(a => a.id === activeArticles[idx - 1].id) || activeArticles[idx - 1];
+                setSelectedArticle(prev);
+                if (!prev.isRead) markAsRead(prev.id);
+              }
+            }}
+            hasNext={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) < (filter === 'inbox' ? inboxArticles : savedArticles).length - 1}
+            hasPrev={(filter === 'inbox' ? inboxArticles : savedArticles).findIndex(a => a.id === selectedArticle.id) > 0}
+          />
+        )}
       </AnimatePresence>
 
       <PersistentPlayer onNavigate={(a) => setSelectedArticle(a)} />

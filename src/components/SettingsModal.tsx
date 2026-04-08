@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { openInApp } from '../utils/browser';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileCode, Copy, Check } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2 } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
-import { storage } from '../services/storage';
 import packageJson from '../../package.json';
 
 export const SettingsModal = React.memo(function SettingsModal({
@@ -18,7 +16,7 @@ export const SettingsModal = React.memo(function SettingsModal({
   onClose: () => void;
   initialTab?: 'settings' | 'subscriptions' | 'about';
 }) {
-  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, refreshLogs } = useRss();
+  const { settings, updateSettings, feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates } = useRss();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'subscriptions' | 'about'>('settings');
@@ -27,41 +25,14 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [editUrl, setEditUrl] = useState('');
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [isXmlViewOpen, setIsXmlViewOpen] = useState(false);
-  const [xmlContent, setXmlContent] = useState<string | null>(null);
-  const [isLoadingXml, setIsLoadingXml] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   
   React.useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab || 'settings');
       setSelectedFeedId(null);
       setIsConfirmingDelete(false);
-      setIsXmlViewOpen(false);
-      setXmlContent(null);
     }
   }, [isOpen, initialTab]);
-
-  const handleViewXml = async (url: string) => {
-    setIsLoadingXml(true);
-    setIsXmlViewOpen(true);
-    try {
-      const content = await storage.fetchUrlContent(url);
-      setXmlContent(content);
-    } catch (e) {
-      setXmlContent('Failed to fetch XML content.');
-    } finally {
-      setIsLoadingXml(false);
-    }
-  };
-
-  const handleCopyXml = () => {
-    if (xmlContent) {
-      navigator.clipboard.writeText(xmlContent);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    }
-  };
 
   React.useEffect(() => {
     setIsConfirmingDelete(false);
@@ -167,28 +138,16 @@ export const SettingsModal = React.memo(function SettingsModal({
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => saveEdit(selectedFeed.id)} className="flex-1 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Save Changes</button>
-                  <button 
-                    onClick={() => handleViewXml(selectedFeed.feedUrl)}
-                    className="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors flex items-center justify-center"
-                    title="View Raw XML"
-                  >
-                    <FileCode className="w-5 h-5" />
-                  </button>
                   {selectedFeed.link && (
-                    <button 
-                      onClick={async () => {
-                        try {
-                          await openInApp(selectedFeed.link!);
-                        } catch (err) {
-                          console.error('Failed to open link in browser:', err);
-                          window.open(selectedFeed.link!, '_blank');
-                        }
-                      }}
-                      className="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                    <a 
+                      href={selectedFeed.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="p-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors flex items-center justify-center"
                       title="Go to source"
                     >
                       <ExternalLink className="w-5 h-5" />
-                    </button>
+                    </a>
                   )}
                 </div>
                 <button 
@@ -356,79 +315,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <p className="mt-1 text-[10px] text-gray-500">
                         * Minimum 15 minutes required by Android system.
                       </p>
-                      {settings.lastBackgroundRefresh && (
-                        <p className="mt-2 text-[10px] text-indigo-400 font-medium flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Last background refresh: {new Date(settings.lastBackgroundRefresh).toLocaleString()}
-                        </p>
-                      )}
                     </div>
-
-                    {/* Refresh Logs Section (Grouped with Background Refresh) */}
-                    <div className="pt-4 border-t border-gray-800/50">
-                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        Refresh Issues
-                      </h4>
-                      {refreshLogs.length > 0 ? (
-                        <>
-                          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                            {refreshLogs.map((log, idx) => (
-                              <div key={`${log.feedId}-${idx}`} className="p-3 rounded-xl bg-red-900/10 border border-red-900/20">
-                                <div className="flex justify-between items-start mb-1">
-                                  <span className="text-xs font-bold text-red-300 truncate flex-1 mr-2">{log.feedTitle}</span>
-                                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-gray-400 leading-tight">{log.error}</p>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="mt-2 text-[10px] text-gray-500 italic">
-                            Logs are cleared automatically on each new refresh.
-                          </p>
-                        </>
-                      ) : (
-                        <div className="p-3 rounded-xl bg-gray-900/30 border border-gray-800/50 text-center">
-                          <p className="text-[10px] text-gray-500">No issues detected in the last update.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {/* Storage Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Storage</h3>
-                  <div className="space-y-4">
-                    <button
-                      onClick={async (e) => {
-                        const btn = e.currentTarget;
-                        const originalText = btn.querySelector('span')!.innerText;
-                        try {
-                          btn.querySelector('span')!.innerText = 'Clearing...';
-                          const { imagePersistence } = await import('../utils/imagePersistence');
-                          await imagePersistence.cleanupOldImages(0); // 0 days = clear all
-                          btn.querySelector('span')!.innerText = 'Cache Cleared!';
-                          setTimeout(() => {
-                            if (btn) btn.querySelector('span')!.innerText = originalText;
-                          }, 2000);
-                        } catch (err) {
-                          console.error('Failed to clear image cache', err);
-                          btn.querySelector('span')!.innerText = 'Failed to clear';
-                          setTimeout(() => {
-                            if (btn) btn.querySelector('span')!.innerText = originalText;
-                          }, 2000);
-                        }
-                      }}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-800 text-white hover:bg-gray-700 transition-colors font-medium"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Trash2 className="w-5 h-5 text-red-400" />
-                        <span>Clear Image Cache</span>
-                      </div>
-                    </button>
                   </div>
                 </section>
 
@@ -448,7 +335,7 @@ export const SettingsModal = React.memo(function SettingsModal({
             ) : activeTab === 'subscriptions' ? (
               <section className="space-y-4">
                 <div className="space-y-2">
-                  {[...feeds].sort((a, b) => a.title.localeCompare(b.title)).map(feed => (
+                  {feeds.map(feed => (
                     <div 
                       key={feed.id} 
                       className="group flex items-center justify-between p-4 rounded-2xl bg-gray-800 hover:bg-gray-700 transition-colors cursor-pointer" 
@@ -457,32 +344,23 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <div className="min-w-0 flex-1">
                         <span className="font-medium text-white truncate block" title={feed.title}>{feed.title}</span>
                         <span className="text-xs text-gray-400">
-                          {feed.error ? 'Error' : feed.lastFetched ? `Updated ${new Date(feed.lastFetched).toLocaleString()}` : 'Never updated'}
+                          {feed.error ? 'Error' : feed.lastFetched ? `Updated ${new Date(feed.lastFetched).toLocaleDateString()}` : 'Never updated'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
                         {feed.link && (
-                          <button 
-                            onClick={async () => {
-                              try {
-                                await openInApp(feed.link!);
-                              } catch (err) {
-                                console.error('Failed to open link in browser:', err);
-                                window.open(feed.link!, '_blank');
-                              }
-                            }}
-                            className="p-2 bg-gray-900 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                          <a 
+                            href={feed.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 bg-gray-900 rounded-lg text-gray-400 hover:text-white hover:bg-gray-600 transition-all opacity-0 group-hover:opacity-100"
                             title="Go to source"
                           >
                             <ExternalLink className="w-4 h-4" />
-                          </button>
+                          </a>
                         )}
-                        <span className={cn(
-                          "w-2.5 h-2.5 rounded-full shadow-sm",
-                          feed.lastRefreshStatus === 'error' ? 'bg-red-500 shadow-red-500/50' : 
-                          feed.lastRefreshStatus === 'warning' ? 'bg-yellow-500 shadow-yellow-500/50' : 
-                          'bg-green-500 shadow-green-500/50'
-                        )} />
+                        <span className={`w-2 h-2 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
                       </div>
                     </div>
                   ))}
@@ -537,20 +415,15 @@ export const SettingsModal = React.memo(function SettingsModal({
                       )}
 
                       <div className="grid grid-cols-1 gap-3">
-                        <button 
-                          onClick={async () => {
-                            try {
-                              await openInApp(updateInfo.latestRelease?.url!);
-                            } catch (err) {
-                              console.error('Failed to open link in browser:', err);
-                              window.open(updateInfo.latestRelease?.url!, '_blank');
-                            }
-                          }}
-                          className="flex items-center justify-center gap-2 p-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors cursor-pointer"
+                        <a 
+                          href={updateInfo.latestRelease?.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 p-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors"
                         >
                           <Download className="w-4 h-4" />
                           Download Update
-                        </button>
+                        </a>
                       </div>
                     </div>
                   ) : (
@@ -586,23 +459,18 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
 
                   <div className="space-y-2">
-                    <button 
-                      onClick={async () => {
-                        try {
-                          await openInApp('https://github.com/malamoffo/flusso');
-                        } catch (err) {
-                          console.error('Failed to open link in browser:', err);
-                          window.open('https://github.com/malamoffo/flusso', '_blank');
-                        }
-                      }}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-900 text-white hover:bg-black transition-colors cursor-pointer"
+                    <a 
+                      href="https://github.com/malamoffo/flusso" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-900 text-white hover:bg-black transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <Github className="w-5 h-5" />
                         <span className="font-medium">GitHub Repository</span>
                       </div>
                       <ExternalLink className="w-4 h-4 opacity-50" />
-                    </button>
+                    </a>
                   </div>
                 </div>
 
@@ -615,66 +483,6 @@ export const SettingsModal = React.memo(function SettingsModal({
             )}
           </motion.div>
           <AddFeedModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
-          
-          {/* XML View Modal */}
-          <AnimatePresence>
-            {isXmlViewOpen && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                  className="w-full max-w-4xl h-[80vh] flex flex-col rounded-3xl bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden"
-                >
-                  <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl">
-                        <FileCode className="w-5 h-5 text-indigo-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-white">Feed XML</h3>
-                        <p className="text-[10px] text-gray-500 truncate max-w-[200px] sm:max-w-md">{selectedFeed?.feedUrl}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {xmlContent && (
-                        <button
-                          onClick={handleCopyXml}
-                          className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors flex items-center gap-2 text-xs font-medium"
-                        >
-                          {isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                          {isCopied ? 'Copied!' : 'Copy'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setIsXmlViewOpen(false)}
-                        className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 overflow-auto p-6 font-mono text-xs leading-relaxed bg-black/30">
-                    {isLoadingXml ? (
-                      <div className="h-full flex flex-col items-center justify-center gap-4 text-gray-500">
-                        <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
-                        <p className="animate-pulse">Fetching feed XML...</p>
-                      </div>
-                    ) : xmlContent ? (
-                      <pre className="text-gray-300 whitespace-pre-wrap break-all selection:bg-indigo-500/30">
-                        {xmlContent}
-                      </pre>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-gray-500">
-                        No content available.
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
         </>
       )}
     </AnimatePresence>

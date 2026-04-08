@@ -52,27 +52,8 @@ export function getSafeUrl(url: string | null | undefined, fallback: any = ''): 
   if (url.startsWith('//')) {
     return `https:${url}`;
   }
-
-  // Upgrade http to https if the current page is https to avoid mixed content issues
-  if (url.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return url.replace('http://', 'https://');
-  }
   
   return url;
-}
-
-/**
- * Resolves a potentially relative URL against a base URL.
- */
-export function resolveUrl(url: string | null | undefined, base: string | null | undefined): string {
-  if (!url) return '';
-  if (!base) return getSafeUrl(url);
-  
-  try {
-    return new URL(url, base).href;
-  } catch (e) {
-    return getSafeUrl(url);
-  }
 }
 
 /**

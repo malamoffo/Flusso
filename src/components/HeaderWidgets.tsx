@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudFog } from 'lucide-react';
+import { Sun, Cloud, CloudRain, CloudLightning, CloudSnow, CloudFog, Wind } from 'lucide-react';
 import { fetchWithProxy } from '../utils/proxy';
 
 interface WeatherData {
@@ -32,9 +32,15 @@ const WeatherWidget = memo(({ loading, weather }: { loading: boolean, weather: W
 
   if (!weather) return null;
 
+  const handleClick = () => {
+    window.open(`https://www.google.com/search?q=meteo+${weather.lat},${weather.lon}`, '_blank');
+  };
+
   return (
     <div 
-      className="flex items-center gap-1.5 transition-colors"
+      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-700 transition-colors"
+      onClick={handleClick}
+      title="Vedi previsioni meteo"
     >
       {getWeatherIcon(weather.condition)}
       <span>{weather.temp}°C</span>
@@ -48,47 +54,18 @@ export const HeaderWidgets = memo(function HeaderWidgets() {
 
   useEffect(() => {
     const fetchWeather = async (lat: number, lon: number) => {
-      setLoading(true);
       try {
-        // Try direct fetch first as Open-Meteo supports CORS and is very reliable
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+        const text = await fetchWithProxy(url, false);
+        const data = JSON.parse(text);
         
-        let data = null;
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-          const response = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          if (response.ok) {
-            data = await response.json();
-          }
-        } catch (e) {
-          console.warn('Direct weather fetch failed, trying proxy utility');
-        }
-
-        if (!data) {
-          try {
-            const text = await fetchWithProxy(url, false);
-            if (text && text.trim().startsWith('{')) {
-              data = JSON.parse(text);
-            } else if (text) {
-              console.warn('Weather proxy returned non-JSON content:', text.substring(0, 100));
-            }
-          } catch (e) {
-            console.warn('Weather proxy fetch failed');
-          }
-        }
-        
-        if (data) {
-          const current = data.current || data.current_weather;
-          if (current) {
-            setWeather({
-              temp: Math.round(current.temperature_2m ?? current.temperature),
-              condition: getWeatherCondition(current.weather_code ?? current.weathercode),
-              lat,
-              lon
-            });
-          }
+        if (data.current_weather) {
+          setWeather({
+            temp: Math.round(data.current_weather.temperature),
+            condition: getWeatherCondition(data.current_weather.weathercode),
+            lat,
+            lon
+          });
         }
       } catch (error) {
         console.error('Failed to fetch weather:', error);
@@ -98,37 +75,21 @@ export const HeaderWidgets = memo(function HeaderWidgets() {
     };
 
     const handleGeolocation = () => {
-      let fallbackTriggered = false;
-      
-      const triggerFallback = () => {
-        if (!fallbackTriggered) {
-          fallbackTriggered = true;
-          console.log('Using fallback location (Rome)');
-          fetchWeather(41.9028, 12.4964);
-        }
-      };
-
-      // Set a shorter timeout for the initial wait
-      const fallbackTimeout = setTimeout(triggerFallback, 4000);
-
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            clearTimeout(fallbackTimeout);
-            if (!fallbackTriggered) {
-              fetchWeather(position.coords.latitude, position.coords.longitude);
-            }
+            fetchWeather(position.coords.latitude, position.coords.longitude);
           },
           (error) => {
-            clearTimeout(fallbackTimeout);
-            console.warn('Geolocation error:', error.message);
-            triggerFallback();
+            console.error('Geolocation error:', error);
+            // Fallback to a default location (e.g., Rome) if user denies or it fails
+            fetchWeather(41.9028, 12.4964);
           },
-          { timeout: 8000, enableHighAccuracy: false }
+          { timeout: 10000 }
         );
       } else {
-        clearTimeout(fallbackTimeout);
-        triggerFallback();
+        // Fallback to Rome
+        fetchWeather(41.9028, 12.4964);
       }
     };
 
@@ -148,7 +109,7 @@ export const HeaderWidgets = memo(function HeaderWidgets() {
   };
 
   return (
-    <div className="flex items-baseline gap-3 text-xl font-bold text-white/80 tracking-tight">
+    <div className="flex items-baseline gap-3 text-xl font-bold text-gray-500 tracking-tight">
       <WeatherWidget loading={loading} weather={weather} />
     </div>
   );
