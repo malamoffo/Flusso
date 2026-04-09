@@ -137,6 +137,252 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const refreshFeeds = useCallback(async (feedsToRefresh?: Feed[], currentArticles?: Article[]) => {
+    if (isRefreshing.current) return;
+    isRefreshing.current = true;
+    try {
+      setIsLoading(true);
+
+      const fToRefresh = feedsToRefresh || await storage.getFeeds();
+      const cArticles = currentArticles || await storage.getArticles();
+      
+      if (fToRefresh.length === 0) {
+        setIsLoading(false);
+        isRefreshing.current = false;
+        return;
+      }
+      
+      setProgress({ current: 0, total: fToRefresh.length });
+      const results: { feed: Feed; articles: Article[] }[] = [];
+      let completed = 0;
+      
+      // Precompute the latest article date for each feed for O(1) lookups
+      const latestArticleDateByFeedId = new Map<string, number>();
+      for (const article of cArticles) {
+        const currentLatest = latestArticleDateByFeedId.get(article.feedId) || 0;
+        if (article.pubDate > currentLatest) {
+          latestArticleDateByFeedId.set(article.feedId, article.pubDate);
+        }
+      }
+      
+      const queue = [...fToRefresh];
+      let queueIndex = 0;
+      const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
+      
+      const allNewArticles: Article[] = [];
+      
+      const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
+        while (queueIndex < queue.length) {
+          const feed = queue[queueIndex++];
+          if (!feed) break;
+          
+          try {
+            // Find the latest article date for this feed to only fetch newer articles
+            const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
+            
+            const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+            const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
+            const hardSinceDate = Date.now() - (feed.type === 'podcast' ? TWO_WEEKS : THREE_DAYS);
+            
+            const sinceDate = Math.max(latestArticleDate || feed.lastArticleDate || 0, hardSinceDate);
+            
+            // Global timeout for this specific feed fetch
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FEED_TIMEOUT);
+            
+            try {
+              const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
+              if (data) {
+                results.push(data);
+                
+                // Inserisci i nuovi articoli uno alla volta nella corretta posizione cronologica
+                if (data.articles && data.articles.length > 0) {
+                  // Ensure articles have the correct feedId from the existing feed
+                  const articlesWithCorrectId = data.articles.map(a => ({ ...a, feedId: feed.id }));
+                  // Update the results array so storage.saveAllFeedData also uses the correct ID
+                  data.articles = articlesWithCorrectId;
+                  
+                  allNewArticles.push(...articlesWithCorrectId);
+                }
+              }
+            } finally {
+              clearTimeout(timeoutId);
+            }
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              console.warn(`Skipping feed ${feed.feedUrl} due to timeout (${FEED_TIMEOUT}ms)`);
+            } else {
+              console.warn(`Skipping feed ${feed.feedUrl} due to error:`, e);
+            }
+          } finally {
+            completed++;
+            setProgress(p => p ? { ...p, current: completed } : { current: completed, total: fToRefresh.length });
+          }
+        }
+      });
+      
+      await Promise.all(workers);
+      
+      if (allNewArticles.length > 0) {
+        setArticles(prev => {
+          const merged = [...prev];
+          const existingLinks = new Set(merged.map(a => a.link));
+          let hasNew = false;
+          
+          for (const newArticle of allNewArticles) {
+            // Check for duplicate link using Set for O(1) lookup
+            if (!existingLinks.has(newArticle.link)) {
+              hasNew = true;
+              existingLinks.add(newArticle.link);
+              
+              // Ottimizzazione: se è più recente del primo, inserisci in testa
+              if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
+                merged.unshift(newArticle);
+                continue;
+              }
+
+              // Ricerca Binaria per trovare la posizione corretta (O(log n))
+              // Partendo dal "più recente" (inizio lista) in modo efficiente
+              let low = 0;
+              let high = merged.length;
+              while (low < high) {
+                const mid = (low + high) >>> 1;
+                if (merged[mid].pubDate > newArticle.pubDate) {
+                  low = mid + 1;
+                } else {
+                  high = mid;
+                }
+              }
+              merged.splice(low, 0, newArticle);
+            }
+          }
+          
+          return hasNew ? merged : prev;
+        });
+      }
+      
+      if (results.length > 0) {
+        setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
+        const { updatedFeeds } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
+        
+        setFeeds(updatedFeeds);
+      }
+      
+      setProgress(p => p ? { ...p, status: "Finalizing..." } : null);
+      lastRefresh.current = Date.now();
+    } catch (e) {
+      logError("Failed to refresh feeds");
+    } finally {
+      setIsLoading(false);
+      setProgress(null);
+      isRefreshing.current = false;
+    }
+  }, []);
+
+  const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
+    const currentSort = sort || redditSort;
+    logError(`refreshReddit called, subs: ${subsToRefresh?.length || 'undefined'}, sort: ${currentSort}`);
+    
+    if (isRefreshingReddit.current) {
+        console.warn('[RSS] Already refreshing reddit');
+        return;
+    }
+    isRefreshingReddit.current = true;
+    try {
+      setIsLoading(true);
+      
+      // Use provided subs or current state, but if state is empty try to load from storage
+      let sToRefresh = subsToRefresh || subreddits;
+      if (sToRefresh.length === 0 && !subsToRefresh) {
+        sToRefresh = await storage.getSubreddits();
+        logError(`refreshReddit: loaded ${sToRefresh.length} subs from storage`);
+      }
+
+      if (sToRefresh.length === 0) {
+        console.warn('[RSS] No subreddits to refresh');
+        logError("No subreddits to refresh");
+        setIsLoading(false);
+        isRefreshingReddit.current = false;
+        return;
+      }
+
+      const results: RedditPost[] = [];
+      const sinceDate = currentSort === 'new' ? Date.now() - (3 * 24 * 60 * 60 * 1000) : undefined;
+
+      const updatedSubs = [...sToRefresh];
+      let subsChanged = false;
+
+      await Promise.all(sToRefresh.map(async (sub, index) => {
+        try {
+          const posts = await storage.fetchSubredditPosts(sub.name, sinceDate, undefined, currentSort);
+          if (posts.length > 0) {
+            results.push(...posts);
+            updatedSubs[index] = { ...sub, lastFetched: Date.now() };
+            subsChanged = true;
+          } else {
+            logError(`No posts found for r/${sub.name}`);
+          }
+        } catch (e) {
+          logError(`Failed to refresh r/${sub.name}`);
+          console.error(`Failed to refresh subreddit ${sub.name}`, e);
+        }
+      }));
+
+      if (subsChanged) {
+        setSubreddits(prev => {
+          // Merge updated subs into current state
+          const newSubs = [...prev];
+          updatedSubs.forEach(updated => {
+            const idx = newSubs.findIndex(s => s.id === updated.id);
+            if (idx !== -1) {
+              newSubs[idx] = updated;
+            } else {
+              newSubs.push(updated);
+            }
+          });
+          storage.saveSubreddits(newSubs);
+          return newSubs;
+        });
+      }
+
+      if (results.length > 0 || sort) {
+        setRedditPosts(prev => {
+          const base = sort ? [] : prev;
+          const merged = [...base];
+          const existingIds = new Set(merged.map(p => p.id));
+          let hasNew = false;
+
+          for (const newPost of results) {
+            if (!existingIds.has(newPost.id)) {
+              hasNew = true;
+              existingIds.add(newPost.id);
+              merged.push(newPost);
+            }
+          }
+
+          if (hasNew || sort) {
+            if (currentSort === 'new') {
+              merged.sort((a, b) => b.createdUtc - a.createdUtc);
+            } else {
+              merged.sort((a, b) => (b.score || 0) - (a.score || 0));
+            }
+            storage.saveRedditPosts(merged);
+            return merged;
+          }
+          return prev;
+        });
+      } else if (!sort) {
+        logError("No new Reddit posts found");
+      }
+    } catch (e) {
+      logError("Failed to refresh reddit");
+      console.error("Failed to refresh reddit", e);
+    } finally {
+      setIsLoading(false);
+      isRefreshingReddit.current = false;
+    }
+  }, [subreddits, redditSort]);
+
   useEffect(() => {
     let mounted = true;
     loadData().then(data => {
@@ -153,6 +399,17 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    // Background polling for Reddit posts (every 5 minutes)
+    const redditInterval = setInterval(() => {
+      if (subreddits.length > 0) {
+        refreshReddit();
+      }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(redditInterval);
+  }, [refreshReddit, subreddits.length]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -436,222 +693,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return await storage.exportOpml();
   }, []);
 
-  const refreshFeeds = useCallback(async (feedsToRefresh?: Feed[], currentArticles?: Article[]) => {
-    if (isRefreshing.current) return;
-    isRefreshing.current = true;
-    try {
-      setIsLoading(true);
-
-      const fToRefresh = feedsToRefresh || await storage.getFeeds();
-      const cArticles = currentArticles || await storage.getArticles();
-      
-      if (fToRefresh.length === 0) {
-        setIsLoading(false);
-        isRefreshing.current = false;
-        return;
-      }
-      
-      setProgress({ current: 0, total: fToRefresh.length });
-      const results: { feed: Feed; articles: Article[] }[] = [];
-      let completed = 0;
-      
-      // Precompute the latest article date for each feed for O(1) lookups
-      const latestArticleDateByFeedId = new Map<string, number>();
-      for (const article of cArticles) {
-        const currentLatest = latestArticleDateByFeedId.get(article.feedId) || 0;
-        if (article.pubDate > currentLatest) {
-          latestArticleDateByFeedId.set(article.feedId, article.pubDate);
-        }
-      }
-      
-      const queue = [...fToRefresh];
-      let queueIndex = 0;
-      const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
-      
-      const allNewArticles: Article[] = [];
-      
-      const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
-        while (queueIndex < queue.length) {
-          const feed = queue[queueIndex++];
-          if (!feed) break;
-          
-          try {
-            // Find the latest article date for this feed to only fetch newer articles
-            const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
-            
-            const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-            const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
-            const hardSinceDate = Date.now() - (feed.type === 'podcast' ? TWO_WEEKS : THREE_DAYS);
-            
-            const sinceDate = Math.max(latestArticleDate || feed.lastArticleDate || 0, hardSinceDate);
-            
-            // Global timeout for this specific feed fetch
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), FEED_TIMEOUT);
-            
-            try {
-              const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
-              if (data) {
-                results.push(data);
-                
-                // Inserisci i nuovi articoli uno alla volta nella corretta posizione cronologica
-                if (data.articles && data.articles.length > 0) {
-                  // Ensure articles have the correct feedId from the existing feed
-                  const articlesWithCorrectId = data.articles.map(a => ({ ...a, feedId: feed.id }));
-                  // Update the results array so storage.saveAllFeedData also uses the correct ID
-                  data.articles = articlesWithCorrectId;
-                  
-                  allNewArticles.push(...articlesWithCorrectId);
-                }
-              }
-            } finally {
-              clearTimeout(timeoutId);
-            }
-          } catch (e: any) {
-            if (e.name === 'AbortError') {
-              console.warn(`Skipping feed ${feed.feedUrl} due to timeout (${FEED_TIMEOUT}ms)`);
-            } else {
-              console.warn(`Skipping feed ${feed.feedUrl} due to error:`, e);
-            }
-          } finally {
-            completed++;
-            setProgress(p => p ? { ...p, current: completed } : { current: completed, total: fToRefresh.length });
-          }
-        }
-      });
-      
-      await Promise.all(workers);
-      
-      if (allNewArticles.length > 0) {
-        setArticles(prev => {
-          const merged = [...prev];
-          const existingLinks = new Set(merged.map(a => a.link));
-          let hasNew = false;
-          
-          for (const newArticle of allNewArticles) {
-            // Check for duplicate link using Set for O(1) lookup
-            if (!existingLinks.has(newArticle.link)) {
-              hasNew = true;
-              existingLinks.add(newArticle.link);
-              
-              // Ottimizzazione: se è più recente del primo, inserisci in testa
-              if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
-                merged.unshift(newArticle);
-                continue;
-              }
-
-              // Ricerca Binaria per trovare la posizione corretta (O(log n))
-              // Partendo dal "più recente" (inizio lista) in modo efficiente
-              let low = 0;
-              let high = merged.length;
-              while (low < high) {
-                const mid = (low + high) >>> 1;
-                if (merged[mid].pubDate > newArticle.pubDate) {
-                  low = mid + 1;
-                } else {
-                  high = mid;
-                }
-              }
-              merged.splice(low, 0, newArticle);
-            }
-          }
-          
-          return hasNew ? merged : prev;
-        });
-      }
-      
-      if (results.length > 0) {
-        setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
-        const { updatedFeeds } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
-        
-        setFeeds(updatedFeeds);
-      }
-      
-      setProgress(p => p ? { ...p, status: "Finalizing..." } : null);
-      lastRefresh.current = Date.now();
-    } catch (e) {
-      logError("Failed to refresh feeds");
-    } finally {
-      setIsLoading(false);
-      setProgress(null);
-      isRefreshing.current = false;
-    }
-  }, []);
-
-  const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
-    logError(`refreshReddit called, subs: ${subsToRefresh?.length || 'undefined'}`);
-    if (isRefreshingReddit.current) {
-        console.warn('[RSS] Already refreshing reddit');
-        return;
-    }
-    isRefreshingReddit.current = true;
-    try {
-      setIsLoading(true);
-      const sToRefresh = subsToRefresh || subreddits;
-      const cPosts = currentPosts !== undefined ? currentPosts : redditPosts;
-
-      if (sToRefresh.length === 0) {
-        console.warn('[RSS] No subreddits to refresh');
-        setIsLoading(false);
-        isRefreshingReddit.current = false;
-        return;
-      }
-
-      const currentSort = sort || redditSort;
-      const results: RedditPost[] = [];
-      // For 'new' sort, we only want recent posts. For 'top' or 'hot', we want what Reddit gives us.
-      const sinceDate = currentSort === 'new' ? Date.now() - (3 * 24 * 60 * 60 * 1000) : undefined;
-
-      // Fetch sequentially or in parallel (parallel is fine for Reddit JSON)
-      await Promise.all(sToRefresh.map(async (sub) => {
-        try {
-          const posts = await storage.fetchSubredditPosts(sub.name, sinceDate, undefined, currentSort);
-          results.push(...posts);
-          
-          // Update lastFetched
-          setSubreddits(prev => {
-            const updated = prev.map(s => s.id === sub.id ? { ...s, lastFetched: Date.now() } : s);
-            storage.saveSubreddits(updated);
-            return updated;
-          });
-        } catch (e) {
-          console.error(`Failed to refresh subreddit ${sub.name}`, e);
-        }
-      }));
-
-      setRedditPosts(prev => {
-        // If sort is provided, it's a sort change, so we should replace existing posts
-        const base = sort ? [] : prev;
-        const merged = [...base];
-        const existingIds = new Set(merged.map(p => p.id));
-        let hasNew = false;
-
-        for (const newPost of results) {
-          if (!existingIds.has(newPost.id)) {
-            hasNew = true;
-            existingIds.add(newPost.id);
-            merged.push(newPost);
-          }
-        }
-
-        if (hasNew || sort) {
-          if (currentSort === 'new') {
-            merged.sort((a, b) => b.createdUtc - a.createdUtc);
-          } else {
-            merged.sort((a, b) => (b.score || 0) - (a.score || 0));
-          }
-          storage.saveRedditPosts(merged);
-          return merged;
-        }
-        return prev;
-      });
-    } catch (e) {
-      console.error("Failed to refresh reddit", e);
-    } finally {
-      setIsLoading(false);
-      isRefreshingReddit.current = false;
-    }
-  }, [subreddits, redditPosts, redditSort]);
 
   const loadMoreReddit = useCallback(async () => {
     try {

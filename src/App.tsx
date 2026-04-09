@@ -132,6 +132,7 @@ const ArticleListView = memo(({
 export default function App() {
   const inboxScrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef<HTMLDivElement>(null);
+  const redditScrollRef = useRef<HTMLDivElement>(null);
   const inboxBottomRef = useRef<HTMLDivElement>(null);
   const savedBottomRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
@@ -330,8 +331,12 @@ export default function App() {
   }, [selectedArticle, activeArticles]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
-    const scrollTop = activeScrollRef.current?.scrollTop || 0;
+    let activeScrollRef;
+    if (filter === 'inbox') activeScrollRef = inboxScrollRef;
+    else if (filter === 'saved') activeScrollRef = savedScrollRef;
+    else if (filter === 'reddit') activeScrollRef = redditScrollRef;
+    
+    const scrollTop = activeScrollRef?.current?.scrollTop || 0;
     isAtTop.current = scrollTop <= 0;
     touchStartY.current = e.touches[0].clientY;
     if (isAtTop.current && !isSettingsOpen) {
@@ -354,9 +359,7 @@ export default function App() {
 
   const handleTouchEnd = () => {
     if (isPulling && pullProgress.get() >= PULL_THRESHOLD) {
-      if (filter === 'reddit') {
-        refreshReddit();
-      } else {
+      if (filter !== 'reddit') {
         refreshFeeds();
       }
     } else {
@@ -490,8 +493,12 @@ export default function App() {
   const feedsMap = useMemo(() => new Map(feeds.map(f => [f.id, f])), [feeds]);
 
   const scrollToTop = () => {
-    const activeScrollRef = filter === 'inbox' ? inboxScrollRef : savedScrollRef;
-    if (activeScrollRef.current) {
+    let activeScrollRef;
+    if (filter === 'inbox') activeScrollRef = inboxScrollRef;
+    else if (filter === 'saved') activeScrollRef = savedScrollRef;
+    else if (filter === 'reddit') activeScrollRef = redditScrollRef;
+
+    if (activeScrollRef?.current) {
       activeScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       isAtTop.current = true;
     }
@@ -755,6 +762,8 @@ export default function App() {
           onMarkAsRead={markRedditAsRead}
           toggleRead={toggleRedditRead}
           toggleFavorite={toggleRedditFavorite}
+          scrollRef={redditScrollRef}
+          handleScroll={handleScroll}
         />
       </div>
 

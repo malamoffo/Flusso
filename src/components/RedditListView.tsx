@@ -16,6 +16,8 @@ interface RedditListViewProps {
   onMarkAsRead: (id: string) => void;
   toggleRead: (id: string) => void;
   toggleFavorite: (id: string) => void;
+  scrollRef?: React.RefObject<HTMLDivElement>;
+  handleScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 export const RedditListView = memo(({ 
@@ -28,10 +30,14 @@ export const RedditListView = memo(({
   settings,
   onMarkAsRead,
   toggleRead,
-  toggleFavorite
+  toggleFavorite,
+  scrollRef,
+  handleScroll
 }: RedditListViewProps) => {
   return (
     <motion.main
+      ref={scrollRef as any}
+      onScroll={handleScroll}
       className={cn(
         "absolute inset-0 overflow-y-auto transition-all duration-300 will-change-transform pb-32",
         isActive ? "z-10 opacity-100 pointer-events-auto" : "z-0 opacity-0 pointer-events-none"

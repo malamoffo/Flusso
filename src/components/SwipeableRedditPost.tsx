@@ -38,15 +38,10 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   });
 
   React.useEffect(() => {
-    if (filter === 'reddit' && !inView && entry && entry.boundingClientRect.top < 120 && !post.isRead) {
-      onMarkAsRead(post.id);
-    }
-  }, [inView, entry, post.id, post.isRead, onMarkAsRead, filter]);
+    // Reddit posts are now always shown as unread, so we don't need to mark them as read on scroll
+  }, []);
 
   const handlePostClick = () => {
-    if (!post.isRead) {
-      onMarkAsRead(post.id);
-    }
     onClick(post);
   };
 
@@ -155,7 +150,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         className={cn(
           "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
           "mx-auto max-w-full",
-          post.isRead ? "opacity-60" : "opacity-100"
+          "opacity-100"
         )}
       >
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />

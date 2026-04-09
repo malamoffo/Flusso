@@ -1205,13 +1205,10 @@ export const storage = {
   },
 
   async getSubreddits(): Promise<Subreddit[]> {
-    const subs = (await get<Subreddit[]>(SUBREDDITS_KEY)) || [];
-    console.warn('[STORAGE] getSubreddits returned:', subs);
-    return subs;
+    return (await get<Subreddit[]>(SUBREDDITS_KEY)) || [];
   },
 
   async saveSubreddits(subs: Subreddit[]): Promise<void> {
-    console.warn('[STORAGE] saveSubreddits called with:', subs);
     await set(SUBREDDITS_KEY, subs);
   },
 
@@ -1262,10 +1259,8 @@ export const storage = {
       };
 
       const subs = await this.getSubreddits();
-      console.warn('[STORAGE] Current subs:', subs);
       if (!subs.find(s => s.name.toLowerCase() === newSub.name.toLowerCase())) {
         subs.push(newSub);
-        console.warn('[STORAGE] Saving new subs:', subs);
         await this.saveSubreddits(subs);
       }
 
@@ -1282,12 +1277,17 @@ export const storage = {
       if (after) {
         url += `&after=t3_${after}`;
       }
-      console.warn('[STORAGE] Fetching Reddit posts from:', url);
       const data = await this.fetchJsonWithProxy(url);
-      console.warn('[STORAGE] Reddit data:', data);
+      
+      if (!data) {
+        return [];
+      }
 
-      if (!data || !data.data || !data.data.children) {
-        console.warn('[STORAGE] No Reddit data found');
+      if (data.error) {
+        return [];
+      }
+
+      if (!data.data || !data.data.children) {
         return [];
       }
 
