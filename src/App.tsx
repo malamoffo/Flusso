@@ -354,7 +354,11 @@ export default function App() {
 
   const handleTouchEnd = () => {
     if (isPulling && pullProgress.get() >= PULL_THRESHOLD) {
-      refreshFeeds();
+      if (filter === 'reddit') {
+        refreshReddit();
+      } else {
+        refreshFeeds();
+      }
     } else {
       animate(pullProgress, 0, { duration: 0.2 });
     }

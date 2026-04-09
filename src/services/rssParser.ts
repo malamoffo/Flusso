@@ -287,6 +287,11 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const description = getTagText(feedNode, ['subtitle', 'description', 'summary']) || '';
     const link = feedNode.getElementsByTagName('link')[0]?.getAttribute('href') || '';
     
+    const itunesImages = getElementsByLocalName(feedNode, 'image');
+    const itunesFeedImage = itunesImages.find(el => el.hasAttribute('href'))?.getAttribute('href');
+    const feedImage = itunesFeedImage || getTagText(feedNode, ['logo', 'icon']) || '';
+    const feedDescription = getTagText(feedNode, ['subtitle', 'description', 'summary']) || '';
+
     const entries = Array.from(xmlDoc.getElementsByTagName('entry'));
     const articles: Article[] = [];
     
@@ -500,9 +505,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       feed: {
         id: feedId,
         title,
-        description,
+        description: feedDescription,
         link: getSafeUrl(link),
         feedUrl: getSafeUrl(feedUrl),
+        imageUrl: getSafeUrl(feedImage, undefined),
         lastFetched: Date.now(),
         lastRefreshStatus: 'success',
         type: isPodcast ? 'podcast' : 'article'
@@ -523,8 +529,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const link = getTagText(channel, ['link']) || '';
     
     // Try itunes:image first for feed image, fallback to image/url
-    const itunesFeedImage = channel.getElementsByTagName('itunes:image')[0]?.getAttribute('href');
+    const itunesImages = getElementsByLocalName(channel, 'image');
+    const itunesFeedImage = itunesImages.find(el => el.hasAttribute('href'))?.getAttribute('href');
     const feedImage = itunesFeedImage || channel.getElementsByTagName('image')[0]?.getElementsByTagName('url')[0]?.textContent;
+    const feedDescription = getTagText(channel, ['itunes:summary', 'description', 'subtitle', 'summary', 'itunes:subtitle']) || '';
 
     const items = Array.from(xmlDoc.getElementsByTagName('item'));
     const articles: Article[] = [];
@@ -738,9 +746,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       feed: {
         id: feedId,
         title,
-        description,
+        description: feedDescription,
         link: getSafeUrl(link),
         feedUrl: getSafeUrl(feedUrl),
+        imageUrl: getSafeUrl(feedImage, undefined),
         lastFetched: Date.now(),
         lastRefreshStatus: 'success',
         type: isPodcast ? 'podcast' : 'article'

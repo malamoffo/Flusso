@@ -493,72 +493,95 @@ export const SettingsModal = React.memo(function SettingsModal({
                         className="overflow-hidden"
                       >
                         <div className="p-2 space-y-1 bg-black">
-                          {subreddits.length === 0 && feeds.filter(f => f.feedUrl.includes('reddit.com')).length === 0 && (
-                            <div className="p-4 text-center text-gray-500 text-xs italic">
-                              No subreddits added yet.
-                            </div>
-                          )}
-                          {subreddits.map(sub => (
-                            <div 
-                              key={sub.id} 
-                              className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
-                            >
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                {sub.iconUrl ? (
-                                  <CachedImage 
-                                    src={sub.iconUrl} 
-                                    alt="" 
-                                    className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full flex-shrink-0 bg-purple-500/20 flex items-center justify-center shadow-[0_0_8px_rgba(168,85,247,0.4)]">
-                                    <MessageSquare className="w-3 h-3 text-purple-400" />
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <span className="text-sm font-medium text-white truncate block">r/{sub.name}</span>
+                          {(() => {
+                            const redditFeeds = feeds.filter(f => f.feedUrl.includes('reddit.com'));
+                            
+                            if (subreddits.length === 0 && redditFeeds.length === 0) {
+                              return (
+                                <div className="p-4 text-center text-gray-500 text-xs italic">
+                                  No subreddits added yet.
                                 </div>
-                              </div>
-                              <button
-                                onClick={() => removeSubreddit(sub.id)}
-                                className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                          {feeds.filter(f => f.feedUrl.includes('reddit.com')).map(feed => {
-                            const domain = feed.link ? new URL(feed.link).hostname : '';
+                              );
+                            }
+
                             return (
-                              <div 
-                                key={feed.id} 
-                                className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all cursor-pointer" 
-                                onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); setEditUrl(feed.feedUrl); }}
-                              >
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  {domain && (
-                                    <CachedImage 
-                                      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
-                                      alt="" 
-                                      className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
-                                      referrerPolicy="no-referrer"
-                                      onError={(e) => {
-                                        const img = e.target as HTMLImageElement;
-                                        img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-                                      }}
-                                    />
-                                  )}
-                                  <div className="min-w-0">
-                                    <span className="text-sm font-medium text-white truncate block">{feed.title}</span>
+                              <>
+                                {subreddits.map(sub => (
+                                  <div 
+                                    key={sub.id} 
+                                    className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                      {sub.iconUrl ? (
+                                        <CachedImage 
+                                          src={sub.iconUrl} 
+                                          alt="" 
+                                          className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+                                          referrerPolicy="no-referrer"
+                                        />
+                                      ) : (
+                                        <div className="w-6 h-6 rounded-full flex-shrink-0 bg-purple-500/20 flex items-center justify-center shadow-[0_0_8px_rgba(168,85,247,0.4)]">
+                                          <MessageSquare className="w-3 h-3 text-purple-400" />
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <span className="text-sm font-medium text-white truncate block">r/{sub.name}</span>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => removeSubreddit(sub.id)}
+                                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className={`w-1.5 h-1.5 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
-                                </div>
-                              </div>
+                                ))}
+                                {redditFeeds.map(feed => {
+                                  const domain = feed.link ? new URL(feed.link).hostname : '';
+                                  return (
+                                    <div 
+                                      key={feed.id} 
+                                      className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
+                                    >
+                                      <div 
+                                        className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                                        onClick={() => { setSelectedFeedId(feed.id); setEditTitle(feed.title); setEditUrl(feed.feedUrl); }}
+                                      >
+                                        {domain ? (
+                                          <CachedImage 
+                                            src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
+                                            alt="" 
+                                            className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+                                            referrerPolicy="no-referrer"
+                                            onError={(e) => {
+                                              const img = e.target as HTMLImageElement;
+                                              img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="w-6 h-6 rounded-full flex-shrink-0 bg-purple-500/20 flex items-center justify-center shadow-[0_0_8px_rgba(168,85,247,0.4)]">
+                                            <MessageSquare className="w-3 h-3 text-purple-400" />
+                                          </div>
+                                        )}
+                                        <div className="min-w-0">
+                                          <span className="text-sm font-medium text-white truncate block">{feed.title}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${feed.error ? 'bg-red-500' : 'bg-green-500'}`} />
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); removeFeed(feed.id); }}
+                                          className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
                       </motion.div>
                     )}

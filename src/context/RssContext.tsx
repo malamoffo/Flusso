@@ -81,6 +81,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [updateInfo, setUpdateInfo] = useState<any | null>(null);
   const lastRefresh = useRef(Date.now());
   const isRefreshing = useRef(false);
+  const isRefreshingReddit = useRef(false);
 
   const checkUpdates = useCallback(async (force = false) => {
     try {
@@ -577,11 +578,18 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
+    if (isRefreshingReddit.current) return;
+    isRefreshingReddit.current = true;
     try {
-      const sToRefresh = subsToRefresh || await storage.getSubreddits();
-      const cPosts = currentPosts || await storage.getRedditPosts();
+      setIsLoading(true);
+      const sToRefresh = subsToRefresh || subreddits;
+      const cPosts = currentPosts || redditPosts;
 
-      if (sToRefresh.length === 0) return;
+      if (sToRefresh.length === 0) {
+        setIsLoading(false);
+        isRefreshingReddit.current = false;
+        return;
+      }
 
       const currentSort = sort || redditSort;
       const results: RedditPost[] = [];
@@ -605,36 +613,39 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }));
 
-      if (results.length > 0) {
-        setRedditPosts(prev => {
-          const merged = [...prev];
-          const existingIds = new Set(merged.map(p => p.id));
-          let hasNew = false;
+      setRedditPosts(prev => {
+        // If sort is provided, it's a sort change, so we should replace existing posts
+        const base = sort ? [] : prev;
+        const merged = [...base];
+        const existingIds = new Set(merged.map(p => p.id));
+        let hasNew = false;
 
-          for (const newPost of results) {
-            if (!existingIds.has(newPost.id)) {
-              hasNew = true;
-              existingIds.add(newPost.id);
-              merged.push(newPost);
-            }
+        for (const newPost of results) {
+          if (!existingIds.has(newPost.id)) {
+            hasNew = true;
+            existingIds.add(newPost.id);
+            merged.push(newPost);
           }
+        }
 
-          if (hasNew) {
-            if (currentSort === 'new') {
-              merged.sort((a, b) => b.createdUtc - a.createdUtc);
-            } else {
-              merged.sort((a, b) => (b.score || 0) - (a.score || 0));
-            }
-            storage.saveRedditPosts(merged);
-            return merged;
+        if (hasNew || sort) {
+          if (currentSort === 'new') {
+            merged.sort((a, b) => b.createdUtc - a.createdUtc);
+          } else {
+            merged.sort((a, b) => (b.score || 0) - (a.score || 0));
           }
-          return prev;
-        });
-      }
+          storage.saveRedditPosts(merged);
+          return merged;
+        }
+        return prev;
+      });
     } catch (e) {
       console.error("Failed to refresh reddit", e);
+    } finally {
+      setIsLoading(false);
+      isRefreshingReddit.current = false;
     }
-  }, [redditSort]);
+  }, [subreddits, redditPosts, redditSort]);
 
   const loadMoreReddit = useCallback(async () => {
     try {
