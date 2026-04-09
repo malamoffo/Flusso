@@ -400,7 +400,6 @@ export default function App() {
       if (isAtBottom && allVisible) {
         const hasUnread = inboxArticlesRef.current.some(a => !a.isRead);
         if (hasUnread && !inboxTimerRef.current) {
-          console.log('[SCROLL] Starting 5s timer for inbox mark as read');
           inboxTimerRef.current = setTimeout(() => {
             const toMark = inboxArticlesRef.current.filter(a => !a.isRead).map(a => a.id);
             if (toMark.length > 0) {
@@ -411,7 +410,6 @@ export default function App() {
         }
       } else {
         if (inboxTimerRef.current) {
-          console.log('[SCROLL] Clearing inbox timer (not at bottom)');
           clearTimeout(inboxTimerRef.current);
           inboxTimerRef.current = null;
         }
@@ -447,7 +445,6 @@ export default function App() {
       if (isAtBottom && allVisible) {
         const hasUnread = savedArticlesRef.current.some(a => !a.isRead);
         if (hasUnread && !savedTimerRef.current) {
-          console.log('[SCROLL] Starting 5s timer for saved mark as read');
           savedTimerRef.current = setTimeout(() => {
             const toMark = savedArticlesRef.current.filter(a => !a.isRead).map(a => a.id);
             if (toMark.length > 0) {
@@ -458,7 +455,6 @@ export default function App() {
         }
       } else {
         if (savedTimerRef.current) {
-          console.log('[SCROLL] Clearing saved timer (not at bottom)');
           clearTimeout(savedTimerRef.current);
           savedTimerRef.current = null;
         }

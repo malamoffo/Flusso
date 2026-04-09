@@ -54,7 +54,6 @@ class ContentFetcherQueue {
       await this.fetchAndCache(articleId, url);
     } catch (error) {
       if (retries > 0) {
-        console.log(`[PREFETCH] Retrying ${url}... (${retries} left)`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         await this.fetchWithRetry(articleId, url, retries - 1);
       } else {
@@ -97,7 +96,6 @@ class ContentFetcherQueue {
           lang: articleData.lang,
         };
         await this.setCachedContent(articleId, fullContent);
-        console.log(`[PREFETCH] Successfully cached ${url}`);
       }
     }
   }

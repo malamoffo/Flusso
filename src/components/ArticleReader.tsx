@@ -143,7 +143,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         try {
           const color = getColorSync(img);
           if (color) {
-            console.log("Extracted color:", color.hex());
             setArticleThemeColor(color.hex());
           }
         } catch (e) {
@@ -207,7 +206,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         // Check cache first
         const cached = await contentFetcher.getCachedContent(article.id);
         if (cached) {
-          console.log(`[READER] Using pre-fetched content for: ${article.link}`);
           setFullContent(cached);
           setIsLoading(false);
           return;
@@ -217,7 +215,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         let html = '';
 
         if (isNative) {
-          console.log(`[READER] Native direct fetch: ${article.link}`);
           const response = await CapacitorHttp.get({ url: article.link });
           if (response.status === 200) {
             html = response.data;
@@ -225,7 +222,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             throw new Error(`Failed to fetch article: ${response.status}`);
           }
         } else {
-          console.log(`[READER] Web proxy fetch (CORS bypass for preview): ${article.link}`);
           html = await fetchWithProxy(article.link, false);
         }
 

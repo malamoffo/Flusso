@@ -27,7 +27,6 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     clearTimeout(directTimeoutId);
     
     if (directResponse.status === 304) {
-      console.log(`Direct fetch returned 304 Not Modified for ${url}`);
       return ''; // Return empty to indicate no new content
     }
 
@@ -77,7 +76,6 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     
     const proxy = proxies[i];
     const timeout = proxy.timeout || defaultTimeout;
-    console.log(`Attempting fetch via ${proxy.name} for ${url} (timeout: ${timeout}ms)`);
     
     let id: any;
     try {
@@ -105,7 +103,6 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         } else if (proxy.type === 'rss2json') {
           const data = await response.json();
           if (data.status === 'ok') {
-            console.log(`Successfully fetched via ${proxy.name} (RSS2JSON)`);
             return JSON.stringify(data); // Return the JSON string, parseRssXml will handle it
           } else {
             lastError = new Error(`rss2json returned error: ${data.message}`);
@@ -120,7 +117,6 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
           const trimmed = text.trim();
           if (isRss) {
             if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{')) {
-              console.log(`Successfully fetched via ${proxy.name}`);
               return text;
             } else {
               lastError = new Error(`Proxy ${proxy.name} returned invalid content (not XML/RSS)`);
@@ -134,7 +130,6 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
               console.warn(`${proxy.name} returned HTML for ${url}`);
               continue;
             }
-            console.log(`Successfully fetched via ${proxy.name}`);
             return text;
           }
         } else {
@@ -156,6 +151,5 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
       }
     }
   }
-  console.error(`All fetch attempts failed for ${url}`);
   throw lastError || new Error('Failed to fetch from all proxies.');
 }

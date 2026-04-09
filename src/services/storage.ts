@@ -628,10 +628,8 @@ function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: number): { 
       for (const container of chapterContainers) {
         // Check if it has a URL (Podcast Index or external PSC)
         const url = container.getAttribute('url') || container.getAttribute('href');
-        console.log('[CHAPTERS] Found potential chapter container:', container.tagName, 'URL:', url);
         if (url) {
           chaptersUrl = resolveUrl(url, feedUrl);
-          console.log('[CHAPTERS] Resolved chaptersUrl:', chaptersUrl);
         }
 
         const chapterNodes = getElementsByLocalName(container, 'chapter');
@@ -810,7 +808,6 @@ export const storage = {
   async cleanUpOldArticles(): Promise<void> {
     // This is essentially what getArticles(0, 0) does now, 
     // but we can make it more explicit and run it in background
-    console.log('[STORAGE] Running garbage collection...');
     await this.getArticles(0, 0);
   },
 
@@ -890,7 +887,6 @@ export const storage = {
         const response = await CapacitorHttp.get(options);
         
         if (response.status === 304) {
-          console.log(`[STORAGE] Feed not modified since ${sinceDate} for ${feedUrl}`);
           return null; // No new articles
         }
 
@@ -924,7 +920,6 @@ export const storage = {
       // If failed and URL doesn't end with slash, try adding it (or vice versa)
       if (!xmlString && !signal?.aborted) {
         const alternativeUrl = feedUrl.endsWith('/') ? feedUrl.slice(0, -1) : feedUrl + '/';
-        console.log(`[STORAGE] Retrying with alternative URL: ${alternativeUrl}`);
         xmlString = await fetchWithProxy(alternativeUrl, true, sinceDate, signal);
       }
 
@@ -1118,7 +1113,6 @@ export const storage = {
   },
 
   async parseOpml(opmlText: string): Promise<string[]> {
-    console.log('Parsing OPML text, length:', opmlText.length);
     const parser = new DOMParser();
     const doc = parser.parseFromString(opmlText, 'application/xml');
     
@@ -1130,7 +1124,6 @@ export const storage = {
     }
 
     const outlines = doc.querySelectorAll('outline');
-    console.log('Found total outlines:', outlines.length);
     const urls: string[] = [];
     
     outlines.forEach((outline, index) => {
@@ -1149,7 +1142,6 @@ export const storage = {
     });
     
     const uniqueUrls = Array.from(new Set(urls));
-    console.log('Extracted unique URLs:', uniqueUrls.length);
     return uniqueUrls;
   },
 

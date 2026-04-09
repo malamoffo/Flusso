@@ -65,11 +65,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         };
       };
 
-      console.log('Setting queue:', { 
-        queue: queue.map(mapTrack),
-        recent: recentPodcasts.map(mapTrack),
-        favorites: favoritePodcasts.map(mapTrack)
-      });
       QueuePlugin.setQueue({ 
         queue: queue.map(mapTrack),
         recent: recentPodcasts.map(mapTrack),
@@ -377,7 +372,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }).catch(console.error);
 
       MediaSession.setActionHandler({ action: 'play' }, () => {
-        console.log("MediaSession play action handler called");
         if (currentTrack) {
           play(currentTrack);
         } else if (queue.length > 0) {
@@ -385,7 +379,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         }
       });
       MediaSession.setActionHandler({ action: 'pause' }, () => {
-        console.log("MediaSession pause action handler called");
         pause();
       });
       MediaSession.setActionHandler({ action: 'seekbackward' }, () => seek(Math.max(0, progress - 10)));

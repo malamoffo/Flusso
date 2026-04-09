@@ -661,17 +661,14 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
           // Find the oldest post for this subreddit to use as 'after' token
           const subPosts = cPosts.filter(p => p.subredditId === sub.id || p.subredditName.toLowerCase() === sub.name.toLowerCase());
-          console.log(`Loading more for ${sub.name}, found ${subPosts.length} existing posts`);
           let afterToken: string | undefined = undefined;
           if (subPosts.length > 0) {
             // Posts are sorted newest first, so the oldest is at the end
             const oldestPost = subPosts[subPosts.length - 1];
             afterToken = oldestPost.id;
-            console.log(`Using afterToken: ${afterToken}`);
           }
 
           const posts = await storage.fetchSubredditPosts(sub.name, undefined, afterToken, redditSort);
-          console.log(`Fetched ${posts.length} new posts for ${sub.name}`);
           results.push(...posts);
         } catch (e) {
           console.error(`Failed to load more for subreddit ${sub.name}`, e);
