@@ -744,7 +744,7 @@ export const storage = {
     // If limit is 0, return all (for internal use or legacy support)
     // But we still want to apply the cleanup logic if it's the first load
     
-    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     
@@ -758,9 +758,7 @@ export const storage = {
       if (a.isFavorite || a.isQueued) {
         keep = true;
       } else {
-        const limitTime = !a.isRead 
-          ? (a.type === 'podcast' ? 30 * 24 * 60 * 60 * 1000 : 14 * 24 * 60 * 60 * 1000)
-          : (a.type === 'podcast' ? SEVEN_DAYS : THREE_DAYS);
+        const limitTime = a.type === 'podcast' ? SEVEN_DAYS : TWO_DAYS;
         
         const referenceTime = (a.isRead && a.readAt) ? a.readAt : a.pubDate;
         if ((now - referenceTime) <= limitTime) {

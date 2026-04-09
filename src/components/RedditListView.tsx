@@ -9,6 +9,7 @@ interface RedditListViewProps {
   isActive: boolean;
   posts: RedditPost[];
   onPostClick: (post: RedditPost) => void;
+  onImageClick: (imageUrl: string) => void;
   isLoading: boolean;
   refreshReddit: () => void;
   loadMoreReddit: () => void;
@@ -24,6 +25,7 @@ export const RedditListView = memo(({
   isActive, 
   posts, 
   onPostClick, 
+  onImageClick,
   isLoading, 
   refreshReddit,
   loadMoreReddit,
@@ -59,6 +61,7 @@ export const RedditListView = memo(({
                 post={post}
                 settings={settings}
                 onClick={onPostClick}
+                onImageClick={onImageClick}
                 onMarkAsRead={onMarkAsRead}
                 toggleRead={toggleRead}
                 toggleFavorite={toggleFavorite}

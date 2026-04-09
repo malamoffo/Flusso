@@ -8,6 +8,7 @@ import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { RedditListView } from './components/RedditListView';
 import { RedditPostReader } from './components/RedditPostReader';
+import { ImageViewer } from './components/ImageViewer';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
@@ -147,6 +148,17 @@ export default function App() {
     redditSort, handleRedditSortChange
   } = useRss();
 
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  const filteredRedditPosts = useMemo(() => {
+    const query = deferredSearchQuery.toLowerCase();
+    if (!query) return redditPosts;
+    return redditPosts.filter(post => 
+      post.title.toLowerCase().includes(query) || 
+      (post.subredditName?.toLowerCase().includes(query) ?? false)
+    );
+  }, [redditPosts, deferredSearchQuery]);
+  
   const sortedSubreddits = useMemo(() => 
     [...subreddits].sort((a, b) => a.name.localeCompare(b.name)),
     [subreddits]
@@ -157,12 +169,11 @@ export default function App() {
     [feeds]
   );
 
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-
   const { currentTrack } = useAudioState();
 
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [selectedRedditPost, setSelectedRedditPost] = useState<any | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined);
   const [isMarkAllReadOpen, setIsMarkAllReadOpen] = useState(false);
@@ -575,15 +586,6 @@ export default function App() {
             >
               Trending
             </button>
-            <button
-              onClick={() => handleRedditSortChange('top')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
-                redditSort === 'top' ? "bg-purple-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              )}
-            >
-              Top
-            </button>
           </div>
         )}
 
@@ -745,8 +747,9 @@ export default function App() {
 
         <RedditListView
           isActive={filter === 'reddit'}
-          posts={redditPosts}
+          posts={filteredRedditPosts}
           onPostClick={setSelectedRedditPost}
+          onImageClick={setSelectedImage}
           isLoading={isLoading}
           refreshReddit={refreshReddit}
           loadMoreReddit={loadMoreReddit}
@@ -759,6 +762,10 @@ export default function App() {
         />
       </div>
 
+      {selectedImage && (
+        <ImageViewer imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />
+      )}
+      
       <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 flex justify-around pt-3 pb-5 px-3 z-20 transition-colors bg-black">
         <motion.button
           whileTap={{ scale: 0.9 }}

@@ -11,6 +11,7 @@ interface SwipeableRedditPostProps {
   post: RedditPost;
   settings: Settings;
   onClick: (post: RedditPost) => void;
+  onImageClick: (imageUrl: string) => void;
   onMarkAsRead: (id: string) => void;
   toggleRead: (id: string) => void;
   toggleFavorite: (id: string) => void;
@@ -23,6 +24,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   post,
   settings,
   onClick,
+  onImageClick,
   onMarkAsRead,
   toggleRead,
   toggleFavorite,
@@ -162,6 +164,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
               alt="" 
               className="rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full h-auto min-h-[120px] object-cover mb-1"
               referrerPolicy="no-referrer"
+              onClick={(e) => { e.stopPropagation(); onImageClick(post.imageUrl!); }}
             />
           )}
 
