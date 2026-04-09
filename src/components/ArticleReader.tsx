@@ -531,6 +531,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
                 try {
                   await Share.share({
                     title: article.title,
+                    text: article.title,
                     url: article.link,
                     dialogTitle: 'Condividi articolo'
                   });

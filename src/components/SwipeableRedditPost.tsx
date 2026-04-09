@@ -19,6 +19,7 @@ interface SwipeableRedditPostProps {
   onRemove?: (id: string) => void;
   isSavedSection?: boolean;
   filter?: string;
+  disableGestures?: boolean;
 }
 
 export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
@@ -31,7 +32,8 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   toggleFavorite,
   onRemove,
   isSavedSection,
-  filter
+  filter,
+  disableGestures = false
 }: SwipeableRedditPostProps) {
   const x = useMotionValue(0);
   
@@ -139,12 +141,12 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
 
       <motion.div
         style={{ x, willChange: 'transform' }}
-        drag={(isSavedSection || (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ? "x" : false}
+        drag={!disableGestures && (isSavedSection || (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={{ 
+        dragElastic={!disableGestures ? { 
           left: (isSavedSection || settings.swipeLeftAction !== 'none') ? 0.5 : 0, 
           right: (isSavedSection || settings.swipeRightAction !== 'none') ? 0.5 : 0 
-        }}
+        } : 0}
         dragPropagation={false}
         dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
         onDragEnd={handleDragEnd}

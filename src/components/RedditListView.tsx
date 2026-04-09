@@ -4,7 +4,6 @@ import { RedditPost, Settings } from '../types';
 import { MessageSquare, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { SwipeableRedditPost } from './SwipeableRedditPost';
-import { LazyRender } from './LazyRender';
 
 interface RedditListViewProps {
   isActive: boolean;
@@ -57,18 +56,18 @@ export const RedditListView = memo(({
         <div className="flex-1 max-w-3xl mx-auto px-1 py-1">
           <AnimatePresence initial={false}>
             {posts.map(post => (
-              <LazyRender key={post.id} height="150px">
-                <SwipeableRedditPost
-                  post={post}
-                  settings={settings}
-                  onClick={onPostClick}
-                  onImageClick={onImageClick}
-                  onMarkAsRead={onMarkAsRead}
-                  toggleRead={toggleRead}
-                  toggleFavorite={toggleFavorite}
-                  filter="reddit"
-                />
-              </LazyRender>
+              <SwipeableRedditPost
+                key={post.id}
+                post={post}
+                settings={settings}
+                onClick={onPostClick}
+                onImageClick={onImageClick}
+                onMarkAsRead={onMarkAsRead}
+                toggleRead={toggleRead}
+                toggleFavorite={toggleFavorite}
+                filter="reddit"
+                disableGestures={true}
+              />
             ))}
           </AnimatePresence>
           
