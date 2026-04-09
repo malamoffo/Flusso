@@ -320,23 +320,33 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                 List<MediaBrowserCompat.MediaItem> mediaItems = new ArrayList<>();
 
                 if (ROOT_ID.equals(parentId)) {
-                    // Add a single folder at the root
+                    // Add folders at the root
                     mediaItems.add(new MediaBrowserCompat.MediaItem(
                             new MediaDescriptionCompat.Builder()
                                     .setMediaId(QUEUE_ID)
                                     .setTitle("Coda")
-                                    .setSubtitle("I tuoi podcast preferiti e in coda")
+                                    .setSubtitle("I podcast in coda")
                                     .build(), 
                             MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
-                } else if (QUEUE_ID.equals(parentId)) {
-                    // Fetch queue from our custom plugin using the static method
-                    JSArray queue = QueuePlugin.getStaticQueue(AndroidAutoService.this);
+                            
+                    mediaItems.add(new MediaBrowserCompat.MediaItem(
+                            new MediaDescriptionCompat.Builder()
+                                    .setMediaId(FAVORITES_ID)
+                                    .setTitle("Preferiti")
+                                    .setSubtitle("I tuoi episodi preferiti")
+                                    .build(), 
+                            MediaBrowserCompat.MediaItem.FLAG_BROWSABLE));
+                } else if (QUEUE_ID.equals(parentId) || FAVORITES_ID.equals(parentId)) {
+                    // Fetch queue or favorites from our custom plugin using the static method
+                    JSArray itemsArray = QUEUE_ID.equals(parentId) ? 
+                        QueuePlugin.getStaticQueue(AndroidAutoService.this) : 
+                        QueuePlugin.getStaticFavorites(AndroidAutoService.this);
                     
-                    if (queue != null) {
-                        Log.d(TAG, "Queue size for " + parentId + ": " + queue.length());
+                    if (itemsArray != null) {
+                        Log.d(TAG, "Items size for " + parentId + ": " + itemsArray.length());
                         try {
-                            for (int i = 0; i < queue.length(); i++) {
-                                JSONObject item = queue.getJSONObject(i);
+                            for (int i = 0; i < itemsArray.length(); i++) {
+                                JSONObject item = itemsArray.getJSONObject(i);
                                 String id = item.optString("id");
                                 if (id == null || id.isEmpty()) {
                                     id = "unknown_" + i;
@@ -361,10 +371,10 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                                 mediaItems.add(new MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE));
                             }
                         } catch (Exception e) {
-                            Log.e(TAG, "Error parsing queue", e);
+                            Log.e(TAG, "Error parsing items for " + parentId, e);
                         }
                     } else {
-                        Log.d(TAG, "Queue is null for " + parentId);
+                        Log.d(TAG, "Items array is null for " + parentId);
                     }
                 }
                 
