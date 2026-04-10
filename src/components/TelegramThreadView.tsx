@@ -1,16 +1,17 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { TelegramChannel, TelegramMessage } from '../types';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TelegramThreadViewProps {
   channel: TelegramChannel;
   messages: TelegramMessage[];
   onClose: () => void;
+  onRefresh?: () => void;
 }
 
-export const TelegramThreadView = memo(({ channel, messages, onClose }: TelegramThreadViewProps) => {
+export const TelegramThreadView = memo(({ channel, messages, onClose, onRefresh }: TelegramThreadViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
   const isLoading = messages === undefined;
@@ -49,6 +50,15 @@ export const TelegramThreadView = memo(({ channel, messages, onClose }: Telegram
       transition={{ type: "spring", damping: 25, stiffness: 300 }}
       className="fixed inset-0 z-50 bg-black flex flex-col"
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        .telegram-message-text a {
+          color: #4ade80;
+          text-decoration: none;
+        }
+        .telegram-message-text a:hover {
+          text-decoration: underline;
+        }
+      `}} />
       <header className="flex items-center p-4 border-b border-gray-800 bg-black/80 backdrop-blur-md z-10">
         <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-800 text-gray-300 transition-colors">
           <ArrowLeft className="w-6 h-6" />
@@ -76,13 +86,23 @@ export const TelegramThreadView = memo(({ channel, messages, onClose }: Telegram
             <p className="text-sm font-medium">Caricamento messaggi...</p>
           </div>
         ) : isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2">
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
             <p className="text-sm font-medium">Nessun messaggio trovato</p>
+            <button 
+              onClick={onRefresh}
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Riprova
+            </button>
           </div>
         ) : (
           messages.map(message => (
             <div key={message.id} className="mb-4 p-3 bg-gray-900 rounded-lg">
-              <p className="text-gray-300 whitespace-pre-wrap">{message.text}</p>
+              <div 
+                className="text-gray-300 whitespace-pre-wrap break-words telegram-message-text"
+                dangerouslySetInnerHTML={{ __html: message.text }}
+              />
               {message.imageUrl && (
                 <img 
                   src={message.imageUrl} 

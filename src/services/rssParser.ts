@@ -288,8 +288,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const description = getTagText(feedNode, ['subtitle', 'description', 'summary']) || '';
     const link = feedNode.getElementsByTagName('link')[0]?.getAttribute('href') || '';
     
-    const itunesImages = getElementsByLocalName(feedNode, 'image');
-    const itunesFeedImage = itunesImages.find(el => el.hasAttribute('href'))?.getAttribute('href');
+    const itunesFeedImage = (feedNode.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '').trim();
     const feedImage = itunesFeedImage || getTagText(feedNode, ['logo', 'icon']) || '';
     const feedDescription = getTagText(feedNode, ['subtitle', 'description', 'summary']) || '';
 
@@ -530,9 +529,8 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     const link = getTagText(channel, ['link']) || '';
     
     // Try itunes:image first for feed image, fallback to image/url
-    const itunesImages = getElementsByLocalName(channel, 'image');
-    const itunesFeedImage = itunesImages.find(el => el.hasAttribute('href'))?.getAttribute('href');
-    const feedImage = itunesFeedImage || channel.getElementsByTagName('image')[0]?.getElementsByTagName('url')[0]?.textContent;
+    const itunesFeedImage = (channel.getElementsByTagName('itunes:image')[0]?.getAttribute('href') || '').trim();
+    const feedImage = itunesFeedImage || channel.getElementsByTagName('image')[0]?.getElementsByTagName('url')[0]?.textContent?.trim();
     const feedDescription = getTagText(channel, ['itunes:summary', 'description', 'subtitle', 'summary', 'itunes:subtitle']) || '';
 
     const items = Array.from(xmlDoc.getElementsByTagName('item'));

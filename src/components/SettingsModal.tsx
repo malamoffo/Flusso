@@ -559,7 +559,10 @@ export const SettingsModal = React.memo(function SettingsModal({
                                     key={sub.id} 
                                     className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
                                   >
-                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div 
+                                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                                      onClick={() => window.open(`https://reddit.com/r/${sub.name}`, '_blank')}
+                                    >
                                       {sub.iconUrl ? (
                                         <CachedImage 
                                           src={sub.iconUrl} 
@@ -677,7 +680,10 @@ export const SettingsModal = React.memo(function SettingsModal({
                                   key={channel.id} 
                                   className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
                                 >
-                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div 
+                                    className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                                    onClick={() => window.open(`https://t.me/${channel.username}`, '_blank')}
+                                  >
                                     {channel.imageUrl ? (
                                       <CachedImage 
                                         src={channel.imageUrl} 

@@ -952,15 +952,17 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addTelegramChannel = useCallback(async (username: string) => {
     try {
       setError(null);
+      const cleanUsername = username.replace('@', '').replace('https://t.me/', '').split('/')[0].trim();
+      
       const [messages, info] = await Promise.all([
-        fetchTelegramMessages(username),
-        fetchTelegramChannelInfo(username)
+        fetchTelegramMessages(cleanUsername),
+        fetchTelegramChannelInfo(cleanUsername)
       ]);
       
       const channel: TelegramChannel = {
         id: uuidv4(),
         name: info.name,
-        username,
+        username: cleanUsername,
         imageUrl: info.imageUrl,
         lastMessageDate: messages.length > 0 ? messages[0].date : Date.now(),
         lastChecked: Date.now(),

@@ -54,30 +54,60 @@ export const fetchTelegramMessages = async (channelUsername: string, sinceDate?:
       htmlData = await fetchWithProxy(`https://t.me/s/${channelUsername}`, false);
     }
 
-    if (!htmlData) {
-      throw new Error('No data received from Telegram');
+    if (!htmlData || htmlData.includes('tgme_page_error') || htmlData.includes('Channel not found')) {
+      throw new Error('Channel not found or unavailable');
     }
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlData, 'text/html');
     const messages: TelegramMessage[] = [];
 
-    const messageElements = doc.querySelectorAll('.tgme_widget_message_wrap');
+    const messageElements = doc.querySelectorAll('.tgme_widget_message_wrap, .tgme_widget_message');
     
     messageElements.forEach((el) => {
-      const dateStr = el.querySelector('time')?.getAttribute('datetime');
-      const date = dateStr ? new Date(dateStr).getTime() : Date.now();
+      // Skip if it's a service message or doesn't have a date
+      const dateEl = el.querySelector('time, .tgme_widget_message_date time');
+      const dateStr = dateEl?.getAttribute('datetime');
+      if (!dateStr) return;
+      
+      const date = new Date(dateStr).getTime();
       
       if (sinceDate && date <= sinceDate) return;
 
-      const id = el.querySelector('.tgme_widget_message')?.getAttribute('data-post') || uuidv4();
-      const text = el.querySelector('.tgme_widget_message_text')?.textContent || '';
-      const imageUrl = el.querySelector('.tgme_widget_message_photo_wrap')?.getAttribute('style')?.match(/url\('(.*)'\)/)?.[1];
+      const id = el.querySelector('.tgme_widget_message')?.getAttribute('data-post') || 
+                 el.getAttribute('data-post') || 
+                 uuidv4();
+                 
+      const textEl = el.querySelector('.tgme_widget_message_text, .js-message_text');
+      const text = textEl ? textEl.innerHTML : ''; 
+      
+      // Improved image URL parsing
+      let imageUrl = undefined;
+      const photoWrap = el.querySelector('.tgme_widget_message_photo_wrap, .tgme_widget_message_video_player');
+      if (photoWrap) {
+        const style = photoWrap.getAttribute('style');
+        if (style) {
+          const match = style.match(/url\(['"]?(.*?)['"]?\)/);
+          if (match) imageUrl = match[1];
+        }
+      }
+
+      if (!imageUrl) {
+        // Try video thumbnail
+        const videoWrap = el.querySelector('.tgme_widget_message_video_wrap');
+        if (videoWrap) {
+          const style = videoWrap.getAttribute('style');
+          if (style) {
+            const match = style.match(/url\(['"]?(.*?)['"]?\)/);
+            if (match) imageUrl = match[1];
+          }
+        }
+      }
 
       messages.push({
         id,
         channelId: channelUsername,
-        text,
+        text: text || '',
         date,
         imageUrl,
       });

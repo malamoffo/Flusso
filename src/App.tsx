@@ -144,7 +144,7 @@ export default function App() {
 
   const {
     articles, feeds, subreddits, redditPosts, telegramChannels, telegramMessages, settings, isLoading, error,
-    refreshFeeds, refreshReddit, loadMoreReddit, toggleRead, markAsRead, markArticlesAsRead,
+    refreshFeeds, refreshReddit, refreshTelegramChannels, loadMoreReddit, toggleRead, markAsRead, markArticlesAsRead,
     markAllAsRead, markAllTelegramAsRead, markTelegramChannelAsRead, loadTelegramMessages, searchQuery, setSearchQuery, unreadCount, savedCount,
     toggleFavorite, toggleQueue, removeFromSaved,
     markRedditAsRead, toggleRedditRead, toggleRedditFavorite,
@@ -159,15 +159,6 @@ export default function App() {
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const filteredRedditPosts = useMemo(() => {
-    const query = deferredSearchQuery.toLowerCase();
-    if (!query) return redditPosts;
-    return redditPosts.filter(post => 
-      post.title.toLowerCase().includes(query) || 
-      (post.subredditName?.toLowerCase().includes(query) ?? false)
-    );
-  }, [redditPosts, deferredSearchQuery]);
-  
   const sortedSubreddits = useMemo(() => 
     [...subreddits].sort((a, b) => a.name.localeCompare(b.name)),
     [subreddits]
@@ -197,10 +188,50 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<string>('all');
+
+  const filteredRedditPosts = useMemo(() => {
+    const query = deferredSearchQuery.toLowerCase();
+    return redditPosts.filter(post => {
+      if (isSearchOpen && sourceFilter !== 'all') {
+        if (post.subredditId !== sourceFilter && post.feedId !== sourceFilter) return false;
+      }
+      if (query) {
+        const matchesQuery = post.title.toLowerCase().includes(query) || 
+                            (post.subredditName?.toLowerCase().includes(query) ?? false) ||
+                            (post.selftext?.toLowerCase().includes(query) ?? false);
+        if (!matchesQuery) return false;
+      }
+      return true;
+    });
+  }, [redditPosts, deferredSearchQuery, isSearchOpen, sourceFilter]);
+
+  const filteredTelegramChannels = useMemo(() => {
+    const query = deferredSearchQuery.toLowerCase();
+    return telegramChannels.filter(channel => {
+      if (isSearchOpen && sourceFilter !== 'all') {
+        if (channel.id !== sourceFilter) return false;
+      }
+      if (query) {
+        const matchesQuery = channel.name.toLowerCase().includes(query) || 
+                            (channel.username?.toLowerCase().includes(query) ?? false);
+        if (!matchesQuery) return false;
+      }
+      return true;
+    });
+  }, [telegramChannels, deferredSearchQuery, isSearchOpen, sourceFilter]);
   
   useEffect(() => {
     setVisibleCount(30);
   }, [filter, deferredSearchQuery, inboxUnreadOnly, savedUnreadOnly, inboxTypeFilter, savedTypeFilter, sourceFilter, timeFilter]);
+
+  useEffect(() => {
+    if (selectedTelegramChannel) {
+      const channelMessages = telegramMessages[selectedTelegramChannel.id];
+      if (!channelMessages || channelMessages.length === 0) {
+        refreshTelegramChannels([selectedTelegramChannel]);
+      }
+    }
+  }, [selectedTelegramChannel?.id, telegramMessages]);
 
   const PULL_THRESHOLD = 80;
   const pullProgress = useMotionValue(0);
@@ -744,24 +775,18 @@ export default function App() {
                     className="appearance-none text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full pl-3 pr-8 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
                   >
                     <option value="all">All Sources</option>
-                    {filter === 'reddit' ? (
-                      <>
-                        {sortedSubreddits.map(s => (
-                          <option key={s.id} value={s.id}>r/{s.name}</option>
-                        ))}
-                        {sortedFeeds.filter(f => f.feedUrl.includes('reddit.com')).map(f => (
-                          <option key={f.id} value={f.id}>{f.title}</option>
-                        ))}
-                      </>
-                    ) : filter === 'telegram' ? (
-                      telegramChannels.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))
-                    ) : (
-                      sortedFeeds.filter(f => !f.feedUrl.includes('reddit.com')).map(f => (
-                        <option key={f.id} value={f.id}>{f.title}</option>
-                      ))
-                    )}
+                    {filter === 'reddit' && sortedSubreddits.map(s => (
+                      <option key={s.id} value={s.id}>r/{s.name}</option>
+                    ))}
+                    {filter === 'reddit' && sortedFeeds.filter(f => f.feedUrl.includes('reddit.com')).map(f => (
+                      <option key={f.id} value={f.id}>{f.title}</option>
+                    ))}
+                    {filter === 'telegram' && telegramChannels.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                    {filter !== 'reddit' && filter !== 'telegram' && sortedFeeds.filter(f => !f.feedUrl.includes('reddit.com')).map(f => (
+                      <option key={f.id} value={f.id}>{f.title}</option>
+                    ))}
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10" />
                 </div>
@@ -855,7 +880,7 @@ export default function App() {
         />
         <TelegramListView
           isActive={filter === 'telegram'}
-          channels={telegramChannels}
+          channels={filteredTelegramChannels}
           onChannelClick={(channel) => {
             setSelectedTelegramChannel(channel);
             markTelegramChannelAsRead(channel.id);
@@ -1037,6 +1062,7 @@ export default function App() {
             channel={selectedTelegramChannel}
             messages={telegramMessages[selectedTelegramChannel.id]}
             onClose={() => setSelectedTelegramChannel(null)}
+            onRefresh={() => refreshTelegramChannels([selectedTelegramChannel])}
           />
         )}
       </AnimatePresence>
