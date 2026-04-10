@@ -479,7 +479,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
         title: decodeHtmlEntities(entryTitle),
         link: resolveUrl(entryLink, feedUrl),
         pubDate,
-        imageUrl: imageUrl ? resolveUrl(imageUrl, feedUrl) : undefined,
+        imageUrl: (imageUrl || feedImage) ? resolveUrl(imageUrl || feedImage || '', feedUrl) : undefined,
         profileImageUrl: isBluesky ? (profileImageUrl ? resolveUrl(profileImageUrl, feedUrl) : undefined) : undefined,
         postImageUrls: extractAllImages(content, resolveUrl(entryLink, feedUrl)),
         duration,
@@ -593,10 +593,23 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       let mediaUrl: string | null = null;
       let mediaType: string | null = null;
       
-      const itunesImageElements = tagDict['itunes:image'] || tagDict['image'] || [];
-      if (itunesImageElements.length > 0) {
-        const itunesImage = itunesImageElements[0].getAttribute('href');
-        if (itunesImage) imageUrl = resolveUrl(itunesImage, feedUrl);
+      // Prioritize itunes:image or any image tag with an href (common in podcasts)
+      const itunesImageElements = tagDict['itunes:image'] || [];
+      const anyImageElements = tagDict['image'] || [];
+      const allImageElements = [...itunesImageElements, ...anyImageElements];
+      
+      for (const imgEl of allImageElements) {
+        const href = imgEl.getAttribute('href');
+        if (href) {
+          imageUrl = resolveUrl(href, feedUrl);
+          break;
+        }
+        // Fallback for standard RSS image tag with <url> child (rare in items but possible)
+        const urlChild = imgEl.getElementsByTagName('url')[0];
+        if (urlChild?.textContent) {
+          imageUrl = resolveUrl(urlChild.textContent.trim(), feedUrl);
+          break;
+        }
       }
 
       const enclosures = tagDict['enclosure'] || [];
@@ -720,7 +733,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
         title: decodeHtmlEntities(itemTitle),
         link: resolveUrl(itemLink, feedUrl),
         pubDate,
-        imageUrl: imageUrl ? resolveUrl(imageUrl, feedUrl) : undefined,
+        imageUrl: (imageUrl || feedImage) ? resolveUrl(imageUrl || feedImage || '', feedUrl) : undefined,
         profileImageUrl: isBluesky ? (profileImageUrl ? resolveUrl(profileImageUrl, feedUrl) : undefined) : undefined,
         postImageUrls: extractAllImages(content, resolveUrl(itemLink, feedUrl)),
         duration,

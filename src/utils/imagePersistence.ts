@@ -1,12 +1,38 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { get, set } from 'idb-keyval';
 
 const CACHE_DIR = 'image_cache';
+const CACHE_MAP_KEY = 'image_cache_map';
 
 /**
  * Utility for persistent image caching on the device's filesystem.
  */
 export const imagePersistence = {
+  resolvedLocalUrls: new Map<string, string>(),
+  isInitialized: false,
+
+  async init() {
+    if (this.isInitialized) return;
+    try {
+      const savedMap = await get<[string, string][]>(CACHE_MAP_KEY);
+      if (savedMap) {
+        this.resolvedLocalUrls = new Map(savedMap);
+      }
+    } catch (e) {
+      console.warn('Failed to load image cache map:', e);
+    }
+    this.isInitialized = true;
+  },
+
+  async saveMap() {
+    try {
+      await set(CACHE_MAP_KEY, Array.from(this.resolvedLocalUrls.entries()));
+    } catch (e) {
+      // Ignore save errors
+    }
+  },
+
   /**
    * Generates a safe filename from a URL.
    */
@@ -32,6 +58,9 @@ export const imagePersistence = {
    */
   async getCachedUrl(url: string): Promise<string | null> {
     if (!Capacitor.isNativePlatform()) return null;
+    
+    if (!this.isInitialized) await this.init();
+    if (this.resolvedLocalUrls.has(url)) return this.resolvedLocalUrls.get(url)!;
 
     const filename = this.getFilename(url);
     const path = `${CACHE_DIR}/${filename}`;
@@ -47,7 +76,10 @@ export const imagePersistence = {
           path,
           directory: Directory.Data
         });
-        return Capacitor.convertFileSrc(uriResult.uri);
+        const localUrl = Capacitor.convertFileSrc(uriResult.uri);
+        this.resolvedLocalUrls.set(url, localUrl);
+        this.saveMap();
+        return localUrl;
       }
     } catch (e) {
       // File doesn't exist
@@ -115,7 +147,10 @@ export const imagePersistence = {
           path,
           directory: Directory.Data
         });
-        return Capacitor.convertFileSrc(uriResult.uri);
+        const localUrl = Capacitor.convertFileSrc(uriResult.uri);
+        this.resolvedLocalUrls.set(url, localUrl);
+        this.saveMap();
+        return localUrl;
       }
     } catch (downloadErr) {
       console.error('[IMAGE_CACHE] Failed to download/cache image:', url, downloadErr);

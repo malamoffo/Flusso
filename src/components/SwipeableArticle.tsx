@@ -60,23 +60,27 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
   });
 
   useEffect(() => {
-    if (feedImageUrl && !feedColorCache.has(feedImageUrl)) {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedImageUrl)}`;
-      img.onload = () => {
-        try {
-          const color = getColorSync(img);
-          if (color) {
-            const hex = color.hex();
-            feedColorCache.set(feedImageUrl, hex);
-            setFeedThemeColor(hex);
-          }
-        } catch (e) {
-          console.error("Failed to extract color:", e);
+    if (!feedImageUrl || feedColorCache.has(feedImageUrl)) return;
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedImageUrl)}`;
+    img.onload = () => {
+      try {
+        const color = getColorSync(img);
+        if (color) {
+          const hex = color.hex();
+          feedColorCache.set(feedImageUrl, hex);
+          setFeedThemeColor(hex);
         }
-      };
-    }
+      } catch (e) {
+        // Avoid retrying for failed images
+        feedColorCache.set(feedImageUrl, ''); 
+      }
+    };
+    img.onerror = () => {
+      feedColorCache.set(feedImageUrl, '');
+    };
   }, [feedImageUrl]);
   
   const { ref, inView, entry } = useInView({
@@ -207,7 +211,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
 
   return (
     <motion.div 
-      layout={shouldReduceMotion ? false : "position"}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
@@ -216,7 +219,6 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         transition: { duration: shouldReduceMotion ? 0 : 0.2, ease: "easeInOut" } 
       }}
       transition={{ 
-        layout: { type: "spring", stiffness: 600, damping: 40 },
         opacity: { duration: shouldReduceMotion ? 0 : 0.2 },
         height: { duration: shouldReduceMotion ? 0 : 0.2 }
       }}
@@ -283,13 +285,13 @@ export const SwipeableArticle = React.memo(function SwipeableArticle({
         onClick={handleArticleClick}
         exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-20 w-full p-3 cursor-pointer shadow-sm transition-all bg-black select-none",
+          "relative z-20 w-full p-2 cursor-pointer shadow-sm transition-all bg-black select-none",
           "mx-auto max-w-full",
           "opacity-100"
         )}
       >
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-[var(--theme-color)] to-transparent opacity-60 shadow-[0_0_10px_rgba(var(--theme-color-rgb),0.3)]" />
-        <div className={cn("flex gap-3", article.type === 'podcast' ? "flex-row items-start" : "flex-col gap-2")}>
+        <div className={cn("flex gap-2", article.type === 'podcast' ? "flex-row items-start" : "flex-col gap-1.5")}>
           {/* Image */}
           {(article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none') && (
             <CachedImage 

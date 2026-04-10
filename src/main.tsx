@@ -5,6 +5,10 @@ import './index.css';
 import { RssProvider } from './context/RssContext';
 import { AudioPlayerProvider } from './context/AudioPlayerContext.tsx';
 import { entries } from 'idb-keyval';
+import { imagePersistence } from './utils/imagePersistence';
+
+// Initialize image persistence cache map
+imagePersistence.init();
 
 entries().then(e => console.log('All keys:', e.map(x => x[0])));
 

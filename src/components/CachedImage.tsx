@@ -7,8 +7,6 @@ import { FileText } from 'lucide-react';
 // Global set to track images that have already been loaded in this session
 // We store the final resolved URL here
 const loadedFinalUrls = new Set<string>();
-// Cache for already resolved local URLs to avoid repeated filesystem calls
-const resolvedLocalUrls = new Map<string, string>();
 
 type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
   src: string;
@@ -18,18 +16,16 @@ type CachedImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
 export function CachedImage({ src, className, fallback, alt, ...props }: CachedImageProps) {
   const [currentSrc, setCurrentSrc] = useState<string | null>(() => {
     if (!src) return null;
-    if (resolvedLocalUrls.has(src)) return resolvedLocalUrls.get(src)!;
-    // On native, wait for cache check to avoid flicker from remote -> local switch
-    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) return null;
+    if (imagePersistence.resolvedLocalUrls.has(src)) return imagePersistence.resolvedLocalUrls.get(src)!;
+    // On native, use remote src as initial value to avoid blank space while checking cache
     return src;
   });
   
   const [isLoaded, setIsLoaded] = useState(() => {
     if (!src) return false;
-    if (resolvedLocalUrls.has(src)) {
-      return loadedFinalUrls.has(resolvedLocalUrls.get(src)!);
+    if (imagePersistence.resolvedLocalUrls.has(src)) {
+      return loadedFinalUrls.has(imagePersistence.resolvedLocalUrls.get(src)!);
     }
-    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) return false;
     return loadedFinalUrls.has(src);
   });
   
@@ -45,19 +41,15 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
       return;
     }
 
-    if (resolvedLocalUrls.has(src)) {
-      const local = resolvedLocalUrls.get(src)!;
+    if (imagePersistence.resolvedLocalUrls.has(src)) {
+      const local = imagePersistence.resolvedLocalUrls.get(src)!;
       setCurrentSrc(local);
       setIsLoaded(loadedFinalUrls.has(local));
       setError(false);
-    } else if (typeof window !== 'undefined' && !Capacitor.isNativePlatform()) {
+    } else {
+      // Use remote src as initial value
       setCurrentSrc(src);
       setIsLoaded(loadedFinalUrls.has(src));
-      setError(false);
-    } else {
-      // On native, reset to null and wait for the async check
-      setCurrentSrc(null);
-      setIsLoaded(false);
       setError(false);
     }
   }, [src]);
@@ -66,33 +58,22 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
     let isMounted = true;
     
     if (!src) return;
-    if (resolvedLocalUrls.has(src)) return;
+    if (imagePersistence.resolvedLocalUrls.has(src)) return;
 
     const initImage = async () => {
       if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
         try {
           const cachedUri = await imagePersistence.getCachedUrl(src);
           if (cachedUri && isMounted) {
-            resolvedLocalUrls.set(src, cachedUri);
             setCurrentSrc(cachedUri);
             setIsLoaded(loadedFinalUrls.has(cachedUri));
           } else if (isMounted) {
-            // Not cached locally yet. Use remote URL to show immediately.
-            setCurrentSrc(src);
-            setIsLoaded(loadedFinalUrls.has(src));
-            
+            // Not cached locally yet. Already using remote URL.
             // Trigger background download for next time
-            imagePersistence.getLocalUrl(src).then(downloadedUri => {
-              if (downloadedUri) {
-                resolvedLocalUrls.set(src, downloadedUri);
-              }
-            }).catch(e => console.warn('Background cache failed', e));
+            imagePersistence.getLocalUrl(src).catch(e => console.warn('Background cache failed', e));
           }
         } catch (e) {
-          if (isMounted) {
-            setCurrentSrc(src);
-            setIsLoaded(loadedFinalUrls.has(src));
-          }
+          // Keep using remote src
         }
       }
     };
@@ -122,6 +103,9 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
     if (currentSrc !== src) {
       console.log(`[CachedImage] Retrying with original src: ${src}`);
       setCurrentSrc(src);
+    } else if (src && src.startsWith('http') && !src.includes('corsproxy.io')) {
+      console.log(`[CachedImage] Retrying with proxy: ${src}`);
+      setCurrentSrc(`https://corsproxy.io/?${encodeURIComponent(src)}`);
     } else {
       console.error(`[CachedImage] Failed to load image: ${src}`);
       setError(true);
@@ -146,6 +130,7 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
       src={currentSrc || undefined}
       alt={alt}
       draggable={false}
+      referrerPolicy="no-referrer"
       className={cn(
         className,
         !isLoaded && "opacity-0",

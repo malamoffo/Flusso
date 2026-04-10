@@ -90,7 +90,6 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
 
   return (
     <motion.div 
-      layout={shouldReduceMotion ? false : "position"}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ 
@@ -99,7 +98,6 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         transition: { duration: shouldReduceMotion ? 0 : 0.2, ease: "easeInOut" } 
       }}
       transition={{ 
-        layout: { type: "spring", stiffness: 600, damping: 40 },
         opacity: { duration: shouldReduceMotion ? 0 : 0.2 },
         height: { duration: shouldReduceMotion ? 0 : 0.2 }
       }}

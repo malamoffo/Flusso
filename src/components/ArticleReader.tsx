@@ -528,22 +528,27 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={async () => {
+                const shareData = {
+                  title: article.title,
+                  text: article.title,
+                  url: article.link,
+                };
+
                 try {
-                  await Share.share({
-                    title: article.title,
-                    text: article.title,
-                    url: article.link,
-                    dialogTitle: 'Condividi articolo'
-                  });
-                } catch (err) {
-                  console.error('Error sharing with Capacitor:', err);
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({ title: article.title, url: article.link });
-                    } catch (e) {
-                      console.error('Fallback share error:', e);
-                    }
+                  if (Capacitor.isNativePlatform()) {
+                    await Share.share({
+                      ...shareData,
+                      dialogTitle: 'Condividi articolo'
+                    });
+                  } else if (navigator.share) {
+                    await navigator.share(shareData);
+                  } else {
+                    // Fallback: copy to clipboard
+                    await navigator.clipboard.writeText(`${article.title}\n${article.link}`);
+                    alert('Link copiato negli appunti');
                   }
+                } catch (err) {
+                  console.error('Error sharing:', err);
                 }
               }}
               className="hover:text-white transition-colors"

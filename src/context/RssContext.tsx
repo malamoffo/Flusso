@@ -29,7 +29,7 @@ interface RssContextType {
   unreadCount: number;
   savedCount: number;
   updateInfo: any | null;
-  addFeedOrSubreddit: (url: string) => Promise<void>;
+  addFeedOrSubreddit: (url: string) => Promise<'article' | 'podcast' | 'reddit' | 'subreddit' | void>;
   importOpml: (file: File | { text: () => Promise<string> }) => Promise<void>;
   exportFeeds: () => Promise<string>;
   removeFeed: (id: string) => void;
@@ -115,9 +115,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
       
       const loadedFeeds = await storage.getFeeds();
-      const loadedArticles = await storage.getArticles();
+      const loadedArticles = await storage.getArticles(0, 0);
       const loadedSubreddits = await storage.getSubreddits();
-      logError(`Loaded subreddits: ${loadedSubreddits.length}`);
       const loadedRedditPosts = await storage.getRedditPosts();
       const loadedSettings = await storage.getSettings();
       
@@ -129,7 +128,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       return { loadedFeeds, loadedArticles, loadedSubreddits, loadedRedditPosts, loadedSettings };
     } catch (err) {
-      logError("Failed to load data");
       console.error(err);
       return null;
     } finally {
@@ -144,7 +142,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
 
       const fToRefresh = feedsToRefresh || await storage.getFeeds();
-      const cArticles = currentArticles || await storage.getArticles();
+      const cArticles = currentArticles || await storage.getArticles(0, 0);
       
       if (fToRefresh.length === 0) {
         setIsLoading(false);
@@ -168,8 +166,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const queue = [...fToRefresh];
       let queueIndex = 0;
       const FEED_TIMEOUT = 25000; // 25 seconds max per feed total
-      
-      const allNewArticles: Article[] = [];
       
       const workers = Array(Math.min(6, queue.length)).fill(null).map(async () => {
         while (queueIndex < queue.length) {
@@ -202,7 +198,41 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   // Update the results array so storage.saveAllFeedData also uses the correct ID
                   data.articles = articlesWithCorrectId;
                   
-                  allNewArticles.push(...articlesWithCorrectId);
+                  setArticles(prev => {
+                    const merged = [...prev];
+                    const existingLinks = new Set(merged.map(a => a.link));
+                    let hasNew = false;
+                    
+                    for (const newArticle of articlesWithCorrectId) {
+                      // Check for duplicate link using Set for O(1) lookup
+                      if (!existingLinks.has(newArticle.link)) {
+                        hasNew = true;
+                        existingLinks.add(newArticle.link);
+                        
+                        // Ottimizzazione: se è più recente del primo, inserisci in testa
+                        if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
+                          merged.unshift(newArticle);
+                          continue;
+                        }
+
+                        // Ricerca Binaria per trovare la posizione corretta (O(log n))
+                        // Partendo dal "più recente" (inizio lista) in modo efficiente
+                        let low = 0;
+                        let high = merged.length;
+                        while (low < high) {
+                          const mid = (low + high) >>> 1;
+                          if (merged[mid].pubDate > newArticle.pubDate) {
+                            low = mid + 1;
+                          } else {
+                            high = mid;
+                          }
+                        }
+                        merged.splice(low, 0, newArticle);
+                      }
+                    }
+                    
+                    return hasNew ? merged : prev;
+                  });
                 }
               }
             } finally {
@@ -223,44 +253,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       await Promise.all(workers);
       
-      if (allNewArticles.length > 0) {
-        setArticles(prev => {
-          const merged = [...prev];
-          const existingLinks = new Set(merged.map(a => a.link));
-          let hasNew = false;
-          
-          for (const newArticle of allNewArticles) {
-            // Check for duplicate link using Set for O(1) lookup
-            if (!existingLinks.has(newArticle.link)) {
-              hasNew = true;
-              existingLinks.add(newArticle.link);
-              
-              // Ottimizzazione: se è più recente del primo, inserisci in testa
-              if (merged.length === 0 || newArticle.pubDate >= merged[0].pubDate) {
-                merged.unshift(newArticle);
-                continue;
-              }
-
-              // Ricerca Binaria per trovare la posizione corretta (O(log n))
-              // Partendo dal "più recente" (inizio lista) in modo efficiente
-              let low = 0;
-              let high = merged.length;
-              while (low < high) {
-                const mid = (low + high) >>> 1;
-                if (merged[mid].pubDate > newArticle.pubDate) {
-                  low = mid + 1;
-                } else {
-                  high = mid;
-                }
-              }
-              merged.splice(low, 0, newArticle);
-            }
-          }
-          
-          return hasNew ? merged : prev;
-        });
-      }
-      
       if (results.length > 0) {
         setProgress(p => p ? { ...p, status: "Saving articles..." } : null);
         const { updatedFeeds } = await storage.saveAllFeedData(results, fToRefresh, cArticles);
@@ -271,7 +263,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProgress(p => p ? { ...p, status: "Finalizing..." } : null);
       lastRefresh.current = Date.now();
     } catch (e) {
-      logError("Failed to refresh feeds");
+      // Failed to refresh feeds
     } finally {
       setIsLoading(false);
       setProgress(null);
@@ -281,7 +273,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
     const currentSort = sort || redditSort;
-    logError(`refreshReddit called, subs: ${subsToRefresh?.length || 'undefined'}, sort: ${currentSort}`);
     
     if (isRefreshingReddit.current) {
         console.warn('[RSS] Already refreshing reddit');
@@ -295,18 +286,15 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       let sToRefresh = subsToRefresh || subreddits;
       if (sToRefresh.length === 0 && !subsToRefresh) {
         sToRefresh = await storage.getSubreddits();
-        logError(`refreshReddit: loaded ${sToRefresh.length} subs from storage`);
       }
 
       if (sToRefresh.length === 0) {
         console.warn('[RSS] No subreddits to refresh');
-        logError("No subreddits to refresh");
         setIsLoading(false);
         isRefreshingReddit.current = false;
         return;
       }
 
-      const results: RedditPost[] = [];
       const sinceDate = currentSort === 'new' ? Date.now() - (3 * 24 * 60 * 60 * 1000) : undefined;
 
       const updatedSubs = [...sToRefresh];
@@ -316,14 +304,64 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
           const posts = await storage.fetchSubredditPosts(sub.name, sinceDate, undefined, currentSort);
           if (posts.length > 0) {
-            results.push(...posts);
             updatedSubs[index] = { ...sub, lastFetched: Date.now() };
             subsChanged = true;
-          } else {
-            logError(`No posts found for r/${sub.name}`);
+            
+            setRedditPosts(prev => {
+              const merged = [...prev];
+              const existingIds = new Set(merged.map(p => p.id));
+              let hasNew = false;
+
+              for (const newPost of posts) {
+                if (!existingIds.has(newPost.id)) {
+                  hasNew = true;
+                  existingIds.add(newPost.id);
+                  
+                  if (currentSort === 'new') {
+                    if (merged.length === 0 || newPost.createdUtc >= merged[0].createdUtc) {
+                      merged.unshift(newPost);
+                      continue;
+                    }
+                    let low = 0;
+                    let high = merged.length;
+                    while (low < high) {
+                      const mid = (low + high) >>> 1;
+                      if (merged[mid].createdUtc > newPost.createdUtc) {
+                        low = mid + 1;
+                      } else {
+                        high = mid;
+                      }
+                    }
+                    merged.splice(low, 0, newPost);
+                  } else {
+                    // For hot/top, sort by score
+                    if (merged.length === 0 || (newPost.score || 0) >= (merged[0].score || 0)) {
+                      merged.unshift(newPost);
+                      continue;
+                    }
+                    let low = 0;
+                    let high = merged.length;
+                    while (low < high) {
+                      const mid = (low + high) >>> 1;
+                      if ((merged[mid].score || 0) > (newPost.score || 0)) {
+                        low = mid + 1;
+                      } else {
+                        high = mid;
+                      }
+                    }
+                    merged.splice(low, 0, newPost);
+                  }
+                }
+              }
+
+              if (hasNew) {
+                storage.saveRedditPosts(merged);
+                return merged;
+              }
+              return prev;
+            });
           }
         } catch (e) {
-          logError(`Failed to refresh r/${sub.name}`);
           console.error(`Failed to refresh subreddit ${sub.name}`, e);
         }
       }));
@@ -345,34 +383,17 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
       }
 
-      if (results.length > 0 || sort) {
+      if (sort) {
         setRedditPosts(prev => {
-          const base = prev;
-          const merged = [...base];
-          const existingIds = new Set(merged.map(p => p.id));
-          let hasNew = false;
-
-          for (const newPost of results) {
-            if (!existingIds.has(newPost.id)) {
-              hasNew = true;
-              existingIds.add(newPost.id);
-              merged.push(newPost);
-            }
+          const merged = [...prev];
+          if (currentSort === 'new') {
+            merged.sort((a, b) => b.createdUtc - a.createdUtc);
+          } else {
+            merged.sort((a, b) => (b.score || 0) - (a.score || 0));
           }
-
-          if (hasNew || sort) {
-            if (currentSort === 'new') {
-              merged.sort((a, b) => b.createdUtc - a.createdUtc);
-            } else {
-              merged.sort((a, b) => (b.score || 0) - (a.score || 0));
-            }
-            storage.saveRedditPosts(merged);
-            return merged;
-          }
-          return prev;
+          storage.saveRedditPosts(merged);
+          return merged;
         });
-      } else if (!sort) {
-        logError("No new Reddit posts found");
       }
     } catch (e) {
       logError("Failed to refresh reddit");
@@ -431,7 +452,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
-  const addFeedOrSubreddit = useCallback(async (url: string) => {
+  const addFeedOrSubreddit = useCallback(async (url: string): Promise<'article' | 'podcast' | 'reddit' | 'subreddit' | void> => {
     try {
       setIsLoading(true);
       
@@ -451,13 +472,19 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           throw new Error("Could not fetch subreddit. Please check the name and try again.");
         }
         await refreshReddit([result]);
+        await loadData();
+        return 'subreddit';
       } else {
         const result = await storage.addFeed(url);
         if (!result) {
           throw new Error("Could not fetch feed. Please check the URL and try again.");
         }
+        await loadData();
+        if (result.feed.feedUrl.includes('reddit.com')) {
+          return 'reddit';
+        }
+        return result.feed.type as 'article' | 'podcast';
       }
-      await loadData();
     } catch (err) {
       logError("Failed to add feed or subreddit. Please check the URL.");
       console.error(err);
@@ -695,8 +722,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       if (sToRefresh.length === 0) return;
 
-      const results: RedditPost[] = [];
-
       await Promise.all(sToRefresh.map(async (sub) => {
         try {
           // Find the oldest post for this subreddit to use as 'after' token
@@ -709,38 +734,36 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
 
           const posts = await storage.fetchSubredditPosts(sub.name, undefined, afterToken, redditSort);
-          results.push(...posts);
+          if (posts.length > 0) {
+            setRedditPosts(prev => {
+              const merged = [...prev];
+              const existingIds = new Set(merged.map(p => p.id));
+              let hasNew = false;
+
+              for (const newPost of posts) {
+                if (!existingIds.has(newPost.id)) {
+                  hasNew = true;
+                  existingIds.add(newPost.id);
+                  merged.push(newPost);
+                }
+              }
+
+              if (hasNew) {
+                if (redditSort === 'new') {
+                  merged.sort((a, b) => b.createdUtc - a.createdUtc);
+                } else {
+                  merged.sort((a, b) => (b.score || 0) - (a.score || 0));
+                }
+                storage.saveRedditPosts(merged);
+                return merged;
+              }
+              return prev;
+            });
+          }
         } catch (e) {
           console.error(`Failed to load more for subreddit ${sub.name}`, e);
         }
       }));
-
-      if (results.length > 0) {
-        setRedditPosts(prev => {
-          const merged = [...prev];
-          const existingIds = new Set(merged.map(p => p.id));
-          let hasNew = false;
-
-          for (const newPost of results) {
-            if (!existingIds.has(newPost.id)) {
-              hasNew = true;
-              existingIds.add(newPost.id);
-              merged.push(newPost);
-            }
-          }
-
-          if (hasNew) {
-            if (redditSort === 'new') {
-              merged.sort((a, b) => b.createdUtc - a.createdUtc);
-            } else {
-              merged.sort((a, b) => (b.score || 0) - (a.score || 0));
-            }
-            storage.saveRedditPosts(merged);
-            return merged;
-          }
-          return prev;
-        });
-      }
     } catch (e) {
       console.error("Failed to load more reddit posts", e);
     } finally {

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RedditPost, RedditComment } from '../types';
-import { ArrowLeft, ExternalLink, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ExternalLink, MessageSquare, ChevronUp, ChevronDown, Share2 } from 'lucide-react';
 import { storage } from '../services/storage';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import { getSafeUrl } from '../lib/utils';
+import { CachedImage } from './CachedImage';
 
 interface RedditPostReaderProps {
   post: RedditPost;
@@ -110,6 +113,34 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
           >
             <ChevronDown className="w-6 h-6" />
           </button>
+          <button
+            onClick={async () => {
+              const shareData = {
+                title: post.title,
+                text: post.title,
+                url: `https://reddit.com${post.permalink}`,
+              };
+
+              try {
+                if (Capacitor.isNativePlatform()) {
+                  await Share.share({
+                    ...shareData,
+                    dialogTitle: 'Condividi post'
+                  });
+                } else if (navigator.share) {
+                  await navigator.share(shareData);
+                } else {
+                  await navigator.clipboard.writeText(`${post.title}\n${shareData.url}`);
+                }
+              } catch (err) {
+                console.error('Error sharing:', err);
+              }
+            }}
+            className="p-2 rounded-full hover:bg-gray-800 text-gray-300 transition-colors"
+            title="Share post"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
           <a
             href={`https://reddit.com${post.permalink}`}
             target="_blank"
@@ -131,7 +162,7 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
           <h1 className="text-xl font-bold text-white mb-4" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.title, { FORBID_ATTR: ['id', 'name'] }) }} />
           
           {post.imageUrl && (
-            <img src={getSafeUrl(post.imageUrl)} alt="" className="w-full rounded-xl mb-4" referrerPolicy="no-referrer" />
+            <CachedImage src={getSafeUrl(post.imageUrl)} alt="" className="w-full rounded-xl mb-4" />
           )}
           
           {post.selftextHtml && (

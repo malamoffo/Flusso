@@ -396,7 +396,10 @@ export const SettingsModal = React.memo(function SettingsModal({
                         className="overflow-hidden"
                       >
                         <div className="p-2 space-y-1 bg-black">
-                          {feeds.filter(f => f.type === 'article' && !f.feedUrl.includes('reddit.com')).map(feed => {
+                          {feeds
+                            .filter(f => f.type === 'article' && !f.feedUrl.includes('reddit.com'))
+                            .sort((a, b) => a.title.localeCompare(b.title))
+                            .map(feed => {
                             const domain = feed.link ? new URL(feed.link).hostname : '';
                             return (
                               <div 
@@ -455,7 +458,10 @@ export const SettingsModal = React.memo(function SettingsModal({
                       >
                         <div className="p-3 bg-black">
                           <div className="grid grid-cols-4 gap-2">
-                            {feeds.filter(f => f.type === 'podcast').map(feed => (
+                            {feeds
+                              .filter(f => f.type === 'podcast')
+                              .sort((a, b) => a.title.localeCompare(b.title))
+                              .map(feed => (
                               <div 
                                 key={feed.id} 
                                 className="group relative aspect-square rounded-xl overflow-hidden bg-gray-800 border border-gray-700 hover:border-indigo-500 transition-all cursor-pointer" 
@@ -519,7 +525,10 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                             return (
                               <>
-                                {subreddits.map(sub => (
+                                {subreddits
+                                  .slice()
+                                  .sort((a, b) => a.name.localeCompare(b.name))
+                                  .map(sub => (
                                   <div 
                                     key={sub.id} 
                                     className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
@@ -549,7 +558,10 @@ export const SettingsModal = React.memo(function SettingsModal({
                                     </button>
                                   </div>
                                 ))}
-                                {redditFeeds.map(feed => {
+                                {redditFeeds
+                                  .slice()
+                                  .sort((a, b) => a.title.localeCompare(b.title))
+                                  .map(feed => {
                                   const domain = feed.link ? new URL(feed.link).hostname : '';
                                   return (
                                     <div 
@@ -822,7 +834,15 @@ export const SettingsModal = React.memo(function SettingsModal({
               </section>
             )}
           </motion.div>
-          <AddFeedModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+          <AddFeedModal 
+            isOpen={isAddModalOpen} 
+            onClose={() => setIsAddModalOpen(false)} 
+            onFeedAdded={(type) => {
+              if (type === 'article') setExpandedSections(prev => new Set(prev).add('articles'));
+              else if (type === 'podcast') setExpandedSections(prev => new Set(prev).add('podcasts'));
+              else if (type === 'subreddit' || type === 'reddit') setExpandedSections(prev => new Set(prev).add('subreddits'));
+            }}
+          />
         </>
       )}
     </AnimatePresence>

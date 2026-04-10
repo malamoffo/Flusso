@@ -3,7 +3,7 @@ import { X, Rss, RefreshCw } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, onFeedAdded }: { isOpen: boolean; onClose: () => void; onFeedAdded?: (type: string) => void }) {
   const [url, setUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addFeedOrSubreddit, error, progress } = useRss();
@@ -14,8 +14,11 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose }
     
     setIsSubmitting(true);
     try {
-      await addFeedOrSubreddit(url);
+      const type = await addFeedOrSubreddit(url);
       setUrl('');
+      if (onFeedAdded && type) {
+        onFeedAdded(type);
+      }
       onClose();
     } catch (err) {
       // Error is handled in context
