@@ -21,11 +21,13 @@
 *   **Visual Progress**: Podcast-specific list items with progress bars and remaining time.
 *   **Optimized Layout**: Podcast items always feature a left-aligned image for better scannability, regardless of global settings.
 
-### 🤖 Reddit Integration (New!)
+### 🤖 Reddit & Telegram Integration (New!)
 *   **Subreddit Support**: Follow your favorite subreddits directly within Flusso.
-*   **Native Experience**: Browse Reddit posts with a dedicated purple theme and subtle glow effects.
+*   **Telegram Channels**: Stay updated with public Telegram channels without leaving the app.
+*   **Native Experience**: Browse Reddit posts with a dedicated purple theme and Telegram messages with a vibrant green theme.
 *   **On-Demand Comments**: Load and read Reddit comments only when you open a post, saving data and battery.
-*   **Subreddit Management**: Easily add, view, and remove subreddits from your subscription list.
+*   **Smart Scraping**: Telegram messages are fetched and parsed efficiently, with support for media and formatted text.
+*   **Management**: Easily add, view, and remove subreddits and Telegram channels from your subscription list.
 
 ### 📖 Immersive Reading Experience
 *   **Smart Feed Discovery**: Simply enter a website URL, and Flusso will automatically find the RSS/Atom feed for you.

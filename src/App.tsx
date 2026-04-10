@@ -8,9 +8,12 @@ import { PersistentPlayer } from './components/PersistentPlayer';
 import { HeaderWidgets } from './components/HeaderWidgets';
 import { RedditListView } from './components/RedditListView';
 import { RedditPostReader } from './components/RedditPostReader';
+import { TelegramListView } from './components/TelegramListView';
+import { TelegramThreadView } from './components/TelegramThreadView';
+import { TelegramChannel, TelegramMessage } from './types';
 import { ImageViewer } from './components/ImageViewer';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare } from 'lucide-react';
+import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare, ChevronDown } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { cn } from './lib/utils';
 import { Article } from './types';
@@ -140,9 +143,9 @@ export default function App() {
   const isAtTop = useRef(true);
 
   const {
-    articles, feeds, subreddits, redditPosts, settings, isLoading, error,
+    articles, feeds, subreddits, redditPosts, telegramChannels, telegramMessages, settings, isLoading, error,
     refreshFeeds, refreshReddit, loadMoreReddit, toggleRead, markAsRead, markArticlesAsRead,
-    markAllAsRead, searchQuery, setSearchQuery, unreadCount, savedCount,
+    markAllAsRead, markAllTelegramAsRead, searchQuery, setSearchQuery, unreadCount, savedCount,
     toggleFavorite, toggleQueue, removeFromSaved, loadMoreArticles, hasMoreArticles,
     markRedditAsRead, toggleRedditRead, toggleRedditFavorite,
     redditSort, handleRedditSortChange
@@ -173,6 +176,7 @@ export default function App() {
 
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [selectedRedditPost, setSelectedRedditPost] = useState<any | null>(null);
+  const [selectedTelegramChannel, setSelectedTelegramChannel] = useState<TelegramChannel | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined);
@@ -193,7 +197,7 @@ export default function App() {
   const pullOpacity = useTransform(pullProgress, v => v / PULL_THRESHOLD);
   const [isPulling, setIsPulling] = useState(false);
 
-  const handleFilterChange = (newFilter: 'inbox' | 'saved' | 'reddit') => {
+  const handleFilterChange = (newFilter: 'inbox' | 'saved' | 'reddit' | 'telegram') => {
     if (newFilter === filter) return;
     
     // Batch updates
@@ -581,8 +585,8 @@ export default function App() {
             className="flex items-center gap-3 active:opacity-70 transition-opacity focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg px-1 outline-none"
             aria-label="Scroll to top"
           >
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner relative transition-colors" style={{ backgroundColor: filter === 'reddit' ? 'rgba(147, 51, 234, 0.1)' : 'rgba(37, 99, 235, 0.1)' }}>
-              <Rss className={cn("w-6 h-6 transition-colors", filter === 'reddit' ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400")} />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner relative transition-colors" style={{ backgroundColor: filter === 'reddit' ? 'rgba(147, 51, 234, 0.1)' : filter === 'telegram' ? 'rgba(34, 197, 94, 0.1)' : filter === 'saved' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(37, 99, 235, 0.1)' }}>
+              <Rss className={cn("w-6 h-6 transition-colors", filter === 'reddit' ? "text-purple-600 dark:text-purple-400" : filter === 'telegram' ? "text-green-600 dark:text-green-400" : filter === 'saved' ? "text-yellow-600 dark:text-yellow-400" : "text-blue-600 dark:text-blue-400")} />
             </div>
             <div className="flex items-baseline gap-4">
               <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">flusso</h1>
@@ -626,7 +630,7 @@ export default function App() {
           </div>
         )}
 
-        {filter !== 'reddit' && (
+        {filter !== 'reddit' && filter !== 'telegram' && (
           <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => handleTypeFilterChange('unread')}
@@ -672,9 +676,9 @@ export default function App() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={filter === 'reddit' ? "Search Reddit posts..." : "Search articles..."}
+                placeholder={filter === 'reddit' ? "Search Reddit posts..." : filter === 'telegram' ? "Search channels..." : "Search articles..."}
                 className="flex-1 bg-transparent text-gray-900 dark:text-white focus:outline-none"
-                aria-label={filter === 'reddit' ? "Search Reddit posts" : "Search articles"}
+                aria-label={filter === 'reddit' ? "Search Reddit posts" : filter === 'telegram' ? "Search channels" : "Search articles"}
                 autoFocus
               />
               <button 
@@ -691,39 +695,49 @@ export default function App() {
               </button>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
-              >
-                <option value="all">All Sources</option>
-                {filter === 'reddit' ? (
-                  <>
-                    {sortedSubreddits.map(s => (
-                      <option key={s.id} value={s.id}>r/{s.name}</option>
-                    ))}
-                    {sortedFeeds.filter(f => f.feedUrl.includes('reddit.com')).map(f => (
-                      <option key={f.id} value={f.id}>{f.title}</option>
-                    ))}
-                  </>
-                ) : (
-                  sortedFeeds.filter(f => !f.feedUrl.includes('reddit.com')).map(f => (
-                    <option key={f.id} value={f.id}>{f.title}</option>
-                  ))
+                <div className="relative">
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                    className="appearance-none text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full pl-3 pr-8 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
+                  >
+                    <option value="all">All Sources</option>
+                    {filter === 'reddit' ? (
+                      <>
+                        {sortedSubreddits.map(s => (
+                          <option key={s.id} value={s.id}>r/{s.name}</option>
+                        ))}
+                        {sortedFeeds.filter(f => f.feedUrl.includes('reddit.com')).map(f => (
+                          <option key={f.id} value={f.id}>{f.title}</option>
+                        ))}
+                      </>
+                    ) : filter === 'telegram' ? (
+                      telegramChannels.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))
+                    ) : (
+                      sortedFeeds.filter(f => !f.feedUrl.includes('reddit.com')).map(f => (
+                        <option key={f.id} value={f.id}>{f.title}</option>
+                      ))
+                    )}
+                  </select>
+                  <ChevronDown className="w-3 h-3 absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
+                {filter !== 'reddit' && filter !== 'telegram' && (
+                  <div className="relative">
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value)}
+                      className="appearance-none text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full pl-3 pr-8 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
+                    >
+                      <option value="all">Any Time</option>
+                      <option value="today">Past 24 Hours</option>
+                      <option value="week">Past Week</option>
+                      <option value="month">Past Month</option>
+                    </select>
+                    <ChevronDown className="w-3 h-3 absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  </div>
                 )}
-              </select>
-              {filter !== 'reddit' && (
-                <select
-                  value={timeFilter}
-                  onChange={(e) => setTimeFilter(e.target.value)}
-                  className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full px-3 py-1.5 border-none focus:ring-0 outline-none whitespace-nowrap"
-                >
-                  <option value="all">Any Time</option>
-                  <option value="today">Past 24 Hours</option>
-                  <option value="week">Past Week</option>
-                  <option value="month">Past Month</option>
-                </select>
-              )}
             </div>
           </div>
         )}
@@ -797,6 +811,12 @@ export default function App() {
           scrollRef={redditScrollRef}
           handleScroll={(e) => handleScroll(e, 'reddit')}
         />
+        <TelegramListView
+          isActive={filter === 'telegram'}
+          channels={telegramChannels}
+          onChannelClick={setSelectedTelegramChannel}
+          onMarkAllAsRead={markAllTelegramAsRead}
+        />
       </div>
 
       {selectedImage && (
@@ -840,6 +860,18 @@ export default function App() {
           aria-pressed={filter === 'reddit'}
         >
           <MessageSquare className={cn("w-6 h-6", filter === 'reddit' && "shadow-[0_0_15px_rgba(168,85,247,0.5)]")} aria-hidden="true" />
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => handleFilterChange('telegram')}
+          className={`${filter === 'telegram' ? "text-green-500" : "text-gray-500"} relative`}
+          aria-label="Telegram"
+          aria-pressed={filter === 'telegram'}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("w-6 h-6", filter === 'telegram' && "shadow-[0_0_15px_rgba(34,197,94,0.5)]")} aria-hidden="true">
+            <path d="M21.5 2L2 11.5l6.5 2.5 2 6.5L14 17l5.5 4.5L21.5 2z"></path>
+            <path d="M21.5 2L8.5 14"></path>
+          </svg>
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -953,6 +985,13 @@ export default function App() {
             />
           );
         })()}
+        {selectedTelegramChannel && (
+          <TelegramThreadView
+            channel={selectedTelegramChannel}
+            messages={telegramMessages[selectedTelegramChannel.id] || []}
+            onClose={() => setSelectedTelegramChannel(null)}
+          />
+        )}
       </AnimatePresence>
 
        <AnimatePresence>

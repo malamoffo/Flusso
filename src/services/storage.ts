@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval';
 import { v4 as uuidv4 } from 'uuid';
-import { Feed, Article, Settings, PodcastChapter, FullArticleContent, RefreshLog, Subreddit, RedditPost } from '../types';
+import { Feed, Article, Settings, PodcastChapter, FullArticleContent, RefreshLog, Subreddit, RedditPost, TelegramChannel, TelegramMessage } from '../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../utils/proxy';
 import { getSafeUrl, resolveUrl } from '../lib/utils';
@@ -14,6 +14,8 @@ const CONTENT_PREFIX = 'article_content_';
 const REFRESH_LOGS_KEY = 'rss_refresh_logs';
 const SUBREDDITS_KEY = 'reddit_subs';
 const REDDIT_POSTS_KEY = 'reddit_posts';
+const TELEGRAM_CHANNELS_KEY = 'telegram_channels';
+const TELEGRAM_MESSAGES_KEY = 'telegram_messages';
 
 export const defaultSettings: Settings = {
   swipeLeftAction: 'toggleFavorite',
@@ -25,6 +27,7 @@ export const defaultSettings: Settings = {
   autoCheckUpdates: true,
   theme: 'dark',
   pureBlack: true,
+  telegramRetentionDays: 30,
 };
 
 export const storage = {
@@ -697,5 +700,41 @@ export const storage = {
 
   async saveRefreshLogs(logs: RefreshLog[]): Promise<void> {
     await set(REFRESH_LOGS_KEY, logs);
+  },
+
+  // --- TELEGRAM METHODS ---
+  async getTelegramChannels(): Promise<TelegramChannel[]> {
+    return (await get<TelegramChannel[]>(TELEGRAM_CHANNELS_KEY)) || [];
+  },
+
+  async saveTelegramChannels(channels: TelegramChannel[]): Promise<void> {
+    await set(TELEGRAM_CHANNELS_KEY, channels);
+  },
+
+  async addTelegramChannel(channel: TelegramChannel): Promise<void> {
+    const channels = await this.getTelegramChannels();
+    if (!channels.find(c => c.username === channel.username)) {
+      await this.saveTelegramChannels([...channels, channel]);
+    }
+  },
+
+  async getTelegramMessages(channelId: string): Promise<TelegramMessage[]> {
+    const allMessages = (await get<TelegramMessage[]>(TELEGRAM_MESSAGES_KEY)) || [];
+    return allMessages.filter(m => m.channelId === channelId);
+  },
+
+  async saveTelegramMessages(messages: TelegramMessage[]): Promise<void> {
+    // This is a simple implementation, might need optimization for large message counts
+    const allMessages = (await get<TelegramMessage[]>(TELEGRAM_MESSAGES_KEY)) || [];
+    const messageMap = new Map(allMessages.map(m => [m.id, m]));
+    messages.forEach(m => messageMap.set(m.id, m));
+    await set(TELEGRAM_MESSAGES_KEY, Array.from(messageMap.values()));
+  },
+
+  async removeTelegramChannel(channelId: string): Promise<void> {
+    const channels = await this.getTelegramChannels();
+    await this.saveTelegramChannels(channels.filter(c => c.id !== channelId));
+    const allMessages = (await get<TelegramMessage[]>(TELEGRAM_MESSAGES_KEY)) || [];
+    await set(TELEGRAM_MESSAGES_KEY, allMessages.filter(m => m.channelId !== channelId));
   }
 };

@@ -17,7 +17,7 @@ export const SettingsModal = React.memo(function SettingsModal({
   onClose: () => void;
   initialTab?: 'main' | 'general' | 'subscriptions' | 'about';
 }) {
-  const { settings, updateSettings, feeds, subreddits, removeFeed, removeSubreddit, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
+  const { settings, updateSettings, feeds, subreddits, telegramChannels, removeFeed, removeSubreddit, removeTelegramChannel, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'general' | 'subscriptions' | 'about'>('main');
@@ -372,6 +372,32 @@ export const SettingsModal = React.memo(function SettingsModal({
                     </div>
                   </div>
                 </section>
+
+                {/* Telegram Settings */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Telegram</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Message Retention
+                      </label>
+                      <select
+                        value={settings.telegramRetentionDays}
+                        onChange={(e) => updateSettings({ telegramRetentionDays: parseInt(e.target.value) })}
+                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-800 text-white"
+                      >
+                        <option value={1}>1 Day</option>
+                        <option value={3}>3 Days</option>
+                        <option value={7}>7 Days</option>
+                        <option value={14}>14 Days</option>
+                        <option value={30}>30 Days</option>
+                      </select>
+                      <p className="mt-1 text-[10px] text-gray-500">
+                        * Messages older than this will be removed.
+                      </p>
+                    </div>
+                  </div>
+                </section>
               </div>
             ) : activeTab === 'subscriptions' ? (
               <section className="space-y-4">
@@ -613,6 +639,77 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </AnimatePresence>
                 </div>
 
+                {/* Telegram Channels Section */}
+                <div className="border border-gray-800 rounded-2xl overflow-hidden">
+                  <button 
+                    onClick={() => toggleSection('telegram')}
+                    className="w-full flex items-center justify-between p-4 bg-gray-900/50 hover:bg-gray-800 transition-colors"
+                  >
+                    <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M21.5 2L2 11.5l6.5 2.5 2 6.5L14 17l5.5 4.5L21.5 2z"></path>
+                        <path d="M21.5 2L8.5 14"></path>
+                      </svg>
+                      Channels
+                    </h3>
+                    {expandedSections.has('telegram') ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                  </button>
+                  <AnimatePresence>
+                    {expandedSections.has('telegram') && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-2 space-y-1 bg-black">
+                          {telegramChannels.length === 0 ? (
+                            <div className="p-4 text-center text-gray-500 text-xs italic">
+                              No Telegram channels added yet.
+                            </div>
+                          ) : (
+                            <>
+                              {telegramChannels
+                                .slice()
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map(channel => (
+                                <div 
+                                  key={channel.id} 
+                                  className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-800 transition-all" 
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    {channel.imageUrl ? (
+                                      <CachedImage 
+                                        src={channel.imageUrl} 
+                                        alt="" 
+                                        className="w-6 h-6 rounded-full flex-shrink-0 object-cover bg-gray-900 shadow-[0_0_8px_rgba(34,197,94,0.4)]"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full flex-shrink-0 bg-green-500/20 flex items-center justify-center shadow-[0_0_8px_rgba(34,197,94,0.4)]">
+                                        <span className="text-[10px] font-bold text-green-400">{channel.name[0]}</span>
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <span className="text-sm font-medium text-white truncate block">{channel.name}</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => removeTelegramChannel(channel.id)}
+                                    className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 {/* Intelligent Import OPML Button */}
                 <div className="space-y-3">
                   <button
@@ -620,7 +717,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-[var(--theme-color)] text-white hover:bg-opacity-90 transition-colors font-medium shadow-lg shadow-[var(--theme-color)]/20"
                   >
                     <Plus className="w-5 h-5" />
-                    Add Feed / Subreddit
+                    Add Feed / Subreddit / Channel
                   </button>
 
                   <input

@@ -46,7 +46,7 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, 
             className="fixed bottom-0 left-0 right-0 rounded-t-3xl z-50 p-6 pb-8 bg-black"
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">Add Feed or Subreddit</h2>
+              <h2 className="text-xl font-bold text-white">Add Item</h2>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
@@ -88,10 +88,10 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, 
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com/feed.xml or r/news"
+                  placeholder="https://example.com/feed.xml, r/news or channel_username"
                   className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 bg-gray-800 text-white placeholder-gray-500"
                   required
-                  aria-label="Feed URL or Subreddit"
+                  aria-label="Feed URL, Subreddit or Telegram Channel"
                 />
               </div>
               <motion.button

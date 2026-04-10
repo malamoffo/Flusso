@@ -13,6 +13,7 @@ export interface Settings {
   autoCheckUpdates: boolean;
   theme: Theme;
   pureBlack: boolean;
+  telegramRetentionDays: number;
 }
 
 export interface Feed {
@@ -115,4 +116,25 @@ export interface RedditComment {
   createdUtc: number;
   depth: number;
   replies?: RedditComment[];
+}
+
+export interface TelegramChannel {
+  id: string;
+  name: string;
+  username: string;
+  imageUrl?: string;
+  lastMessageDate: number;
+  lastChecked: number;
+  unreadCount: number;
+  lastOpened: number;
+  retentionDays: number;
+  error?: string;
+}
+
+export interface TelegramMessage {
+  id: string;
+  channelId: string;
+  text: string;
+  imageUrl?: string;
+  date: number;
 }
