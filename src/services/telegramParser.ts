@@ -37,7 +37,7 @@ export const fetchTelegramChannelInfo = async (channelUsername: string): Promise
   }
 };
 
-export const fetchTelegramMessages = async (channelUsername: string): Promise<TelegramMessage[]> => {
+export const fetchTelegramMessages = async (channelUsername: string, sinceDate?: number): Promise<TelegramMessage[]> => {
   try {
     let htmlData: string;
     
@@ -65,10 +65,13 @@ export const fetchTelegramMessages = async (channelUsername: string): Promise<Te
     const messageElements = doc.querySelectorAll('.tgme_widget_message_wrap');
     
     messageElements.forEach((el) => {
-      const id = el.querySelector('.tgme_widget_message')?.getAttribute('data-post') || uuidv4();
-      const text = el.querySelector('.tgme_widget_message_text')?.textContent || '';
       const dateStr = el.querySelector('time')?.getAttribute('datetime');
       const date = dateStr ? new Date(dateStr).getTime() : Date.now();
+      
+      if (sinceDate && date <= sinceDate) return;
+
+      const id = el.querySelector('.tgme_widget_message')?.getAttribute('data-post') || uuidv4();
+      const text = el.querySelector('.tgme_widget_message_text')?.textContent || '';
       const imageUrl = el.querySelector('.tgme_widget_message_photo_wrap')?.getAttribute('style')?.match(/url\('(.*)'\)/)?.[1];
 
       messages.push({
