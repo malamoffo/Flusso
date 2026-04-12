@@ -55,9 +55,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
   }
 
   const cacheBuster = `&_cb=${Date.now()}`;
-  const cacheBusterQuest = `?_cb=${Date.now()}`;
-
-  proxies.push(
+  
+  const baseProxies: { name: string, url: string, type: 'text' | 'json' | 'rss2json', timeout?: number }[] = [
     { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text', timeout: 12000 },
     { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}${cacheBuster}`, type: 'text', timeout: 15000 },
     { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text', timeout: 12000 },
@@ -65,8 +64,14 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}${cacheBuster}`, type: 'json', timeout: 15000 },
     { name: 'YACDN', url: `https://yacdn.org/proxy/${url}`, type: 'text', timeout: 12000 },
     { name: 'Cloudflare Worker', url: `https://cors-anywhere.azm.workers.dev/${url}`, type: 'text', timeout: 12000 },
-    { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text', timeout: 15000 }
-  );
+    { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text', timeout: 15000 },
+    { name: 'CORS.sh', url: `https://proxy.cors.sh/${url}`, type: 'text', timeout: 12000 },
+    { name: 'CORS-Anywhere Demo', url: `https://cors-anywhere.herokuapp.com/${url}`, type: 'text', timeout: 15000 }
+  ];
+
+  // Shuffle proxies to distribute load and avoid hitting a failing one first consistently
+  const shuffledBase = [...baseProxies].sort(() => Math.random() - 0.5);
+  proxies.push(...shuffledBase);
 
   let lastError: any;
   const defaultTimeout = 8000; // Reduced from 10s to 8s per proxy

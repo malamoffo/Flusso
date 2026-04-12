@@ -42,11 +42,8 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
   const loadData = useCallback(async () => {
     const loadedTelegramChannels = await storage.getTelegramChannels();
     setTelegramChannels(loadedTelegramChannels);
-    const messages: Record<string, TelegramMessage[]> = {};
-    for (const channel of loadedTelegramChannels) {
-      messages[channel.id] = await storage.getTelegramMessages(channel.id);
-    }
-    setTelegramMessages(messages);
+    // Don't load all messages at once, they will be loaded on demand when a channel is selected
+    setTelegramMessages({});
   }, []);
 
   useEffect(() => {
@@ -62,19 +59,20 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
         throw new Error("Sei già iscritto a questo canale Telegram.");
       }
       
+      const channelId = uuidv4();
       const [messages, info] = await Promise.all([
-        fetchTelegramMessages(cleanUsername),
+        fetchTelegramMessages(cleanUsername, undefined, undefined, channelId),
         fetchTelegramChannelInfo(cleanUsername)
       ]);
       
       const channel: TelegramChannel = {
-        id: uuidv4(),
+        id: channelId,
         name: info.name,
         username: cleanUsername,
         imageUrl: info.imageUrl,
-        lastMessageDate: messages.length > 0 ? messages[messages.length - 1].date : Date.now(),
+        lastMessageDate: (messages && messages.length > 0) ? messages[messages.length - 1].date : Date.now(),
         lastChecked: Date.now(),
-        unreadCount: messages.length,
+        unreadCount: messages ? messages.length : 0,
         lastOpened: Date.now(),
         retentionDays: 30,
       };
@@ -123,7 +121,7 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
           const sinceDate = currentMessages.length > 0 ? currentMessages[currentMessages.length - 1].date : undefined;
 
           const [messages, info] = await Promise.all([
-            fetchTelegramMessages(channel.username, sinceDate),
+            fetchTelegramMessages(channel.username, sinceDate, undefined, channel.id),
             fetchTelegramChannelInfo(channel.username)
           ]);
           
@@ -175,9 +173,14 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [cleanupTelegramMessages]);
 
   const loadTelegramMessages = useCallback(async (channelId: string) => {
-    const messages = await storage.getTelegramMessages(channelId);
+    const channel = telegramChannelsRef.current.find(c => c.id === channelId);
+    const messages = await storage.getTelegramMessages(channelId, channel?.username);
     setTelegramMessages(prev => ({ ...prev, [channelId]: messages }));
-  }, []);
+    
+    if (messages.length === 0 && channel) {
+      refreshTelegramChannels([channel]);
+    }
+  }, [refreshTelegramChannels]);
 
   const loadMoreTelegramMessages = useCallback(async (channelId: string) => {
     // Implementation of loadMoreTelegramMessages

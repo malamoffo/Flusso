@@ -17,7 +17,7 @@ export const TelegramThreadView = memo(({ channel, messages, onClose, onRefresh,
   const isInitialMount = useRef(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const isLoading = messages === undefined;
-  const isEmpty = messages && messages.length === 0;
+  const isEmpty = Array.isArray(messages) && messages.length === 0;
 
   const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
     if (scrollRef.current) {
@@ -117,7 +117,7 @@ export const TelegramThreadView = memo(({ channel, messages, onClose, onRefresh,
             </button>
           </div>
         ) : (
-          messages.map(message => (
+          messages?.map(message => (
             <div key={message.id} className="mb-4 p-3 bg-gray-900 rounded-lg">
               <div 
                 className="text-gray-300 whitespace-pre-wrap break-words telegram-message-text"

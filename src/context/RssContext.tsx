@@ -62,9 +62,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [error, setError] = useState<string | null>(null);
   const [errorLogs, setErrorLogs] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [savedCount, setSavedCount] = useState<number>(0);
   const [hasMoreArticles, setHasMoreArticles] = useState<boolean>(true);
   const articleOffset = useRef<number>(0);
-  const PAGE_SIZE = 30;
+  const PAGE_SIZE = 50;
   
   const articlesRef = useRef<Article[]>([]);
   const feedsRef = useRef<Feed[]>([]);
@@ -129,10 +131,18 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
       
       const loadedFeeds = await storage.getFeeds();
-      const loadedArticles = await storage.getArticles(0, 0);
+      const [loadedArticles, unread, saved] = await Promise.all([
+        storage.getArticles(0, PAGE_SIZE),
+        storage.getUnreadCount(),
+        storage.getSavedCount()
+      ]);
       
       setFeeds(loadedFeeds);
-      setArticles(loadedArticles);      
+      setArticles(loadedArticles);
+      setUnreadCount(unread);
+      setSavedCount(saved);
+      articleOffset.current = loadedArticles.length;
+      setHasMoreArticles(loadedArticles.length === PAGE_SIZE);
       
       return { 
         loadedFeeds, 
@@ -147,9 +157,19 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loadMoreArticles = useCallback(async () => {
-    // This is now handled at the UI level in App.tsx for better performance
-    // while keeping the full articles state for correct counts.
-  }, []);
+    if (!hasMoreArticles || isLoading) return;
+    
+    try {
+      const moreArticles = await storage.getArticles(articleOffset.current, PAGE_SIZE);
+      if (moreArticles.length > 0) {
+        setArticles(prev => [...prev, ...moreArticles]);
+        articleOffset.current += moreArticles.length;
+      }
+      setHasMoreArticles(moreArticles.length === PAGE_SIZE);
+    } catch (err) {
+      console.error('Failed to load more articles:', err);
+    }
+  }, [hasMoreArticles, isLoading]);
 
   const refreshFeeds = useCallback(async (feedsToRefresh?: Feed[], currentArticles?: Article[]) => {
     if (isRefreshing.current) return;
@@ -158,10 +178,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
 
       const fToRefresh = feedsToRefresh || await storage.getFeeds();
-      const cArticles = currentArticles || await storage.getArticles(0, 0);
-      
-      // Update ref to ensure we have all articles for merging
-      articlesRef.current = cArticles;
+      // When refreshing, we need to know what we already have to avoid duplicates
+      // but we don't need to load ALL articles into memory if we use a better merge strategy.
+      // However, for now, let's keep the existing worker-based merge which expects the full list.
+      // To optimize, we could pass only recent articles to the worker.
+      const cArticles = currentArticles || await storage.getArticles(0, 500); // Load last 500 for merging
       
       if (fToRefresh.length === 0) {
         setIsLoading(false);
@@ -295,6 +316,15 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Save final state to storage once at the end for performance
       await storage.saveArticles(articlesRef.current);
+      
+      // Update counts after refresh
+      const [unread, saved] = await Promise.all([
+        storage.getUnreadCount(),
+        storage.getSavedCount()
+      ]);
+      setUnreadCount(unread);
+      setSavedCount(saved);
+
       // Fetch latest feeds from storage to avoid overwriting newly added ones
       const currentFeedsInStorage = await storage.getFeeds();
       const updatedFeeds = currentFeedsInStorage.map(f => {
@@ -467,7 +497,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const toggleRead = useCallback(async (id: string) => {
     setArticles(prev => {
       const updated = prev.map(a => a.id === id ? { ...a, isRead: !a.isRead, readAt: a.isRead ? undefined : Date.now() } : a);
-      storage.saveArticles(updated);
+      const article = updated.find(a => a.id === id);
+      if (article) {
+        setUnreadCount(prevCount => article.isRead ? prevCount - 1 : prevCount + 1);
+        storage.saveArticles([article]); // Save only the changed article
+      }
       return updated;
     });
   }, []);
@@ -476,16 +510,20 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const idSet = new Set(ids);
     const now = Date.now();
     setArticles(prev => {
-      let changed = false;
+      let changedCount = 0;
       const updated = prev.map(a => {
         if (idSet.has(a.id) && !a.isRead) {
-          changed = true;
+          changedCount++;
           return { ...a, isRead: true, readAt: now };
         }
         return a;
       });
-      if (changed) storage.saveArticles(updated);
-      return changed ? updated : prev;
+      if (changedCount > 0) {
+        setUnreadCount(prevCount => prevCount - changedCount);
+        const changedArticles = updated.filter(a => idSet.has(a.id));
+        storage.saveArticles(changedArticles);
+      }
+      return changedCount > 0 ? updated : prev;
     });
   }, []);
 
@@ -508,11 +546,11 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const markAllAsRead = useCallback(async () => {
     const now = Date.now();
-    setArticles(prev => {
-      const updated = prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now }));
-      storage.saveArticles(updated);
-      return updated;
-    });
+    // For "Mark all as read", we should update the DB directly for all articles
+    // and then update the local state
+    await storage.markAllArticlesAsRead();
+    setUnreadCount(0);
+    setArticles(prev => prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now })));
   }, []);
 
   const globalSearch = useCallback((query: string) => {
@@ -533,24 +571,53 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const toggleFavorite = useCallback(async (id: string) => {
     setArticles(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, isFavorite: !a.isFavorite } : a);
-      storage.saveArticles(updated);
+      const updated = prev.map(a => {
+        if (a.id === id) {
+          const isFavorite = !a.isFavorite;
+          // Update savedCount: if it was neither favorite nor queued, and now it's favorite, increment.
+          // If it was favorite and not queued, and now it's not favorite, decrement.
+          if (isFavorite && !a.isQueued) setSavedCount(s => s + 1);
+          else if (!isFavorite && !a.isQueued) setSavedCount(s => s - 1);
+          
+          const newArt = { ...a, isFavorite };
+          storage.saveArticles([newArt]);
+          return newArt;
+        }
+        return a;
+      });
       return updated;
     });
   }, []);
 
   const toggleQueue = useCallback(async (id: string) => {
     setArticles(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, isQueued: !a.isQueued } : a);
-      storage.saveArticles(updated);
+      const updated = prev.map(a => {
+        if (a.id === id) {
+          const isQueued = !a.isQueued;
+          if (isQueued && !a.isFavorite) setSavedCount(s => s + 1);
+          else if (!isQueued && !a.isFavorite) setSavedCount(s => s - 1);
+          
+          const newArt = { ...a, isQueued };
+          storage.saveArticles([newArt]);
+          return newArt;
+        }
+        return a;
+      });
       return updated;
     });
   }, []);
 
   const removeFromSaved = useCallback(async (id: string) => {
     setArticles(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, isFavorite: false, isQueued: false } : a);
-      storage.saveArticles(updated);
+      const updated = prev.map(a => {
+        if (a.id === id) {
+          if (a.isFavorite || a.isQueued) setSavedCount(s => s - 1);
+          const newArt = { ...a, isFavorite: false, isQueued: false };
+          storage.saveArticles([newArt]);
+          return newArt;
+        }
+        return a;
+      });
       return updated;
     });
   }, []);
@@ -588,23 +655,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return await storage.exportOpml(types);
   }, []);
 
-
-  /**
-   * ⚡ Bolt: Consolidate article counters into a single pass O(N) iteration.
-   * This avoids multiple filter().length calls (O(N) each) across the app, 
-   * which is especially beneficial as the article list grows to thousands of items.
-   * Expected: Reduces CPU time for derived state calculation by ~50% on every article update.
-   */
-  const { unreadCount, savedCount } = useMemo(() => {
-    let unread = 0;
-    let saved = 0;
-    for (let i = 0; i < articles.length; i++) {
-      const a = articles[i];
-      if (!a.isRead) unread++;
-      if (a.isFavorite || a.isQueued) saved++;
-    }
-    return { unreadCount: unread, savedCount: saved };
-  }, [articles]);
 
   const prefetch = useCallback(async (article: Article) => {
     if (article.type === 'article' && !article.content) {

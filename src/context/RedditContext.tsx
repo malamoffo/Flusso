@@ -60,25 +60,8 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const posts: RedditPost[] = [];
       for (const sub of targetSubs) {
         try {
-          const response = await fetch(`https://www.reddit.com/r/${sub.name}/${targetSort}.json?limit=25`);
-          if (response.ok) {
-            const data = await response.json();
-            const incomingPosts = data.data.children.map((child: any) => ({
-              id: child.data.id,
-              title: child.data.title,
-              author: child.data.author,
-              subreddit: child.data.subreddit,
-              permalink: child.data.permalink,
-              url: child.data.url,
-              imageUrl: child.data.thumbnail && child.data.thumbnail.startsWith('http') ? child.data.thumbnail : null,
-              createdUtc: child.data.created_utc,
-              score: child.data.score,
-              numComments: child.data.num_comments,
-              isRead: false,
-              isFavorite: false
-            }));
-            posts.push(...incomingPosts);
-          }
+          const incomingPosts = await storage.fetchRedditPosts(sub.name, targetSort);
+          posts.push(...incomingPosts);
         } catch (e) {
           console.error(`Failed to refresh r/${sub.name}`, e);
         }
@@ -86,8 +69,8 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       if (worker.current) {
         const handler = (e: MessageEvent) => {
-          if (e.data.type === 'redditPostsMerged') {
-            const merged = e.data.posts;
+          if (e.data.type === 'mergedRedditPosts') {
+            const merged = e.data.merged;
             setRedditPosts(merged);
             storage.saveRedditPosts(merged);
             worker.current!.removeEventListener('message', handler);
@@ -153,7 +136,7 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setRedditPosts(prev => {
       const sub = subreddits.find(s => s.id === id);
       if (!sub) return prev;
-      const next = prev.filter(p => p.subreddit.toLowerCase() !== sub.name.toLowerCase());
+      const next = prev.filter(p => (p.subredditName || '').toLowerCase() !== sub.name.toLowerCase());
       storage.saveRedditPosts(next);
       return next;
     });

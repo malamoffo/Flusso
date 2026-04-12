@@ -3,6 +3,7 @@ import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, 
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
+import { useTelegram } from '../context/TelegramContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
@@ -21,7 +22,8 @@ export const SettingsModal = React.memo(function SettingsModal({
   onClose: () => void;
   initialTab?: 'main' | 'general' | 'subscriptions' | 'about';
 }) {
-  const { feeds, telegramChannels, removeFeed, removeTelegramChannel, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
+  const { feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
+  const { telegramChannels, removeTelegramChannel } = useTelegram();
   const { settings, updateSettings } = useSettings();
   const { subreddits, removeSubreddit } = useReddit();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

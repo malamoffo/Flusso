@@ -40,7 +40,7 @@ export const fetchTelegramChannelInfo = async (channelUsername: string): Promise
   }
 };
 
-export const fetchTelegramMessages = async (channelUsername: string, sinceDate?: number, before?: string): Promise<TelegramMessage[]> => {
+export const fetchTelegramMessages = async (channelUsername: string, sinceDate?: number, before?: string, channelId?: string): Promise<TelegramMessage[]> => {
   try {
     let htmlData: string;
     let url = `https://t.me/s/${channelUsername}`;
@@ -113,7 +113,7 @@ export const fetchTelegramMessages = async (channelUsername: string, sinceDate?:
 
       messages.push({
         id,
-        channelId: channelUsername,
+        channelId: channelId || channelUsername,
         text: text || '',
         date,
         imageUrl,

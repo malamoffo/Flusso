@@ -94,6 +94,29 @@ class ContentFetcherQueue {
           lang: articleData.lang,
         };
         await this.setCachedContent(articleId, fullContent);
+
+        // Prefetch images found in the content
+        const imgTags = doc.querySelectorAll('img');
+        const imageUrls = Array.from(imgTags)
+          .map(img => img.getAttribute('src'))
+          .filter((src): src is string => !!src && src.startsWith('http'));
+
+        // Limit to first 5 images to avoid excessive bandwidth
+        for (const imgUrl of imageUrls.slice(0, 5)) {
+          try {
+            // On native, this will download to filesystem. On web, it will trigger browser cache.
+            const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+            if (isNative) {
+              const { imagePersistence } = await import('./imagePersistence');
+              await imagePersistence.getLocalUrl(imgUrl);
+            } else {
+              // Just fetch to trigger Service Worker / Browser Cache
+              fetch(imgUrl, { mode: 'no-cors' }).catch(() => {});
+            }
+          } catch (e) {
+            // Ignore image prefetch errors
+          }
+        }
       }
     }
   }

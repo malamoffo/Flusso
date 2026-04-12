@@ -131,14 +131,6 @@ export const storage = {
   async getArticles(offset = 0, limit = 0): Promise<Article[]> {
     await ensureMigrated();
     
-    // Cleanup old articles before returning
-    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    
-    // We can't do complex OR queries easily in Dexie without multiple queries, 
-    // but we can filter in memory or use a simpler approach.
-    // For performance, let's just get them sorted by pubDate
     let query = db.articles.orderBy('pubDate').reverse();
     
     if (limit > 0) {
@@ -146,6 +138,16 @@ export const storage = {
     }
     
     return await query.toArray();
+  },
+
+  async getUnreadCount(): Promise<number> {
+    await ensureMigrated();
+    return await db.articles.filter(a => !a.isRead).count();
+  },
+
+  async getSavedCount(): Promise<number> {
+    await ensureMigrated();
+    return await db.articles.filter(a => !!a.isFavorite || !!a.isQueued).count();
   },
 
   async cleanUpOldArticles(): Promise<void> {
@@ -727,6 +729,34 @@ export const storage = {
     }
   },
 
+  async fetchRedditPosts(subredditName: string, sort: 'new' | 'hot' | 'top' = 'new'): Promise<RedditPost[]> {
+    try {
+      const url = `https://api.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
+      const data = await this.fetchJsonWithProxy(url);
+      
+      if (!data || !data.data || !data.data.children) return [];
+
+      return data.data.children.map((child: any) => ({
+        id: child.data.id,
+        title: child.data.title,
+        author: child.data.author,
+        subredditId: child.data.subreddit_id,
+        subredditName: child.data.subreddit,
+        permalink: child.data.permalink,
+        url: child.data.url,
+        imageUrl: child.data.thumbnail && child.data.thumbnail.startsWith('http') ? child.data.thumbnail : null,
+        createdUtc: child.data.created_utc * 1000,
+        score: child.data.score,
+        numComments: child.data.num_comments,
+        isRead: false,
+        isFavorite: false
+      }));
+    } catch (e) {
+      console.error(`Failed to fetch posts for r/${subredditName}:`, e);
+      throw e;
+    }
+  },
+
   async fetchRedditComments(permalink: string): Promise<any[]> {
     try {
       // permalink already includes leading slash, e.g., /r/soloboardgaming/comments/...
@@ -736,13 +766,19 @@ export const storage = {
       const data = await this.fetchJsonWithProxy(url);
 
       // data is an array: [0] is the post, [1] is the comments
-      if (!data || !Array.isArray(data) || data.length < 2) return [];
+      if (!data || !Array.isArray(data) || data.length < 2 || !data[1].data || !data[1].data.children) return [];
 
       return data[1].data.children;
     } catch (e) {
       console.error(`Failed to fetch comments for ${permalink}:`, e);
       return [];
     }
+  },
+
+  async markAllArticlesAsRead(): Promise<void> {
+    await ensureMigrated();
+    const now = Date.now();
+    await db.articles.filter(a => !a.isRead).modify({ isRead: true, readAt: now });
   },
 
   async saveRefreshLogs(logs: RefreshLog[]): Promise<void> {
@@ -769,14 +805,28 @@ export const storage = {
     }
   },
 
-  async getTelegramMessages(channelId: string): Promise<TelegramMessage[]> {
+  async getTelegramMessages(channelId: string, username?: string): Promise<TelegramMessage[]> {
     await ensureMigrated();
-    return await db.telegramMessages.where('channelId').equals(channelId).sortBy('date');
+    let messages = await db.telegramMessages.where('channelId').equals(channelId).sortBy('date');
+    
+    // Fallback for legacy data where channelId was the username
+    if (messages.length === 0 && username) {
+      const legacyMessages = await db.telegramMessages.where('channelId').equals(username).sortBy('date');
+      if (legacyMessages.length > 0) {
+        // Fix them in background
+        const fixedMessages = legacyMessages.map(m => ({ ...m, channelId }));
+        db.telegramMessages.bulkPut(fixedMessages).catch(e => console.error('Failed to fix legacy telegram messages:', e));
+        return fixedMessages;
+      }
+    }
+    
+    return messages;
   },
 
   async saveTelegramMessages(channelId: string, messages: TelegramMessage[]): Promise<void> {
     await ensureMigrated();
-    await db.telegramMessages.bulkPut(messages);
+    const normalized = messages.map(m => ({ ...m, channelId }));
+    await db.telegramMessages.bulkPut(normalized);
   },
 
   async removeTelegramChannel(channelId: string): Promise<void> {

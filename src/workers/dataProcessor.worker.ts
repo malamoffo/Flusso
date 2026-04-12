@@ -6,14 +6,15 @@ self.onmessage = (e) => {
     const { type, prev, incoming, requestId } = e.data;
 
     if (type === 'mergeArticles') {
-      const merged = [...prev];
+      const merged = Array.isArray(prev) ? [...prev] : [];
+      const incomingArr = Array.isArray(incoming) ? incoming : [];
       const existingLinks = new Set<string>();
       for (let i = 0; i < merged.length; i++) {
         existingLinks.add(merged[i].link);
       }
       let hasNew = false;
 
-      for (const newArticle of incoming) {
+      for (const newArticle of incomingArr) {
         if (!existingLinks.has(newArticle.link)) {
           hasNew = true;
           existingLinks.add(newArticle.link);
@@ -40,14 +41,15 @@ self.onmessage = (e) => {
       self.postMessage({ type: 'mergedArticles', merged, hasNew, requestId });
     } else if (type === 'mergeRedditPosts') {
       const { sort } = e.data;
-      const merged = [...prev];
+      const merged = Array.isArray(prev) ? [...prev] : [];
+      const incomingArr = Array.isArray(incoming) ? incoming : [];
       const existingIds = new Set<string>();
       for (let i = 0; i < merged.length; i++) {
         existingIds.add(merged[i].id);
       }
       let hasNew = false;
 
-      for (const newPost of incoming) {
+      for (const newPost of incomingArr) {
         if (!existingIds.has(newPost.id)) {
           hasNew = true;
           existingIds.add(newPost.id);
@@ -64,14 +66,15 @@ self.onmessage = (e) => {
       }
       self.postMessage({ type: 'mergedRedditPosts', merged, hasNew, requestId });
     } else if (type === 'mergeTelegramMessages') {
-      const merged = [...prev];
+      const merged = Array.isArray(prev) ? [...prev] : [];
+      const incomingArr = Array.isArray(incoming) ? incoming : [];
       const existingIds = new Set<string>();
       for (let i = 0; i < merged.length; i++) {
         existingIds.add(merged[i].id);
       }
       let hasNew = false;
 
-      for (const newMessage of incoming) {
+      for (const newMessage of incomingArr) {
         if (!existingIds.has(newMessage.id)) {
           hasNew = true;
           existingIds.add(newMessage.id);

@@ -63,6 +63,7 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
         const rawComments = await storage.fetchRedditComments(post.permalink);
         
         const parseComments = (children: any[], depth: number): RedditComment[] => {
+          if (!Array.isArray(children)) return [];
           return children.map(child => {
             if (child.kind !== 't1') return null;
             const data = child.data;
