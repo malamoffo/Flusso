@@ -20,6 +20,11 @@ export const imagePersistence = {
       if (savedMap && savedMap.value) {
         this.resolvedLocalUrls = new Map(JSON.parse(savedMap.value));
       }
+      
+      // Cleanup old images on init
+      const settings = await db.settings.get('user_settings');
+      const retentionDays = settings?.imageRetentionDays || 1;
+      await this.cleanupOldImages(retentionDays);
     } catch (e) {
     }
     this.isInitialized = true;
@@ -177,7 +182,74 @@ export const imagePersistence = {
           recursive: true
         });
       }
+      this.resolvedLocalUrls.clear();
+      this.saveMap();
     } catch (e) {
+    }
+  },
+
+  /**
+   * Cleans up images older than maxAgeDays.
+   */
+  async cleanupOldImages(maxAgeDays: number): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+    
+    try {
+      const exists = await Filesystem.stat({
+        path: CACHE_DIR,
+        directory: Directory.Data
+      }).catch(() => null);
+
+      if (!exists) return;
+
+      const result = await Filesystem.readdir({
+        path: CACHE_DIR,
+        directory: Directory.Data
+      });
+
+      const now = Date.now();
+      const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+      let deletedCount = 0;
+
+      for (const file of result.files) {
+        try {
+          const stat = await Filesystem.stat({
+            path: `${CACHE_DIR}/${file.name}`,
+            directory: Directory.Data
+          });
+
+          if (now - stat.mtime > maxAgeMs) {
+            await Filesystem.deleteFile({
+              path: `${CACHE_DIR}/${file.name}`,
+              directory: Directory.Data
+            });
+            deletedCount++;
+            
+            // Remove from resolved map if we can find the original URL
+            // This is tricky since we only have the filename.
+            // We'll just clear the map if we deleted many files to be safe
+          }
+        } catch (e) {
+          // Skip if file error
+        }
+      }
+
+      if (deletedCount > 0) {
+        console.log(`[IMAGE_CACHE] Cleaned up ${deletedCount} old images.`);
+        // Re-sync map by checking which URLs still exist
+        const newMap = new Map<string, string>();
+        for (const [url, localUrl] of this.resolvedLocalUrls.entries()) {
+          const filename = this.getFilename(url);
+          const fileExists = result.files.some(f => f.name === filename);
+          if (fileExists) {
+            newMap.set(url, localUrl);
+          }
+        }
+        this.resolvedLocalUrls = newMap;
+        this.saveMap();
+      }
+    } catch (e) {
+      console.error('[IMAGE_CACHE] Cleanup failed:', e);
     }
   },
 

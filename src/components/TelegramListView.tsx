@@ -8,11 +8,10 @@ interface TelegramListViewProps {
   isActive: boolean;
   channels: TelegramChannel[];
   onChannelClick: (channel: TelegramChannel) => void;
-  onMarkAllAsRead: () => void;
   filter: 'all' | 'unread';
 }
 
-export const TelegramListView = memo(({ isActive, channels, onChannelClick, onMarkAllAsRead, filter }: TelegramListViewProps) => {
+export const TelegramListView = memo(({ isActive, channels, onChannelClick, filter }: TelegramListViewProps) => {
   const filteredChannels = React.useMemo(() => {
     if (filter === 'unread') {
       return channels.filter(c => c.unreadCount > 0);
@@ -78,18 +77,6 @@ export const TelegramListView = memo(({ isActive, channels, onChannelClick, onMa
             </div>
           ))}
         </div>
-      )}
-      
-      {channels.some(c => c.unreadCount > 0) && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          onClick={onMarkAllAsRead}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-green-700 transition-colors z-20"
-          aria-label="Mark all as read"
-        >
-          <Check className="w-6 h-6" />
-        </motion.button>
       )}
     </motion.main>
   );

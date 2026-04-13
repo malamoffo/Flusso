@@ -99,9 +99,32 @@ public class QueuePlugin extends Plugin {
         return favoritesQueue;
     }
 
+    @PluginMethod
+    public void updateMediaSession(PluginCall call) {
+        String title = call.getString("title");
+        String artist = call.getString("artist");
+        String album = call.getString("album");
+        String artwork = call.getString("artwork");
+        Double duration = call.getDouble("duration");
+        Double position = call.getDouble("position");
+        Boolean isPlaying = call.getBoolean("isPlaying");
+        
+        AndroidAutoService service = AndroidAutoService.getInstance();
+        if (service != null) {
+            service.updateSessionState(title, artist, album, artwork, duration, position, isPlaying);
+        }
+        call.resolve();
+    }
+
     public void triggerPlayRequest(String id) {
         JSObject data = new JSObject();
         data.put("id", id);
         notifyListeners("playRequest", data);
+    }
+
+    public void triggerActionRequest(String action) {
+        JSObject data = new JSObject();
+        data.put("action", action);
+        notifyListeners("actionRequest", data);
     }
 }

@@ -8,6 +8,8 @@ import { useFeedFiltering } from './hooks/useFeedFiltering';
 import { usePagination } from './hooks/usePagination';
 import { usePullToRefresh } from './hooks/usePullToRefresh';
 import { FeedList } from './components/App/FeedList';
+import { SwipeableArticleItem } from './components/SwipeableArticleItem';
+import { SwipeableRedditPost } from './components/SwipeableRedditPost';
 import { ArticleReader } from './components/ArticleReader';
 import { SettingsModal } from './components/SettingsModal';
 import { PersistentPlayer } from './components/PersistentPlayer';
@@ -68,7 +70,7 @@ export default function App() {
     isLoading: isRedditLoading,
     subreddits, redditPosts, redditSort, handleRedditSortChange,
     refreshReddit, loadMoreReddit, markRedditAsRead, toggleRedditRead, toggleRedditFavorite,
-    redditUnreadCount
+    redditUnreadCount, markAllRedditAsRead
   } = useReddit();
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -689,22 +691,65 @@ export default function App() {
             filter === 'saved' ? "z-10 opacity-100 pointer-events-auto" : "z-0 opacity-0 pointer-events-none"
           )}
         >
-          <FeedList
-            articles={savedArticles.slice(0, visibleCount)}
-            feedsMap={feedsMap}
-            settings={settings}
-            handleArticleClick={handleArticleClick}
-            markAsRead={markAsRead}
-            toggleRead={toggleRead}
-            toggleFavorite={toggleFavorite}
-            toggleQueue={toggleQueue}
-            handleRemoveArticle={handleRemoveArticle}
-            isSavedSection={true}
-            isActive={filter === 'saved'}
-            hasMoreArticles={hasMoreArticles}
-            isLoading={isLoading}
-            loadMoreArticles={loadMoreArticles}
-          />
+          <div className="flex-1 max-w-3xl mx-auto px-1 py-1">
+            <AnimatePresence initial={false}>
+              {[
+                ...savedArticles.map(a => ({ ...a, itemType: 'article' as const })),
+                ...redditPosts.filter(p => p.isFavorite).map(p => ({ ...p, itemType: 'reddit' as const }))
+              ]
+              .sort((a, b) => {
+                const timeA = (a as any).pubDate || (a as any).createdUtc * 1000;
+                const timeB = (b as any).pubDate || (b as any).createdUtc * 1000;
+                return timeB - timeA;
+              })
+              .slice(0, visibleCount)
+              .map(item => (
+                item.itemType === 'article' ? (
+                  <SwipeableArticleItem
+                    key={item.id}
+                    article={item as any}
+                    feedName={feedsMap.get((item as any).feedId)?.title || 'Unknown'}
+                    feedImageUrl={feedsMap.get((item as any).feedId)?.imageUrl}
+                    settings={settings}
+                    onClick={handleArticleClick}
+                    onMarkAsRead={markAsRead}
+                    toggleRead={toggleRead}
+                    toggleFavorite={toggleFavorite}
+                    toggleQueue={toggleQueue}
+                    onRemove={handleRemoveArticle}
+                    isSavedSection={true}
+                    filter={filter}
+                  />
+                ) : (
+                  <SwipeableRedditPost
+                    key={item.id}
+                    post={item as any}
+                    settings={settings}
+                    onClick={setSelectedRedditPost}
+                    onImageClick={setSelectedImage}
+                    onMarkAsRead={markRedditAsRead}
+                    toggleRead={toggleRedditRead}
+                    toggleFavorite={toggleRedditFavorite}
+                    filter="saved"
+                    isSavedSection={true}
+                    onRemove={() => toggleRedditFavorite(item.id)}
+                  />
+                )
+              ))}
+            </AnimatePresence>
+            {savedCount === 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-gray-500 px-6 text-center">
+                <Star className="w-16 h-16 mb-4 text-yellow-500/40 shadow-[0_0_20px_rgba(234,179,8,0.2)]" />
+                <p className="text-lg font-medium text-white mb-1">No saved items</p>
+                <p className="text-sm">Swipe right on an article or Reddit post to save it for later.</p>
+              </div>
+            )}
+            <div className="h-20 flex items-center justify-center">
+              {hasMoreArticles && (
+                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+              )}
+            </div>
+          </div>
         </div>
 
         <RedditListView
@@ -730,7 +775,6 @@ export default function App() {
             markTelegramChannelAsRead(channel.id);
             loadTelegramMessages(channel.id);
           }}
-          onMarkAllAsRead={markAllTelegramAsRead}
           filter={telegramFilter}
         />
       </div>
@@ -748,9 +792,9 @@ export default function App() {
           aria-pressed={filter === 'saved'}
         >
           <Star className={cn("w-6 h-6", filter === 'saved' && "shadow-[0_0_15px_rgba(234,179,8,0.5)]")} aria-hidden="true" />
-          {savedArticles.filter(a => !a.isRead).length > 0 && (
+          {savedCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-black">
-              {savedArticles.filter(a => !a.isRead).length > 99 ? '99+' : savedArticles.filter(a => !a.isRead).length}
+              {savedCount > 99 ? '99+' : savedCount}
             </span>
           )}
         </motion.button>
@@ -763,7 +807,7 @@ export default function App() {
         >
           <Inbox className={cn("w-6 h-6", filter === 'inbox' && "shadow-[0_0_15px_rgba(59,130,246,0.5)]")} aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-black">
+            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-black">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -813,7 +857,7 @@ export default function App() {
       </div>
 
       <AnimatePresence>
-        {filter === 'inbox' && (
+        {(filter === 'inbox' || filter === 'saved' || filter === 'reddit' || filter === 'telegram') && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.8, x: 20 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
@@ -823,19 +867,35 @@ export default function App() {
               currentTrack ? "bottom-44" : "bottom-28"
             )}
           >
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => refreshFeeds()}
-              className="w-10 h-10 bg-gray-800 text-indigo-400 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-transform"
-              title="Refresh feeds"
-              aria-label="Refresh feeds"
-            >
-              <RefreshCw className={cn("w-5 h-5", isLoading ? "animate-spin" : "")} aria-hidden="true" />
-            </motion.button>
+            {filter !== 'saved' && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  if (filter === 'inbox') refreshFeeds();
+                  else if (filter === 'reddit') refreshReddit();
+                  else if (filter === 'telegram') refreshTelegramChannels();
+                }}
+                className={cn(
+                  "w-10 h-10 bg-gray-800 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-transform",
+                  filter === 'reddit' ? "text-purple-400" : filter === 'telegram' ? "text-green-400" : "text-indigo-400"
+                )}
+                title="Refresh"
+                aria-label="Refresh"
+              >
+                <RefreshCw className={cn("w-5 h-5", (isLoading || isRedditLoading) ? "animate-spin" : "")} aria-hidden="true" />
+              </motion.button>
+            )}
+            
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsMarkAllReadOpen(true)}
-              className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:bg-indigo-700 dark:hover:bg-indigo-600 active:scale-95 transition-transform"
+              className={cn(
+                "w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-all duration-300",
+                filter === 'reddit' ? "bg-purple-600 hover:bg-purple-700 shadow-purple-500/20" : 
+                filter === 'telegram' ? "bg-green-600 hover:bg-green-700 shadow-green-500/20" : 
+                filter === 'saved' ? "bg-yellow-600 hover:bg-yellow-700 shadow-yellow-500/20" : 
+                "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+              )}
               title="Mark all as read"
               aria-label="Mark all as read"
             >
@@ -891,7 +951,13 @@ export default function App() {
                     }
                     setIsMarkAllReadOpen(false);
                   }}
-                  className="flex-1 py-2.5 rounded-xl font-medium bg-indigo-600 text-white"
+                  className={cn(
+                    "flex-1 py-2.5 rounded-full font-medium text-white transition-colors",
+                    filter === 'reddit' ? "bg-purple-600 hover:bg-purple-700" : 
+                    filter === 'telegram' ? "bg-green-600 hover:bg-green-700" : 
+                    filter === 'saved' ? "bg-yellow-600 hover:bg-yellow-700" : 
+                    "bg-blue-600 hover:bg-blue-700"
+                  )}
                 >
                   Mark All
                 </button>

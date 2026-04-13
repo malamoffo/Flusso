@@ -30,6 +30,10 @@ export const rssStorage = {
     return await db.articles.filter(a => !!a.isFavorite || !!a.isQueued).count();
   },
 
+  async getSavedUnreadCount(): Promise<number> {
+    return await db.articles.filter(a => (!!a.isFavorite || !!a.isQueued) && !a.isRead).count();
+  },
+
   async cleanUpOldArticles(): Promise<void> {
     const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;

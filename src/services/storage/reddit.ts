@@ -160,21 +160,35 @@ export const redditStorage = {
       
       if (!data || !data.data || !data.data.children) return [];
 
-      return data.data.children.map((child: any) => ({
-        id: child.data.id,
-        title: child.data.title,
-        author: child.data.author,
-        subredditId: child.data.subreddit_id,
-        subredditName: child.data.subreddit,
-        permalink: child.data.permalink,
-        url: child.data.url,
-        imageUrl: child.data.thumbnail && child.data.thumbnail.startsWith('http') ? child.data.thumbnail : null,
-        createdUtc: child.data.created_utc * 1000,
-        score: child.data.score,
-        numComments: child.data.num_comments,
-        isRead: false,
-        isFavorite: false
-      }));
+      return data.data.children.map((child: any) => {
+        const post = child.data;
+        let imageUrl = undefined;
+        
+        if (post.preview && post.preview.images && post.preview.images.length > 0) {
+          const preview = post.preview.images[0];
+          imageUrl = preview.source.url;
+        } else if (post.url && (post.url.match(/\.(jpg|jpeg|png|gif|webp)$/) || post.url.includes('imgur.com'))) {
+          imageUrl = post.url;
+        } else if (post.thumbnail && post.thumbnail.startsWith('http')) {
+          imageUrl = post.thumbnail;
+        }
+
+        return {
+          id: post.id,
+          title: he.decode(post.title),
+          author: post.author,
+          subredditId: post.subreddit_id,
+          subredditName: post.subreddit,
+          permalink: post.permalink,
+          url: post.url,
+          imageUrl: imageUrl ? he.decode(imageUrl) : undefined,
+          createdUtc: post.created_utc * 1000,
+          score: post.score,
+          numComments: post.num_comments,
+          isRead: false,
+          isFavorite: false
+        };
+      });
     } catch (e) {
       console.error(`Failed to fetch posts for r/${subredditName}:`, e);
       throw e;

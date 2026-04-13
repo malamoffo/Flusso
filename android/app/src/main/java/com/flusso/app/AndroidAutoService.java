@@ -35,8 +35,41 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     private static final String QUEUE_ID = "queue";
     private static final String RECENT_ID = "recent";
     private static final String FAVORITES_ID = "favorites";
+    private static AndroidAutoService instance;
     private MediaSessionCompat proxySession;
     private boolean isBound = false;
+
+    public static AndroidAutoService getInstance() {
+        return instance;
+    }
+
+    public void updateSessionState(String title, String artist, String album, String artwork, Double duration, Double position, Boolean isPlaying) {
+        if (proxySession == null) return;
+
+        MediaMetadataCompat.Builder metaBuilder = new MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album);
+
+        if (artwork != null && !artwork.isEmpty()) {
+            metaBuilder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, artwork);
+        }
+
+        if (duration != null) {
+            metaBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, (long) (duration * 1000));
+        }
+
+        proxySession.setMetadata(metaBuilder.build());
+
+        PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
+                .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE |
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS |
+                        PlaybackStateCompat.ACTION_STOP | PlaybackStateCompat.ACTION_SEEK_TO);
+
+        int state = isPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED;
+        stateBuilder.setState(state, (long) (position * 1000), 1.0f);
+        proxySession.setPlaybackState(stateBuilder.build());
+    }
 
     private ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -137,12 +170,74 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                                 public void onPlayFromMediaId(String mediaId, Bundle extras) {
                                     super.onPlayFromMediaId(mediaId, extras);
                                     Log.d(TAG, "onPlayFromMediaId: " + mediaId);
-                                    QueuePlugin queuePlugin = QueuePlugin.getInstance();
-                                    if (queuePlugin != null) {
-                                        queuePlugin.triggerPlayRequest(mediaId);
+                                    
+                                    // FIX: Order is fundamental. 
+                                    // 1. Find the track in our local queues
+                                    JSONObject track = findTrackById(mediaId);
+                                    if (track != null) {
+                                        try {
+                                            // 2. Update local proxy session metadata immediately for better responsiveness
+                                            updateProxyMetadata(track);
+                                            
+                                            // 3. Trigger playback in the app
+                                            QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                                            if (queuePlugin != null) {
+                                                queuePlugin.triggerPlayRequest(mediaId);
+                                            } else {
+                                                startAppWithMediaId(mediaId);
+                                            }
+                                            
+                                            // 4. If we have the plugin via reflection, we could call play directly
+                                            // but triggerPlayRequest is safer as it handles all app-side logic.
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Error handling onPlayFromMediaId", e);
+                                        }
                                     } else {
+                                        // Fallback if track not found in static queues
                                         startAppWithMediaId(mediaId);
                                     }
+                                }
+
+                                private JSONObject findTrackById(String id) {
+                                    JSArray[] queues = {
+                                        QueuePlugin.getStaticQueue(AndroidAutoService.this),
+                                        QueuePlugin.getStaticRecent(AndroidAutoService.this),
+                                        QueuePlugin.getStaticFavorites(AndroidAutoService.this)
+                                    };
+                                    for (JSArray queue : queues) {
+                                        if (queue == null) continue;
+                                        for (int i = 0; i < queue.length(); i++) {
+                                            JSONObject item = queue.optJSONObject(i);
+                                            if (item != null && id.equals(item.optString("id"))) {
+                                                return item;
+                                            }
+                                        }
+                                    }
+                                    return null;
+                                }
+
+                                private void updateProxyMetadata(JSONObject track) {
+                                    MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder()
+                                        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, track.optString("id"))
+                                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, track.optString("title"))
+                                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, track.optString("artist"))
+                                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, track.optString("album"));
+                                    
+                                    String artwork = track.optString("artwork");
+                                    if (artwork != null && !artwork.isEmpty()) {
+                                        builder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, artwork);
+                                    }
+                                    
+                                    long duration = track.optLong("duration", 0);
+                                    if (duration > 0) {
+                                        builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration * 1000);
+                                    }
+                                    
+                                    proxySession.setMetadata(builder.build());
+                                    proxySession.setPlaybackState(new PlaybackStateCompat.Builder()
+                                        .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS | PlaybackStateCompat.ACTION_SEEK_TO)
+                                        .setState(PlaybackStateCompat.STATE_BUFFERING, 0, 1.0f)
+                                        .build());
                                 }
 
                                 @Override
@@ -218,6 +313,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         Log.d(TAG, "onCreate - Inizializzazione servizio Android Auto");
         
         proxySession = new MediaSessionCompat(this, TAG);
@@ -228,16 +324,49 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
             @Override
             public void onPlay() {
                 super.onPlay();
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) queuePlugin.triggerActionRequest("play");
             }
             @Override
             public void onPause() {
                 super.onPause();
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) queuePlugin.triggerActionRequest("pause");
+            }
+            @Override
+            public void onSkipToNext() {
+                super.onSkipToNext();
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) queuePlugin.triggerActionRequest("next");
+            }
+            @Override
+            public void onSkipToPrevious() {
+                super.onSkipToPrevious();
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) queuePlugin.triggerActionRequest("previous");
+            }
+            @Override
+            public void onStop() {
+                super.onStop();
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) queuePlugin.triggerActionRequest("stop");
             }
             @Override
             public void onPlayFromMediaId(String mediaId, Bundle extras) {
                 super.onPlayFromMediaId(mediaId, extras);
                 Log.d(TAG, "Default onPlayFromMediaId: " + mediaId);
-                startAppWithMediaId(mediaId);
+                
+                JSONObject track = findTrackById(mediaId);
+                if (track != null) {
+                    updateProxyMetadata(track);
+                }
+                
+                QueuePlugin queuePlugin = QueuePlugin.getInstance();
+                if (queuePlugin != null) {
+                    queuePlugin.triggerPlayRequest(mediaId);
+                } else {
+                    startAppWithMediaId(mediaId);
+                }
             }
             @Override
             public void onPlayFromSearch(String query, Bundle extras) {
@@ -286,6 +415,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy - Pulizia risorse");
+        instance = null;
         if (isBound) {
             try {
                 unbindService(connection);

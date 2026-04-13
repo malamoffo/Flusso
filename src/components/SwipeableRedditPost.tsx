@@ -7,6 +7,7 @@ import { useInView } from 'react-intersection-observer';
 import { cn, getSafeUrl } from '../lib/utils';
 import { CachedImage } from './CachedImage';
 import DOMPurify from 'dompurify';
+import he from 'he';
 
 import { storage } from '../services/storage';
 
@@ -97,6 +98,16 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
 
   const shouldReduceMotion = useReducedMotion();
 
+  const decodedImageUrl = React.useMemo(() => {
+    if (!post.imageUrl) return undefined;
+    try {
+      // Handle Reddit's encoded URLs (e.g. &amp; -> &)
+      return post.imageUrl.includes('&amp;') ? he.decode(post.imageUrl) : post.imageUrl;
+    } catch (e) {
+      return post.imageUrl;
+    }
+  }, [post.imageUrl]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, height: 0 }}
@@ -168,13 +179,13 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
         <div className="flex flex-col gap-2">
           {/* Image at the top */}
-          {post.imageUrl && (
+          {decodedImageUrl && (
             <CachedImage 
-              src={getSafeUrl(post.imageUrl)}
+              src={getSafeUrl(decodedImageUrl)}
               alt="" 
               className="rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full h-auto min-h-[120px] object-cover mb-1"
               referrerPolicy="no-referrer"
-              onClick={(e) => { e.stopPropagation(); onImageClick(post.imageUrl!); }}
+              onClick={(e) => { e.stopPropagation(); onImageClick(decodedImageUrl); }}
             />
           )}
 

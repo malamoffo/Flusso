@@ -16,6 +16,7 @@ interface RedditContextType {
   toggleRedditFavorite: (id: string) => void;
   updateRedditPost: (id: string, updates: Partial<RedditPost>) => void;
   removeSubreddit: (id: string) => void;
+  markAllRedditAsRead: () => void;
   redditUnreadCount: number;
 }
 
@@ -149,12 +150,20 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   }, [subreddits]);
 
+  const markAllRedditAsRead = useCallback(() => {
+    setRedditPosts(prev => {
+      const next = prev.map(p => ({ ...p, isRead: true }));
+      storage.saveRedditPosts(next);
+      return next;
+    });
+  }, []);
+
   return (
     <RedditContext.Provider value={{
       subreddits, redditPosts, redditSort, isLoading,
       refreshReddit, loadMoreReddit, handleRedditSortChange,
       toggleRedditRead, markRedditAsRead, toggleRedditFavorite, updateRedditPost,
-      removeSubreddit, redditUnreadCount
+      removeSubreddit, markAllRedditAsRead, redditUnreadCount
     }}>
       {children}
     </RedditContext.Provider>

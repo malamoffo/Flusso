@@ -63,9 +63,15 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [error, setError] = useState<string | null>(null);
   const [errorLogs, setErrorLogs] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [savedCount, setSavedCount] = useState<number>(0);
   const [hasMoreArticles, setHasMoreArticles] = useState<boolean>(true);
+  
+  const unreadCount = useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
+  const savedCount = useMemo(() => {
+    const articleSaved = articles.filter(a => a.isFavorite || a.isQueued).length;
+    const redditSaved = redditPosts.filter(p => p.isFavorite).length;
+    return articleSaved + redditSaved;
+  }, [articles, redditPosts]);
+
   const articleOffset = useRef<number>(0);
   const PAGE_SIZE = 50;
   
@@ -140,8 +146,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       
       setFeeds(loadedFeeds);
       setArticles(loadedArticles);
-      setUnreadCount(unread);
-      setSavedCount(saved);
       articleOffset.current = loadedArticles.length;
       setHasMoreArticles(loadedArticles.length === PAGE_SIZE);
       
@@ -201,14 +205,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Save final state to storage once at the end for performance
       await storage.saveArticles(articlesRef.current);
       
-      // Update counts after refresh
-      const [unread, saved] = await Promise.all([
-        storage.getUnreadCount(),
-        storage.getSavedCount()
-      ]);
-      setUnreadCount(unread);
-      setSavedCount(saved);
-
       // Fetch latest feeds from storage to avoid overwriting newly added ones
       const currentFeedsInStorage = await storage.getFeeds();
       const updatedFeeds = currentFeedsInStorage.map(f => {
@@ -230,8 +226,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(false);
       setProgress(null);
       isRefreshing.current = false;
-      const unread = await storage.getUnreadCount();
-      setUnreadCount(unread);
     }
   }, []);
 
@@ -380,7 +374,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = prev.map(a => a.id === id ? { ...a, isRead: !a.isRead, readAt: a.isRead ? undefined : Date.now() } : a);
       const article = updated.find(a => a.id === id);
       if (article) {
-        setUnreadCount(prevCount => article.isRead ? prevCount - 1 : prevCount + 1);
         storage.saveArticles([article]); // Save only the changed article
       }
       return updated;
@@ -400,12 +393,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return a;
       });
       if (changedCount > 0) {
-        setUnreadCount(prevCount => Math.max(0, prevCount - changedCount));
         const changedArticles = updated.filter(a => idSet.has(a.id));
-        storage.saveArticles(changedArticles).then(() => {
-          // Recalculate from DB to ensure sync
-          storage.getUnreadCount().then(setUnreadCount);
-        });
+        storage.saveArticles(changedArticles);
       }
       return changedCount > 0 ? updated : prev;
     });
@@ -433,7 +422,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // For "Mark all as read", we should update the DB directly for all articles
     // and then update the local state
     await storage.markAllArticlesAsRead();
-    setUnreadCount(0);
     setArticles(prev => prev.map(a => ({ ...a, isRead: true, readAt: a.isRead ? a.readAt : now })));
   }, []);
 
@@ -458,11 +446,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = prev.map(a => {
         if (a.id === id) {
           const isFavorite = !a.isFavorite;
-          // Update savedCount: if it was neither favorite nor queued, and now it's favorite, increment.
-          // If it was favorite and not queued, and now it's not favorite, decrement.
-          if (isFavorite && !a.isQueued) setSavedCount(s => s + 1);
-          else if (!isFavorite && !a.isQueued) setSavedCount(s => s - 1);
-          
           const newArt = { ...a, isFavorite };
           storage.saveArticles([newArt]);
           return newArt;
@@ -478,9 +461,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = prev.map(a => {
         if (a.id === id) {
           const isQueued = !a.isQueued;
-          if (isQueued && !a.isFavorite) setSavedCount(s => s + 1);
-          else if (!isQueued && !a.isFavorite) setSavedCount(s => s - 1);
-          
           const newArt = { ...a, isQueued };
           storage.saveArticles([newArt]);
           return newArt;
@@ -495,7 +475,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setArticles(prev => {
       const updated = prev.map(a => {
         if (a.id === id) {
-          if (a.isFavorite || a.isQueued) setSavedCount(s => s - 1);
           const newArt = { ...a, isFavorite: false, isQueued: false };
           storage.saveArticles([newArt]);
           return newArt;
@@ -525,8 +504,6 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       storage.saveArticles(updated);
       return updated;
     });
-    const unread = await storage.getUnreadCount();
-    setUnreadCount(unread);
   }, []);
 
   const updateFeed = useCallback(async (id: string, updates: Partial<Feed>) => {

@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RedditPost, Settings } from '../types';
-import { MessageSquare, RefreshCw } from 'lucide-react';
+import { MessageSquare, RefreshCw, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { SwipeableRedditPost } from './SwipeableRedditPost';
 
@@ -36,6 +36,8 @@ export const RedditListView = memo(({
   scrollRef,
   handleScroll
 }: RedditListViewProps) => {
+  const hasUnread = React.useMemo(() => posts.some(p => !p.isRead), [posts]);
+
   return (
     <motion.main
       ref={scrollRef as any}

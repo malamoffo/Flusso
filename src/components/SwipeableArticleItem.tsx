@@ -61,6 +61,14 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     return () => unsubscribe();
   }, [x, article.id]);
 
+  // Reset x to 0 on mount to ensure items are centered, especially in Saved section
+  useEffect(() => {
+    if (swipeState[article.id]) {
+      animate(x, 0, { duration: 0 });
+      swipeState[article.id] = 0;
+    }
+  }, [article.id, x]);
+
   const [feedThemeColor, setFeedThemeColor] = useState<string | null>(() => {
     return feedImageUrl ? feedColorCache.get(feedImageUrl) || null : null;
   });
@@ -127,14 +135,24 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     if (isSaved) {
       return '#ef4444'; // Red for removal
     }
-    return action === 'none' ? 'rgba(0, 0, 0, 0)' : '#f59e0b'; // Yellow
+    if (action === 'toggleRead') {
+      return '#3b82f6'; // Blue for read
+    }
+    if (action === 'toggleFavorite') {
+      return '#f59e0b'; // Yellow for favorite
+    }
+    return 'rgba(0, 0, 0, 0)';
   };
 
   const leftBackground = getActionColor(isSavedSection ? 'remove' : settings.swipeLeftAction, !!isSavedSection);
   const rightBackground = getActionColor(isSavedSection ? 'remove' : settings.swipeRightAction, !!isSavedSection);
 
-  const middleBackground = isSavedSection ? 'rgba(239, 68, 68, 0)' : 'rgba(0, 0, 0, 0)';
-  const backgroundTransform = useTransform(x, [-100, 0, 100], [leftBackground, middleBackground, rightBackground]);
+  const middleBackground = 'rgba(0, 0, 0, 0)';
+  const backgroundTransform = useTransform(
+    x, 
+    [-100, -20, 0, 20, 100], 
+    [leftBackground, leftBackground, middleBackground, rightBackground, rightBackground]
+  );
 
   const [exitX, setExitX] = React.useState<number | string>(0);
 
@@ -285,7 +303,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feedImageUrl! : ''))}
               alt="" 
               className={cn(
-                "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity pointer-events-none",
+                "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
                 article.type === 'podcast' ? 'h-16 w-16 object-cover' : (
                   settings.imageDisplay === 'large' ? 'w-full h-auto min-h-[200px] mb-2' : 'w-20 h-auto min-h-[80px]'
                 )

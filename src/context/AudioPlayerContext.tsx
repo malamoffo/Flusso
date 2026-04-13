@@ -46,7 +46,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     .filter(a => a.type === 'podcast')
     .sort((a, b) => b.pubDate - a.pubDate)
     .slice(0, 20), [articles]);
-  const favoritePodcasts = useMemo(() => articles.filter(a => a.isFavorite && a.type === 'podcast'), [articles]);
+  const favoritePodcasts = useMemo(() => articles.filter(a => a.isFavorite && a.mediaUrl), [articles]);
   
   const queueRef = useRef<Article[]>([]);
   const { feeds } = useRss();
@@ -61,17 +61,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           title: a.title,
           artist: feed?.title || 'Podcast',
           album: 'Flusso',
-          artwork: a.imageUrl || feed?.imageUrl
+          artwork: a.imageUrl || feed?.imageUrl,
+          uri: a.mediaUrl,
+          duration: a.duration ? parseDurationToSeconds(a.duration) : 0
         };
       };
 
       QueuePlugin.setQueue({ 
-        queue: currentTrack ? [mapTrack(currentTrack)] : [],
+        queue: queue.map(mapTrack),
         recent: recentPodcasts.map(mapTrack),
         favorites: favoritePodcasts.map(mapTrack)
       }).catch(console.error);
     }
-  }, [currentTrack, recentPodcasts, favoritePodcasts, feeds]);
+  }, [currentTrack, queue, recentPodcasts, favoritePodcasts, feeds]);
 
   const playNextRef = useRef<() => void>(() => {});
 
@@ -360,10 +362,39 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (Capacitor.isNativePlatform()) MediaSession.setPlaybackState({ playbackState: 'none' }).catch(console.error);
   }, [currentTrack, progress, duration, updateArticle]);
 
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const listener = QueuePlugin.addListener('actionRequest', (data) => {
+        switch (data.action) {
+          case 'play': toggle(); break;
+          case 'pause': pause(); break;
+          case 'next': playNext(); break;
+          case 'previous': playPrevious(); break;
+          case 'stop': stop(); break;
+        }
+      });
+      return () => {
+        listener.then(l => l.remove());
+      };
+    }
+  }, [toggle, pause, playNext, playPrevious, stop]);
+
   // Media Session API for background controls
   useEffect(() => {
     if (currentTrack && Capacitor.isNativePlatform()) {
       const feed = feeds.find(f => f.id === currentTrack.feedId);
+      
+      // Sync with Android Auto proxy session (Fallback for reflection)
+      QueuePlugin.updateMediaSession({
+        title: currentTrack.title,
+        artist: feed?.title || 'Podcast',
+        album: 'Flusso',
+        artwork: currentTrack.imageUrl || feed?.imageUrl,
+        duration: duration,
+        position: progress,
+        isPlaying: isPlaying
+      }).catch(console.error);
+
       MediaSession.setMetadata({
         title: currentTrack.title,
         artist: feed?.title || 'Podcast', // Use feed title if found, else generic 'Podcast'

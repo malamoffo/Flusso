@@ -136,7 +136,7 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
       referrerPolicy="no-referrer"
       className={cn(
         className,
-        !isLoaded && "opacity-0",
+        !isLoaded && "bg-gray-800 animate-pulse",
         isLoaded && "opacity-100 transition-opacity duration-300"
       )}
       onLoad={handleLoad}
