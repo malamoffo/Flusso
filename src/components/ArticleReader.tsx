@@ -3,6 +3,7 @@ import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play
 import { Article, FullArticleContent, PodcastChapter } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
+import { useSettings } from '../context/SettingsContext';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 import DOMPurify from 'dompurify';
 import he from 'he';
@@ -113,7 +114,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
   const [isLoading, setIsLoading] = useState(true);
   const [articleThemeColor, setArticleThemeColor] = useState<string | null>(null);
   const [readerImageUrl, setReaderImageUrl] = useState<string | null>(article.imageUrl || null);
-  const { settings, feeds, articles, toggleFavorite, toggleQueue, toggleRead, updateArticle } = useRss();
+  const { feeds, articles, toggleFavorite, toggleQueue, toggleRead, updateArticle } = useRss();
+  const { settings } = useSettings();
   const feed = feeds.find(f => f.id === article.feedId);
   const { play, currentTrack, isPlaying, isBuffering, toggle, seek } = useAudioState();
   
