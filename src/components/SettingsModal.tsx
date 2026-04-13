@@ -12,6 +12,9 @@ import { PodcastSearchModal } from './PodcastSearchModal';
 import { PodcastDetailsModal } from './PodcastDetailsModal';
 import packageJson from '../../package.json';
 import { CachedImage } from './CachedImage';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
@@ -82,16 +85,36 @@ export const SettingsModal = React.memo(function SettingsModal({
     setSelectedFeedId(null);
   };
 
-  const downloadOpml = (opml: string, filename: string) => {
-    const blob = new Blob([opml], { type: 'text/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const downloadOpml = async (opml: string, filename: string) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: opml,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+
+        await Share.share({
+          title: 'Export OPML',
+          text: 'Esporta i tuoi feed di Flusso',
+          url: result.uri,
+          dialogTitle: 'Esporta OPML',
+        });
+      } catch (err) {
+        console.error('Failed to export OPML on native:', err);
+      }
+    } else {
+      const blob = new Blob([opml], { type: 'text/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

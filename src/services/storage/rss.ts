@@ -107,7 +107,7 @@ export const rssStorage = {
       const { feed, articles } = parseRssXml(xmlString, feedUrl, sinceDate);
       
       const filteredArticles = articles.filter(a => {
-        const limit = a.type === 'podcast' ? 14 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+        const limit = 7 * 24 * 60 * 60 * 1000;
         return (Date.now() - a.pubDate) <= limit && 
                (!sinceDate || a.pubDate > sinceDate);
       });

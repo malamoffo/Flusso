@@ -45,8 +45,8 @@ export const rssService = {
           try {
             const latestArticleDate = latestArticleDateByFeedId.get(feed.id);
             const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
-            const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
-            const hardSinceDate = Date.now() - (feed.type === 'podcast' ? TWO_WEEKS : THREE_DAYS);
+            const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+            const hardSinceDate = Date.now() - (feed.type === 'podcast' ? ONE_WEEK : THREE_DAYS);
             const sinceDate = Math.max(latestArticleDate || feed.lastArticleDate || 0, hardSinceDate);
             
             const controller = new AbortController();
@@ -55,7 +55,11 @@ export const rssService = {
             try {
               const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
               if (data) {
-                const articlesWithCorrectId = (data.articles || []).map(a => ({ ...a, feedId: feed.id }));
+                const articlesWithCorrectId = (data.articles || []).map(a => ({ 
+                  ...a, 
+                  feedId: feed.id,
+                  type: feed.type === 'podcast' ? 'podcast' : a.type
+                }));
                 
                 if (articlesWithCorrectId.length > 0) {
                   await (mergeChain = mergeChain.then(async () => {
