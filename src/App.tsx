@@ -33,10 +33,18 @@ const PAGE_SIZE = 30;
 const ProgressBanner = memo(() => {
   const { progress } = useRss();
   if (!progress) return null;
+  
+  const mbDownloaded = progress.bytesDownloaded ? (progress.bytesDownloaded / (1024 * 1024)).toFixed(2) : '0.00';
+  
   return (
     <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 text-sm text-blue-800 dark:text-blue-300 flex items-center justify-between border-t border-blue-100 dark:border-blue-900/30">
       <span>Updating feeds...</span>
-      <span className="font-medium">{progress.current} / {progress.total}</span>
+      <div className="flex items-center gap-3">
+        {progress.bytesDownloaded !== undefined && (
+          <span className="text-xs opacity-75">{mbDownloaded} MB</span>
+        )}
+        <span className="font-medium">{progress.current} / {progress.total}</span>
+      </div>
     </div>
   );
 });

@@ -97,7 +97,12 @@ export const rssStorage = {
     await db.articles.bulkPut(articles);
   },
 
-  async fetchFeedData(feedUrl: string, sinceDate?: number, signal?: AbortSignal): Promise<{ feed: Feed; articles: Article[] } | null> {
+  async deleteArticle(id: string): Promise<void> {
+    await db.articles.delete(id);
+    await db.articleContents.delete(id);
+  },
+
+  async fetchFeedData(feedUrl: string, sinceDate?: number, signal?: AbortSignal): Promise<{ feed: Feed; articles: Article[]; bytesDownloaded: number } | null> {
     try {
       const feeds = await this.getFeeds();
       const feed = feeds.find(f => f.feedUrl === feedUrl);
@@ -110,6 +115,8 @@ export const rssStorage = {
       }
 
       if (!response.data) return null;
+      
+      const bytesDownloaded = new Blob([response.data]).size;
 
       const { feed: parsedFeed, articles } = parseRssXml(response.data, feedUrl, sinceDate);
       
@@ -121,7 +128,8 @@ export const rssStorage = {
 
       return { 
         feed: { ...parsedFeed, etag: response.etag, lastModified: response.lastModified }, 
-        articles: filteredArticles 
+        articles: filteredArticles,
+        bytesDownloaded
       };
     } catch (e) {
       console.error(`Failed to fetch feed data for ${feedUrl}:`, e);

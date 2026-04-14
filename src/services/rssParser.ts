@@ -342,8 +342,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       
       const linkElements = tagDict['link'] || [];
       const entryLink = resolveUrl(linkElements.length > 0 ? (linkElements[0].getAttribute('href') || '') : '', feedUrl);
-      const pubDateStr = getSingleTagText(tagDict, ['published', 'updated', 'pubDate']) || new Date().toISOString();
-      const pubDate = new Date(pubDateStr).getTime();
+      const pubDateStr = getSingleTagText(tagDict, ['published', 'updated', 'pubDate']);
+      let pubDate = pubDateStr ? new Date(pubDateStr).getTime() : Date.now();
+      if (isNaN(pubDate)) pubDate = Date.now();
+      if (pubDate > Date.now()) pubDate = Date.now();
       
       if (sinceDate && pubDate <= sinceDate) continue;
       
@@ -618,8 +620,10 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       }
       
       const itemLink = resolveUrl(getSingleTagText(tagDict, ['link']) || '', feedUrl);
-      const pubDateStr = getSingleTagText(tagDict, ['pubDate', 'published', 'updated']) || new Date().toISOString();
-      const pubDate = new Date(pubDateStr).getTime();
+      const pubDateStr = getSingleTagText(tagDict, ['pubDate', 'published', 'updated']);
+      let pubDate = pubDateStr ? new Date(pubDateStr).getTime() : Date.now();
+      if (isNaN(pubDate)) pubDate = Date.now();
+      if (pubDate > Date.now()) pubDate = Date.now();
       
       if (sinceDate && pubDate <= sinceDate) continue;
       

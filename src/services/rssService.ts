@@ -7,7 +7,7 @@ export const rssService = {
     feedsToRefresh: Feed[],
     currentArticles: Article[],
     worker: Worker,
-    onProgress: (progress: { current: number; total: number; status?: string }) => void,
+    onProgress: (progress: { current: number; total: number; status?: string; bytesDownloaded?: number }) => void,
     onUpdateFeeds: (updater: (prev: Feed[]) => Feed[]) => void,
     onUpdateArticles: (updater: (prev: Article[]) => Article[]) => void,
     onSetIsLoading: (isLoading: boolean) => void
@@ -15,6 +15,7 @@ export const rssService = {
     onSetIsLoading(true);
     let latestArticles = currentArticles;
     let latestFeeds = [...feedsToRefresh];
+    let totalBytesDownloaded = 0;
     
     try {
       if (feedsToRefresh.length === 0) {
@@ -22,7 +23,7 @@ export const rssService = {
         return { finalArticles: latestArticles, finalFeeds: latestFeeds };
       }
       
-      onProgress({ current: 0, total: feedsToRefresh.length });
+      onProgress({ current: 0, total: feedsToRefresh.length, bytesDownloaded: 0 });
       let completed = 0;
       
       const latestArticleDateByFeedId = new Map<string, number>();
@@ -58,6 +59,10 @@ export const rssService = {
             try {
               const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
               if (data) {
+                if (data.bytesDownloaded) {
+                  totalBytesDownloaded += data.bytesDownloaded;
+                  onProgress({ current: completed, total: feedsToRefresh.length, bytesDownloaded: totalBytesDownloaded });
+                }
                 const articlesWithCorrectId = (data.articles || []).map(a => ({ 
                   ...a, 
                   feedId: feed.id,
@@ -136,7 +141,7 @@ export const rssService = {
             onUpdateFeeds(updateFeedFn);
           } finally {
             completed++;
-            onProgress({ current: completed, total: feedsToRefresh.length });
+            onProgress({ current: completed, total: feedsToRefresh.length, bytesDownloaded: totalBytesDownloaded });
           }
         }
       });

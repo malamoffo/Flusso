@@ -15,6 +15,7 @@ interface ProgressInfo {
   current: number;
   total: number;
   status?: string;
+  bytesDownloaded?: number;
 }
 
 interface RssContextType {
@@ -513,11 +514,8 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const removeArticle = useCallback(async (article: Article) => {
-    setArticles(prev => {
-      const updated = prev.filter(a => a.id !== article.id);
-      storage.saveArticles(updated);
-      return updated;
-    });
+    setArticles(prev => prev.filter(a => a.id !== article.id));
+    await storage.deleteArticle(article.id);
     
     if (article.type === 'podcast') {
       setFeeds(prev => {
