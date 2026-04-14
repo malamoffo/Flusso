@@ -51,8 +51,8 @@ export const HeaderWidgets = memo(function HeaderWidgets() {
     const fetchWeather = async (lat: number, lon: number) => {
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
-        const text = await fetchWithProxy(url, false);
-        const data = JSON.parse(text);
+        const res = await fetchWithProxy(url, false);
+        const data = JSON.parse(res.data);
         
         if (data.current_weather) {
           setWeather({

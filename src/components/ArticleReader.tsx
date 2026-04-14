@@ -44,7 +44,7 @@ const PodcastChapters = ({ article, isCurrentTrack }: { article: Article, isCurr
     if (article.chaptersUrl) {
       setLoading(true);
       fetchWithProxy(article.chaptersUrl, false)
-        .then(text => JSON.parse(text))
+        .then(res => JSON.parse(res.data))
         .then(data => {
           if (data && data.chapters && Array.isArray(data.chapters)) {
             const mappedChapters = data.chapters.map((c: any) => ({
@@ -239,7 +239,8 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             throw new Error(`Failed to fetch article: ${response.status}`);
           }
         } else {
-          html = await fetchWithProxy(article.link, false);
+          const res = await fetchWithProxy(article.link, false);
+          html = res.data;
         }
 
         if (html) {

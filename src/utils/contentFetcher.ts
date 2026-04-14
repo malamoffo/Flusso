@@ -72,7 +72,8 @@ class ContentFetcherQueue {
         throw new Error(`Failed to fetch article: ${response.status}`);
       }
     } else {
-      html = await fetchWithProxy(url, false);
+      const res = await fetchWithProxy(url, false);
+      html = res.data;
     }
 
     if (html) {

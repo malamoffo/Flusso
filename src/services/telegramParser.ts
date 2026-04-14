@@ -9,7 +9,8 @@ export const fetchTelegramChannelInfo = async (channelUsername: string): Promise
     
     // Always use proxy for Telegram to avoid CORS and regional blocks
     // and to ensure consistency across platforms
-    htmlData = await fetchWithProxy(`https://t.me/s/${channelUsername}`, false);
+    const res = await fetchWithProxy(`https://t.me/s/${channelUsername}`, false);
+    htmlData = res.data;
 
     if (!htmlData) {
       throw new Error('No data received from Telegram');
@@ -48,7 +49,8 @@ export const fetchTelegramMessages = async (channelUsername: string, sinceDate?:
     
     // Always use proxy for Telegram to avoid CORS and regional blocks
     // and to ensure consistency across platforms
-    htmlData = await fetchWithProxy(url, false);
+    const res = await fetchWithProxy(url, false);
+    htmlData = res.data;
 
     if (!htmlData || htmlData.includes('tgme_page_error') || htmlData.includes('Channel not found')) {
       throw new Error('Channel not found or unavailable');

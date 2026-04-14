@@ -200,7 +200,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       // Fetch chapters if needed
       if (track.chaptersUrl && (!track.chapters || track.chapters.length === 0)) {
         fetchWithProxy(track.chaptersUrl, false)
-          .then(text => JSON.parse(text))
+          .then(res => JSON.parse(res.data))
           .then(data => {
             if (data && data.chapters && Array.isArray(data.chapters)) {
               const mappedChapters = data.chapters.map((c: any) => ({

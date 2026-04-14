@@ -234,7 +234,8 @@ export const rssStorage = {
   },
 
   async fetchUrlContent(url: string): Promise<string> {
-    return await fetchWithProxy(url, false);
+    const res = await fetchWithProxy(url, false);
+    return res.data;
   },
 
   async discoverFeedUrl(url: string): Promise<string> {

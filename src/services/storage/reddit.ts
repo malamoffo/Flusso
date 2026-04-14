@@ -70,14 +70,14 @@ export const redditStorage = {
       if (!cleanName) return null;
 
       const url = `https://www.reddit.com/r/${cleanName}/about.json`;
-      const data = await this.fetchJsonWithProxy(url);
+      const result = await this.fetchJsonWithProxy(url);
 
-      if (!data || data.error || !data.data) {
-        console.error('Subreddit not found or error:', data);
+      if (!result || result.data.error || !result.data.data) {
+        console.error('Subreddit not found or error:', result);
         return null;
       }
 
-      const subData = data.data;
+      const subData = result.data.data;
       let iconUrl = subData.icon_img || subData.community_icon || undefined;
       if (iconUrl) {
         iconUrl = iconUrl.split('?')[0];
