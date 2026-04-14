@@ -4,11 +4,11 @@ import { fetchWithProxy } from '../../utils/proxy';
 import he from 'he';
 
 export const redditStorage = {
-  async fetchJsonWithProxy(url: string, signal?: AbortSignal): Promise<any> {
-    const response = await fetchWithProxy(url, false, undefined, signal);
-    if (!response || response.trim() === '') return null;
+  async fetchJsonWithProxy(url: string, signal?: AbortSignal, etag?: string, lastModified?: string): Promise<{ data: any, etag?: string, lastModified?: string } | null> {
+    const response = await fetchWithProxy(url, false, undefined, signal, etag, lastModified);
+    if (!response.data || response.data.trim() === '') return null;
     
-    let trimmed = response.trim();
+    let trimmed = response.data.trim();
     
     const firstBrace = trimmed.indexOf('{');
     const firstBracket = trimmed.indexOf('[');
@@ -29,7 +29,11 @@ export const redditStorage = {
     }
     
     try {
-      return JSON.parse(trimmed);
+      return {
+        data: JSON.parse(trimmed),
+        etag: response.etag,
+        lastModified: response.lastModified
+      };
     } catch (e) {
       console.error(`Failed to parse JSON from ${url}:`, e);
       throw new Error(`Malformed JSON response from ${url}`);
@@ -102,17 +106,28 @@ export const redditStorage = {
 
   async fetchSubredditPosts(subredditName: string, sinceDate?: number, after?: string, sort: 'new' | 'hot' | 'top' = 'new'): Promise<RedditPost[]> {
     try {
+      const subreddits = await this.getSubreddits();
+      const subreddit = subreddits.find(s => s.name === subredditName);
+      
       let url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
       if (after) {
         url += `&after=t3_${after}`;
       }
-      const data = await this.fetchJsonWithProxy(url);
       
-      if (!data || data.error || !data.data || !data.data.children) {
+      const data = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
+      
+      if (!data || data.data.error || !data.data.data || !data.data.data.children) {
         return [];
       }
 
-      const posts: RedditPost[] = data.data.children.map((child: any) => {
+      // Update etag and lastModified for the subreddit
+      if (subreddit) {
+        subreddit.etag = data.etag;
+        subreddit.lastModified = data.lastModified;
+        await this.saveSubreddits(subreddits);
+      }
+
+      const posts: RedditPost[] = data.data.data.children.map((child: any) => {
         const post = child.data;
         const createdUtc = post.created_utc * 1000;
 
@@ -155,12 +170,21 @@ export const redditStorage = {
 
   async fetchRedditPosts(subredditName: string, sort: 'new' | 'hot' | 'top' = 'new'): Promise<RedditPost[]> {
     try {
+      const subreddits = await this.getSubreddits();
+      const subreddit = subreddits.find(s => s.name === subredditName);
       const url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
-      const data = await this.fetchJsonWithProxy(url);
+      const data = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
       
-      if (!data || !data.data || !data.data.children) return [];
+      if (!data || !data.data.data || !data.data.data.children) return [];
 
-      return data.data.children.map((child: any) => {
+      // Update etag and lastModified for the subreddit
+      if (subreddit) {
+        subreddit.etag = data.etag;
+        subreddit.lastModified = data.lastModified;
+        await this.saveSubreddits(subreddits);
+      }
+
+      return data.data.data.children.map((child: any) => {
         const post = child.data;
         let imageUrl = undefined;
         

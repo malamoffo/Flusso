@@ -128,20 +128,24 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
   }
 
   return (
-    <img
-      ref={imgRef}
-      src={currentSrc || undefined}
-      alt={alt}
-      draggable={false}
-      referrerPolicy="no-referrer"
-      className={cn(
-        className,
-        !isLoaded && "bg-gray-800 animate-pulse",
-        isLoaded && "opacity-100 transition-opacity duration-300"
+    <div className={cn("relative overflow-hidden", className)}>
+      <img
+        ref={imgRef}
+        src={currentSrc || undefined}
+        alt={alt}
+        draggable={false}
+        referrerPolicy="no-referrer"
+        className={cn(
+          "w-full h-full object-cover transition-opacity duration-300",
+          isLoaded ? "opacity-100" : "opacity-0"
+        )}
+        onLoad={handleLoad}
+        onError={handleError}
+        {...props}
+      />
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-gray-800 animate-pulse" />
       )}
-      onLoad={handleLoad}
-      onError={handleError}
-      {...props}
-    />
+    </div>
   );
 }

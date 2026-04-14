@@ -35,7 +35,7 @@ export const rssService = {
       
       const queue = [...feedsToRefresh];
       let queueIndex = 0;
-      const FEED_TIMEOUT = 12000;
+      const FEED_TIMEOUT = 30000;
       const CONCURRENCY = Math.min(6, queue.length);
       
       let mergeChain = Promise.resolve();
@@ -71,7 +71,7 @@ export const rssService = {
                       const timeout = setTimeout(() => {
                         worker.removeEventListener('message', handler);
                         reject(new Error('Worker timeout'));
-                      }, 10000);
+                      }, 20000);
 
                       const handler = (e: MessageEvent) => {
                         if (e.data.type === 'mergedArticles' && e.data.requestId === requestId) {

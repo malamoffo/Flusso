@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { CapacitorHttp } from '@capacitor/core';
 
-export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDate?: number, externalSignal?: AbortSignal): Promise<string> {
+export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDate?: number, signal?: AbortSignal, etag?: string, lastModified?: string): Promise<{ data: string, etag?: string, lastModified?: string }> {
   // On native platforms, we don't need proxies as there's no CORS restriction
   if (Capacitor.isNativePlatform()) {
     try {
@@ -13,6 +13,12 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
       if (sinceDate) {
         headers['If-Modified-Since'] = new Date(sinceDate).toUTCString();
       }
+      if (etag) {
+        headers['If-None-Match'] = etag;
+      }
+      if (lastModified) {
+        headers['If-Modified-Since'] = lastModified;
+      }
 
       const response = await CapacitorHttp.get({
         url,
@@ -21,9 +27,13 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         readTimeout: 15000
       });
 
-      if (response.status === 304) return '';
+      if (response.status === 304) return { data: '' };
       if (response.status >= 200 && response.status < 300) {
-        return typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        return {
+          data: typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
+          etag: response.headers['etag'],
+          lastModified: response.headers['last-modified']
+        };
       }
       throw new Error(`Native fetch failed with status ${response.status}`);
     } catch (e) {
@@ -52,6 +62,12 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     if (sinceDate) {
       headers['If-Modified-Since'] = new Date(sinceDate).toUTCString();
     }
+    if (etag) {
+      headers['If-None-Match'] = etag;
+    }
+    if (lastModified) {
+      headers['If-Modified-Since'] = lastModified;
+    }
 
     const directResponse = await fetch(url, {
       signal: directController.signal,
@@ -60,17 +76,25 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     clearTimeout(directTimeoutId);
     
     if (directResponse.status === 304) {
-      return ''; // Return empty to indicate no new content
+      return { data: '' }; // Return empty to indicate no new content
     }
 
     if (directResponse.ok) {
       const text = await directResponse.text();
       if (isRss) {
         if (text && text.trim().length > 0 && (text.includes('<rss') || text.includes('<feed') || text.includes('<?xml') || text.includes('<rdf:RDF'))) {
-          return text;
+          return {
+            data: text,
+            etag: directResponse.headers.get('etag') || undefined,
+            lastModified: directResponse.headers.get('last-modified') || undefined
+          };
         }
       } else {
-        return text;
+        return {
+          data: text,
+          etag: directResponse.headers.get('etag') || undefined,
+          lastModified: directResponse.headers.get('last-modified') || undefined
+        };
       }
     }
   } catch (e: any) {
@@ -138,7 +162,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         } else if (proxy.type === 'rss2json') {
           const data = await response.json();
           if (data.status === 'ok') {
-            return JSON.stringify(data); // Return the JSON string, parseRssXml will handle it
+            return { data: JSON.stringify(data) }; // Return the JSON string, parseRssXml will handle it
           } else {
             lastError = new Error(`rss2json returned error: ${data.message}`);
             continue;
@@ -151,7 +175,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
           const trimmed = text.trim();
           if (isRss) {
             if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{')) {
-              return text;
+              return {
+                data: text,
+                etag: response.headers.get('etag') || undefined,
+                lastModified: response.headers.get('last-modified') || undefined
+              };
             } else {
               lastError = new Error(`Proxy ${proxy.name} returned invalid content (not XML/RSS)`);
               continue;
@@ -163,7 +191,11 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
               lastError = new Error(`Proxy ${proxy.name} returned HTML instead of expected JSON/API response`);
               continue;
             }
-            return text;
+            return {
+              data: text,
+              etag: response.headers.get('etag') || undefined,
+              lastModified: response.headers.get('last-modified') || undefined
+            };
           }
         } else {
           lastError = new Error(`Proxy ${proxy.name} returned empty response`);

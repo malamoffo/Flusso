@@ -96,6 +96,21 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     };
   }, [feedImageUrl]);
   
+  const getReadableColor = (color: string) => {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    
+    if (brightness < 100) {
+      return null;
+    }
+    return color;
+  };
+
+  const readableFeedThemeColor = feedThemeColor ? getReadableColor(feedThemeColor) : null;
+  
   const { ref, inView, entry } = useInView({
     threshold: 0,
     rootMargin: '-120px 0px 0px 0px',
@@ -317,7 +332,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
       >
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
         <div className={cn("flex gap-2", article.type === 'podcast' ? "flex-row items-start" : "flex-col gap-1.5")}>
-          {(article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none') && (
+          {(article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none') ? (
             <CachedImage 
               key={`${article.id}-${article.imageUrl}`}
               src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feedImageUrl! : ''))}
@@ -330,9 +345,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               )}
               referrerPolicy="no-referrer"
             />
-          )}
+          ) : null}
 
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div className={cn("flex-1 min-w-0 flex flex-col gap-1.5", !((article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none')) && "gap-0")}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 min-w-0">
                 {domain && article.type !== 'podcast' && (
@@ -352,8 +367,8 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                   <FileText className="w-3.5 h-3.5 text-gray-500" />
                 )}
                 <span 
-                  className={`text-xs font-medium truncate ${feedThemeColor ? '' : 'text-indigo-400'}`}
-                  style={{ color: feedThemeColor || undefined }}
+                  className={`text-xs font-medium truncate ${readableFeedThemeColor ? '' : 'text-indigo-400'}`}
+                  style={{ color: readableFeedThemeColor || undefined }}
                 >
                   {feedName}
                 </span>

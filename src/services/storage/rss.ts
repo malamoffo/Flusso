@@ -95,16 +95,19 @@ export const rssStorage = {
 
   async fetchFeedData(feedUrl: string, sinceDate?: number, signal?: AbortSignal): Promise<{ feed: Feed; articles: Article[] } | null> {
     try {
-      let xmlString = await fetchWithProxy(feedUrl, true, sinceDate, signal);
+      const feeds = await this.getFeeds();
+      const feed = feeds.find(f => f.feedUrl === feedUrl);
       
-      if (!xmlString && !signal?.aborted) {
+      let response = await fetchWithProxy(feedUrl, true, sinceDate, signal, feed?.etag, feed?.lastModified);
+      
+      if (!response.data && !signal?.aborted) {
         const alternativeUrl = feedUrl.endsWith('/') ? feedUrl.slice(0, -1) : feedUrl + '/';
-        xmlString = await fetchWithProxy(alternativeUrl, true, sinceDate, signal);
+        response = await fetchWithProxy(alternativeUrl, true, sinceDate, signal, feed?.etag, feed?.lastModified);
       }
 
-      if (!xmlString) return null;
+      if (!response.data) return null;
 
-      const { feed, articles } = parseRssXml(xmlString, feedUrl, sinceDate);
+      const { feed: parsedFeed, articles } = parseRssXml(response.data, feedUrl, sinceDate);
       
       const filteredArticles = articles.filter(a => {
         const limit = 7 * 24 * 60 * 60 * 1000;
@@ -112,7 +115,10 @@ export const rssStorage = {
                (!sinceDate || a.pubDate > sinceDate);
       });
 
-      return { feed, articles: filteredArticles };
+      return { 
+        feed: { ...parsedFeed, etag: response.etag, lastModified: response.lastModified }, 
+        articles: filteredArticles 
+      };
     } catch (e) {
       console.error(`Failed to fetch feed data for ${feedUrl}:`, e);
       return null;
@@ -175,7 +181,9 @@ export const rssStorage = {
           lastFetched: Date.now(),
           lastArticleDate: Math.max(currentLastArticleDate, latestFromNew),
           title: feed.title,
-          imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl
+          imageUrl: feed.imageUrl || updatedFeeds[existingFeedIndex].imageUrl,
+          etag: feed.etag,
+          lastModified: feed.lastModified
         };
         
         for (const a of newArticles) {

@@ -28,6 +28,8 @@ export interface Feed {
   error?: string;
   type?: 'article' | 'podcast';
   lastRefreshStatus?: 'success' | 'error';
+  etag?: string;
+  lastModified?: string;
 }
 
 export interface PodcastChapter {
@@ -89,6 +91,8 @@ export interface Subreddit {
   iconUrl?: string;
   addedAt: number;
   lastFetched?: number;
+  etag?: string;
+  lastModified?: string;
 }
 
 export interface RedditPost {
