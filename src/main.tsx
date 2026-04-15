@@ -13,10 +13,17 @@ import { registerSW } from 'virtual:pwa-register';
 // Register Service Worker
 const updateSW = registerSW({
   onNeedRefresh() {
+    // Force update if needed
+    updateSW(true);
   },
   onOfflineReady() {
   },
 });
+
+// Check for updates every hour
+setInterval(() => {
+  updateSW();
+}, 60 * 60 * 1000);
 
 // Initialize image persistence cache map
 imagePersistence.init();

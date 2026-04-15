@@ -43,6 +43,13 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
         return instance;
     }
 
+    public static void notifyQueueChanged() {
+        if (instance != null) {
+            instance.notifyChildrenChanged(QUEUE_ID);
+            instance.notifyChildrenChanged(FAVORITES_ID);
+        }
+    }
+
     public void updateSessionState(String title, String artist, String album, String artwork, Double duration, Double position, Boolean isPlaying) {
         if (proxySession == null) return;
 

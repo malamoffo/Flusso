@@ -191,7 +191,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
               <span className="text-xs text-gray-400 truncate">u/{post.author}</span>
             </div>
             <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
-              {isToday(post.createdUtc) ? format(post.createdUtc, 'HH:mm') : format(post.createdUtc, 'HH:mm dd/MM/yy')}
+              {isToday(post.createdUtc) ? `Oggi ${format(post.createdUtc, 'HH:mm')}` : format(post.createdUtc, 'HH:mm dd/MM/yy')}
             </span>
           </div>
 

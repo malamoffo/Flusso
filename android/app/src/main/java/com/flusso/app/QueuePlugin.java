@@ -66,6 +66,7 @@ public class QueuePlugin extends Plugin {
         }
         
         editor.apply();
+        AndroidAutoService.notifyQueueChanged();
         call.resolve();
     }
 

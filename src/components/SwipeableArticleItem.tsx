@@ -213,6 +213,8 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     }
   };
 
+  const hasImage = (article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none');
+
   const getTitleSize = () => {
     switch (settings.fontSize) {
       case 'large': return 'text-lg';
@@ -283,24 +285,24 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
       />
 
       <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-        <div className="flex items-center text-white font-medium">
+        <div className="flex items-center font-medium">
           {isSavedSection || (settings.swipeRightAction === 'remove' && article.type === 'podcast') ? (
-            <Trash2 className="w-6 h-6" />
+            <Trash2 className="w-6 h-6 text-white" />
           ) : (
             <>
               {settings.swipeRightAction === 'toggleFavorite' && (
-                article.type === 'podcast' ? <ListPlus className="w-6 h-6" /> : <Star className="w-6 h-6" />
+                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
               )}
             </>
           )}
         </div>
-        <div className="flex items-center text-white font-medium">
+        <div className="flex items-center font-medium">
           {isSavedSection || (settings.swipeLeftAction === 'remove' && article.type === 'podcast') ? (
-            <Trash2 className="w-6 h-6" />
+            <Trash2 className="w-6 h-6 text-white" />
           ) : (
             <>
               {settings.swipeLeftAction === 'toggleFavorite' && (
-                article.type === 'podcast' ? <ListPlus className="w-6 h-6" /> : <Star className="w-6 h-6" />
+                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
               )}
             </>
           )}
@@ -339,9 +341,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
         <div className={cn(
           "flex gap-3", 
-          (settings.imageDisplay === 'large' && article.type !== 'podcast') ? "flex-col" : "flex-row items-center"
+          (settings.imageDisplay === 'large' && article.type !== 'podcast' && hasImage) ? "flex-col" : "flex-row items-center"
         )}>
-          {(article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none') ? (
+          {hasImage ? (
             <div className={cn(
               "relative overflow-hidden flex-shrink-0",
               (settings.imageDisplay === 'large' && article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-20 h-20 rounded-lg"
@@ -376,10 +378,10 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
             "flex-1 min-w-0 flex flex-col",
             settings.listStyle === 'compact' ? "gap-0.5" : "gap-1.5"
           )}>
-            {(settings.listStyle !== 'magazine' || article.type === 'podcast' || settings.imageDisplay !== 'large') && (
+            {(settings.listStyle !== 'magazine' || article.type === 'podcast' || !hasImage) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {domain && article.type !== 'podcast' && (
+                  {domain && (
                     <CachedImage 
                       src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
                       alt="" 
@@ -408,7 +410,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                   )}
                   <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">
                     {isToday(article.pubDate) 
-                      ? format(article.pubDate, 'HH:mm') 
+                      ? `Oggi ${format(article.pubDate, 'HH:mm')}` 
                       : (article.type === 'podcast' ? format(article.pubDate, 'dd/MM/yy') : format(article.pubDate, 'dd MMM'))}
                   </span>
                 </div>
@@ -443,7 +445,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5" /> 
-                    {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM yyyy')}
+                    {isToday(article.pubDate) ? `Oggi ${format(article.pubDate, 'HH:mm')}` : format(article.pubDate, 'dd MMM yyyy')}
                   </span>
                   <div className="flex-1" />
                   <div className="flex gap-3">
