@@ -200,9 +200,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
             <h3 
               className={cn(
                 "font-semibold leading-tight mb-1 text-gray-100",
-                settings.fontSize === 'small' ? 'text-sm' : 
-                settings.fontSize === 'large' ? 'text-lg' : 
-                settings.fontSize === 'xlarge' ? 'text-xl' : 'text-base'
+                settings.fontSize === 'large' ? 'text-lg' : 'text-base'
               )}
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.title, { FORBID_ATTR: ['id', 'name'] }) }}
             />

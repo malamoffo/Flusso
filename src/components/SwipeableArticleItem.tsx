@@ -419,9 +419,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               <h3 
                 className={cn(
                   "font-bold leading-tight transition-colors",
-                  settings.listStyle === 'magazine' ? (settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : settings.fontSize === 'xlarge' ? 'text-3xl' : 'text-xl') : 
-                  settings.listStyle === 'bento' ? (settings.fontSize === 'small' ? 'text-base' : settings.fontSize === 'large' ? 'text-xl' : settings.fontSize === 'xlarge' ? 'text-2xl' : 'text-lg') :
-                  settings.listStyle === 'compact' ? (settings.fontSize === 'small' ? 'text-xs' : settings.fontSize === 'large' ? 'text-base' : settings.fontSize === 'xlarge' ? 'text-lg' : 'text-sm') : 
+                  settings.listStyle === 'magazine' ? (settings.fontSize === 'large' ? 'text-2xl' : 'text-xl') : 
+                  settings.listStyle === 'bento' ? (settings.fontSize === 'large' ? 'text-xl' : 'text-lg') :
+                  settings.listStyle === 'compact' ? (settings.fontSize === 'large' ? 'text-base' : 'text-sm') : 
                   getTitleSize(),
                   article.isRead ? 'text-gray-500' : 'text-gray-100',
                   !article.isRead && "group-hover:text-[var(--theme-color)]"
@@ -432,7 +432,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               {settings.listStyle !== 'compact' && article.type === 'article' && article.contentSnippet && (
                 <p className={cn(
                   "text-gray-400 line-clamp-2 leading-snug",
-                  settings.listStyle === 'magazine' ? (settings.fontSize === 'small' ? 'text-xs' : settings.fontSize === 'large' ? 'text-base' : settings.fontSize === 'xlarge' ? 'text-lg' : 'text-sm') : getSnippetSize(),
+                  settings.listStyle === 'magazine' ? (settings.fontSize === 'large' ? 'text-base' : 'text-sm') : getSnippetSize(),
                   settings.listStyle === 'magazine' ? "mb-3" : "mb-1"
                 )}>
                   {article.contentSnippet}
