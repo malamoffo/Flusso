@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
@@ -19,10 +19,12 @@ import { Share } from '@capacitor/share';
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
   onClose,
+  onOpenPreview,
   initialTab
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onOpenPreview?: () => void;
   initialTab?: 'main' | 'general' | 'subscriptions' | 'about';
 }) {
   const { feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
@@ -449,6 +451,28 @@ export const SettingsModal = React.memo(function SettingsModal({
                         * Images older than this will be removed to save space. They will be re-downloaded if you view the article again.
                       </p>
                     </div>
+                  </div>
+                </section>
+
+                {/* Experimental Features */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Experimental</h3>
+                  <div className="space-y-4">
+                    <button
+                      onClick={onOpenPreview}
+                      className="w-full p-4 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 border border-blue-500/20 rounded-2xl font-medium flex items-center justify-between transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Palette className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-bold text-white">Preview Modern Layouts</div>
+                          <div className="text-[10px] text-gray-500">Try new article reader designs</div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
                   </div>
                 </section>
               </div>

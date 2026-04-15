@@ -438,15 +438,13 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words bg-black"
+      className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col transition-colors break-words bg-black font-sans"
     >
-      {/* Background Tint */}
-      {articleThemeColor && (
-        <div 
-          className="fixed inset-0 pointer-events-none z-0 transition-colors duration-500"
-          style={{ backgroundColor: `${articleThemeColor}15` }}
-        />
-      )}
+      {/* Animated Background Gradients (Glass Style) */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
 
       {/* Top App Bar */}
       <div 
@@ -482,222 +480,231 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
         </div>
       </div>
 
-      {/* Article Content */}
-      <div className="relative z-10 flex-1 px-4 pt-6 pb-12 max-w-3xl mx-auto w-full">
-        {(readerImageUrl || (article.type === 'podcast' && feed?.imageUrl)) && (
-          <CachedImage 
-            key={`${article.id}-${readerImageUrl || feed?.imageUrl}`}
-            src={getSafeUrl(readerImageUrl || (article.type === 'podcast' ? feed?.imageUrl : '') || '')}
-            alt="" 
-            className="w-full h-auto rounded-2xl mb-4 object-contain max-h-[80vh]"
-            referrerPolicy="no-referrer"
-          />
-        )}
+      {/* Article Content with Glass Container */}
+      <div className="relative z-10 flex-1 py-4 px-0 sm:px-2 max-w-5xl mx-auto w-full">
+        <div className="backdrop-blur-2xl bg-white/5 border border-white/10 rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl mb-12">
+          {(readerImageUrl || (article.type === 'podcast' && feed?.imageUrl)) && (
+            <CachedImage 
+              key={`${article.id}-${readerImageUrl || feed?.imageUrl}`}
+              src={getSafeUrl(readerImageUrl || (article.type === 'podcast' ? feed?.imageUrl : '') || '')}
+              alt="" 
+              className="w-full h-auto object-contain max-h-[80vh]"
+              referrerPolicy="no-referrer"
+            />
+          )}
 
-        <div className="text-sm text-gray-400 mb-3">
-          {formattedDate} • {readTime}m read
-        </div>
+          <div className="p-4 sm:p-8">
+            <header className="mb-8 text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                {article.link && (
+                  <CachedImage 
+                    src={`https://icons.duckduckgo.com/ip3/${(() => {
+                      try { return new URL(article.link).hostname; }
+                      catch { return ''; }
+                    })()}.ico`} 
+                    alt="" 
+                    className="w-4 h-4 rounded-sm"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${(() => {
+                        try { return new URL(article.link).hostname; }
+                        catch { return ''; }
+                      })()}&sz=32`;
+                    }}
+                  />
+                )}
+                <span className="text-blue-400 text-sm font-semibold tracking-wide block uppercase">
+                  {feed?.title || 'Unknown Source'}
+                </span>
+              </div>
+              
+              <h1 className={`${getTitleSize()} font-bold text-white mb-4 leading-tight`}>
+                <a 
+                  href={getSafeUrl(article.link)}
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:underline"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
+                />
+              </h1>
+              
+              <div className="flex items-center justify-center gap-4 text-gray-400 text-sm">
+                <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> {readTime}m read</span>
+                <span className="w-1 h-1 bg-gray-600 rounded-full" />
+                <span>{formattedDate}</span>
+              </div>
 
-        <h1 className={`${getTitleSize()} font-bold text-white mb-4 leading-tight`}>
-          <a 
-            href={getSafeUrl(article.link)}
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="hover:underline"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
-          />
-        </h1>
+              <div className="flex items-center justify-center gap-6 mt-6 text-gray-400">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={async () => {
+                    const shareData = {
+                      title: article.title,
+                      text: article.title,
+                      url: article.link,
+                    };
 
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 rounded-full">
-            {article.link && (
-              <CachedImage 
-                src={`https://icons.duckduckgo.com/ip3/${(() => {
-                  try { return new URL(article.link).hostname; }
-                  catch { return ''; }
-                })()}.ico`} 
-                alt="" 
-                className="w-4 h-4 rounded-sm"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${(() => {
-                    try { return new URL(article.link).hostname; }
-                    catch { return ''; }
-                  })()}&sz=32`;
-                }}
-              />
-            )}
-            <span className="text-sm font-medium text-gray-300">{feed?.title || 'Unknown Source'}</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-gray-400">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={async () => {
-                const shareData = {
-                  title: article.title,
-                  text: article.title,
-                  url: article.link,
-                };
-
-                try {
-                  if (Capacitor.isNativePlatform()) {
-                    await Share.share({
-                      ...shareData,
-                      dialogTitle: 'Condividi articolo'
-                    });
-                  } else if (navigator.share) {
-                    await navigator.share(shareData);
-                  } else {
-                    // Fallback: copy to clipboard
-                    await navigator.clipboard.writeText(`${article.title}\n${article.link}`);
-                    alert('Link copiato negli appunti');
+                    try {
+                      if (Capacitor.isNativePlatform()) {
+                        await Share.share({
+                          ...shareData,
+                          dialogTitle: 'Condividi articolo'
+                        });
+                      } else if (navigator.share) {
+                        await navigator.share(shareData);
+                      } else {
+                        // Fallback: copy to clipboard
+                        await navigator.clipboard.writeText(`${article.title}\n${article.link}`);
+                        alert('Link copiato negli appunti');
+                      }
+                    } catch (err) {
+                      console.error('Error sharing:', err);
+                    }
+                  }}
+                  className="hover:text-white transition-colors"
+                  aria-label="Share article"
+                >
+                  <Share2 className="w-5 h-5" aria-hidden="true" />
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    if (article.type === 'podcast') {
+                      setIsQueued(!isQueued);
+                      toggleQueue(article.id);
+                    } else {
+                      setIsFavorite(!isFavorite);
+                      toggleFavorite(article.id);
+                    }
+                  }}
+                  className="hover:text-white transition-colors"
+                  aria-label={
+                    article.type === 'podcast' 
+                      ? (isQueued ? "Remove from queue" : "Add to queue")
+                      : (isFavorite ? "Remove from favorites" : "Add to favorites")
                   }
-                } catch (err) {
-                  console.error('Error sharing:', err);
-                }
-              }}
-              className="hover:text-white transition-colors"
-              aria-label="Share article"
-            >
-              <Share2 className="w-5 h-5" aria-hidden="true" />
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                if (article.type === 'podcast') {
-                  setIsQueued(!isQueued);
-                  toggleQueue(article.id);
-                } else {
-                  setIsFavorite(!isFavorite);
-                  toggleFavorite(article.id);
-                }
-              }}
-              className="hover:text-white transition-colors"
-              aria-label={
-                article.type === 'podcast' 
-                  ? (isQueued ? "Remove from queue" : "Add to queue")
-                  : (isFavorite ? "Remove from favorites" : "Add to favorites")
-              }
-            >
-              {article.type === 'podcast' ? (
-                <ListPlus className={`w-5 h-5 ${isQueued ? 'text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
-              ) : (
-                <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-current text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
-              )}
-            </motion.button>
-          </div>
-        </div>
-
-        <hr className="border-gray-800 mb-6" />
-
-        {article.type === 'podcast' && article.mediaUrl && (
-          <div className="mb-8 p-6 bg-gray-900/50 rounded-3xl border border-gray-800 shadow-sm">
-            <div className="flex flex-col gap-6">
-              <ReaderProgressBar article={article} isCurrentTrack={isCurrentTrack} />
-
-              {/* Controls */}
-              <div className="flex items-center justify-between">
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  disabled={!prevInQueue}
-                  onClick={() => {
-                    if (prevInQueue) {
-                      play(prevInQueue);
-                      onSelectArticle?.(prevInQueue);
-                    }
-                  }}
-                  className={`p-2 rounded-full transition-colors ${prevInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
-                  aria-label="Previous in queue"
                 >
-                  <SkipBack className="w-6 h-6 fill-current" />
-                </motion.button>
-
-                <SeekButtonReader direction="backward" article={article} isCurrentTrack={isCurrentTrack} />
-
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (isCurrentTrack) toggle();
-                    else play(article);
-                  }}
-                  className={cn(
-                    "w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors relative",
-                    isLoadingAudio && "animate-pulse"
-                  )}
-                  aria-label={isPlaying && isCurrentTrack ? "Pause" : "Play"}
-                >
-                  {isLoadingAudio ? (
-                    <RefreshCw className="w-8 h-8 animate-spin" />
-                  ) : isPlaying && isCurrentTrack ? (
-                    <Pause className="w-8 h-8 fill-current" />
+                  {article.type === 'podcast' ? (
+                    <ListPlus className={`w-5 h-5 ${isQueued ? 'text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
                   ) : (
-                    <Play className="w-8 h-8 fill-current ml-1" />
+                    <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-current text-[var(--theme-color)]' : ''}`} aria-hidden="true" />
                   )}
-                </motion.button>
-
-                <SeekButtonReader direction="forward" article={article} isCurrentTrack={isCurrentTrack} />
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  disabled={!nextInQueue}
-                  onClick={() => {
-                    if (nextInQueue) {
-                      play(nextInQueue);
-                      onSelectArticle?.(nextInQueue);
-                    }
-                  }}
-                  className={`p-2 rounded-full transition-colors ${nextInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
-                  aria-label="Next in queue"
-                >
-                  <SkipForward className="w-6 h-6 fill-current" />
                 </motion.button>
               </div>
-            </div>
-          </div>
-        )}
+            </header>
 
-        {article.type === 'podcast' && (article.chapters || article.chaptersUrl) && (
-          <PodcastChapters article={article} isCurrentTrack={isCurrentTrack} />
-        )}
+            <div className="h-px bg-white/10 w-full mb-8" />
 
-        {isLoading ? (
-          <div className="space-y-4 animate-pulse mt-8">
-            <div className="h-4 bg-gray-800 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-800 rounded w-full"></div>
-            <div className="h-4 bg-gray-800 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-800 rounded w-full"></div>
-            <div className="h-40 bg-gray-800 rounded w-full mt-6"></div>
+            {article.type === 'podcast' && article.mediaUrl && (
+              <div className="mb-8 p-6 bg-white/5 rounded-3xl border border-white/10 shadow-sm">
+                <div className="flex flex-col gap-6">
+                  <ReaderProgressBar article={article} isCurrentTrack={isCurrentTrack} />
+
+                  {/* Controls */}
+                  <div className="flex items-center justify-between">
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      disabled={!prevInQueue}
+                      onClick={() => {
+                        if (prevInQueue) {
+                          play(prevInQueue);
+                          onSelectArticle?.(prevInQueue);
+                        }
+                      }}
+                      className={`p-2 rounded-full transition-colors ${prevInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
+                      aria-label="Previous in queue"
+                    >
+                      <SkipBack className="w-6 h-6 fill-current" />
+                    </motion.button>
+
+                    <SeekButtonReader direction="backward" article={article} isCurrentTrack={isCurrentTrack} />
+
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        if (isCurrentTrack) toggle();
+                        else play(article);
+                      }}
+                      className={cn(
+                        "w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors relative",
+                        isLoadingAudio && "animate-pulse"
+                      )}
+                      aria-label={isPlaying && isCurrentTrack ? "Pause" : "Play"}
+                    >
+                      {isLoadingAudio ? (
+                        <RefreshCw className="w-8 h-8 animate-spin" />
+                      ) : isPlaying && isCurrentTrack ? (
+                        <Pause className="w-8 h-8 fill-current" />
+                      ) : (
+                        <Play className="w-8 h-8 fill-current ml-1" />
+                      )}
+                    </motion.button>
+
+                    <SeekButtonReader direction="forward" article={article} isCurrentTrack={isCurrentTrack} />
+
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      disabled={!nextInQueue}
+                      onClick={() => {
+                        if (nextInQueue) {
+                          play(nextInQueue);
+                          onSelectArticle?.(nextInQueue);
+                        }
+                      }}
+                      className={`p-2 rounded-full transition-colors ${nextInQueue ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-700'}`}
+                      aria-label="Next in queue"
+                    >
+                      <SkipForward className="w-6 h-6 fill-current" />
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {article.type === 'podcast' && (article.chapters || article.chaptersUrl) && (
+              <PodcastChapters article={article} isCurrentTrack={isCurrentTrack} />
+            )}
+
+            {isLoading ? (
+              <div className="space-y-4 animate-pulse mt-8">
+                <div className="h-4 bg-white/10 rounded w-3/4"></div>
+                <div className="h-4 bg-white/10 rounded w-full"></div>
+                <div className="h-4 bg-white/10 rounded w-5/6"></div>
+                <div className="h-4 bg-white/10 rounded w-full"></div>
+                <div className="h-40 bg-white/10 rounded w-full mt-6"></div>
+              </div>
+            ) : sanitizedContent ? (
+              <div 
+                onClick={handleContentClick}
+                className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-lg leading-relaxed text-gray-300
+                  prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
+                  prose-video:w-full prose-video:rounded-xl
+                  [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
+                  prose-a:text-indigo-400 prose-headings:font-bold prose-headings:tracking-tight prose-p:leading-relaxed
+                  prose-pre:max-w-full prose-pre:overflow-x-auto
+                  [&>blockquote]:relative [&>blockquote]:border-none [&>blockquote]:p-0 [&>blockquote]:text-center [&>blockquote]:text-xl sm:text-2xl [&>blockquote]:font-light [&>blockquote]:text-blue-200 [&>blockquote]:my-10
+                  [&>blockquote]:before:content-['“'] [&>blockquote]:before:text-6xl [&>blockquote]:before:text-blue-500/30 [&>blockquote]:before:absolute [&>blockquote]:before:-top-8 [&>blockquote]:before:left-1/2 [&>blockquote]:before:-translate-x-1/2`}
+                dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+              />
+            ) : (
+              <div className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-center py-8`}>
+                <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">
+                  We couldn't load the full content of this article.
+                </p>
+                <a 
+                  href={getSafeUrl(article.link)}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline"
+                >
+                  Read original article
+                </a>
+              </div>
+            )}
           </div>
-        ) : sanitizedContent ? (
-          <div 
-            onClick={handleContentClick}
-            className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden ${article.type === 'podcast' ? 'text-left' : 'text-left'}
-              prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
-              prose-video:w-full prose-video:rounded-xl
-              [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
-              prose-a:text-indigo-400 prose-headings:font-bold prose-headings:tracking-tight prose-p:leading-relaxed
-              prose-pre:max-w-full prose-pre:overflow-x-auto`}
-            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-          />
-        ) : (
-          <div className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-center py-8`}>
-            <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">
-              We couldn't load the full content of this article.
-            </p>
-            <a 
-              href={getSafeUrl(article.link)}
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-400 rounded-lg hover:bg-indigo-900/50 transition-colors no-underline"
-            >
-              Read original article
-            </a>
-          </div>
-        )}
+        </div>
       </div>
-
     </motion.div>
   );
 });

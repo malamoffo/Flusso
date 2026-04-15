@@ -5,6 +5,7 @@ export const defaultSettings: Settings = {
   swipeLeftAction: 'toggleFavorite',
   swipeRightAction: 'none',
   imageDisplay: 'small',
+  listStyle: 'magazine',
   fontSize: 'medium',
   refreshInterval: 60,
   themeColor: '#4f46e5',

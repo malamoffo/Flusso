@@ -173,7 +173,9 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
             <CachedImage 
               src={getSafeUrl(decodedImageUrl)}
               alt="" 
-              className="rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full h-auto min-h-[120px] object-cover mb-1"
+              className={cn(
+                "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity w-full object-cover mb-1 h-auto min-h-[120px]"
+              )}
               referrerPolicy="no-referrer"
               onClick={(e) => { e.stopPropagation(); onImageClick(decodedImageUrl); }}
             />

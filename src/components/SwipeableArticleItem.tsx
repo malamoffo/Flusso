@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion } from 'framer-motion';
 import { format, isToday } from 'date-fns';
-import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star } from 'lucide-react';
+import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star, Clock } from 'lucide-react';
 import { Article, Settings } from '../types';
 import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -331,73 +331,116 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         )}
       >
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-        <div className={cn("flex gap-2", article.type === 'podcast' ? "flex-row items-start" : "flex-col gap-1.5")}>
+        <div className={cn(
+          "flex gap-3", 
+          (settings.imageDisplay === 'large' && article.type !== 'podcast') ? "flex-col" : "flex-row items-center"
+        )}>
           {(article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none') ? (
-            <CachedImage 
-              key={`${article.id}-${article.imageUrl}`}
-              src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feedImageUrl! : ''))}
-              alt="" 
-              className={cn(
-                "rounded-lg flex-shrink-0 bg-gray-800 transition-opacity",
-                article.type === 'podcast' ? 'h-16 w-16 object-cover' : (
-                  settings.imageDisplay === 'large' ? 'w-full h-auto min-h-[200px] mb-2' : 'w-20 h-auto min-h-[80px]'
-                )
+            <div className={cn(
+              "relative overflow-hidden flex-shrink-0",
+              (settings.imageDisplay === 'large' && article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-20 h-20 rounded-lg"
+            )}>
+              <CachedImage 
+                key={`${article.id}-${article.imageUrl}`}
+                src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feedImageUrl! : ''))}
+                alt="" 
+                className={cn(
+                  "w-full h-full object-cover bg-gray-800 transition-opacity",
+                  settings.imageDisplay === 'large' && article.type !== 'podcast' && "h-auto"
+                )}
+                referrerPolicy="no-referrer"
+              />
+              {settings.imageDisplay === 'large' && article.type !== 'podcast' && (
+                <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5">
+                  {domain && (
+                    <CachedImage 
+                      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
+                      alt="" 
+                      className="w-3 h-3 rounded-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  {feedName}
+                </div>
               )}
-              referrerPolicy="no-referrer"
-            />
+            </div>
           ) : null}
 
-          <div className={cn("flex-1 min-w-0 flex flex-col gap-1.5", !((article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none')) && "gap-0")}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 min-w-0">
-                {domain && article.type !== 'podcast' && (
-                  <CachedImage 
-                    src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
-                    alt="" 
-                    className={`w-4 h-4 rounded-sm flex-shrink-0`}
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-                    }}
-                  />
-                )}
-                {article.type === 'podcast' ? (
-                  <Headphones className="w-3.5 h-3.5 text-[var(--theme-color)]" />
-                ) : (
-                  <FileText className="w-3.5 h-3.5 text-gray-500" />
-                )}
-                <span 
-                  className={`text-xs font-medium truncate ${readableFeedThemeColor ? '' : 'text-indigo-400'}`}
-                  style={{ color: readableFeedThemeColor || undefined }}
-                >
-                  {feedName}
-                </span>
+          <div className={cn(
+            "flex-1 min-w-0 flex flex-col",
+            settings.listStyle === 'compact' ? "gap-0.5" : "gap-1.5"
+          )}>
+            {settings.listStyle !== 'magazine' && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {domain && article.type !== 'podcast' && (
+                    <CachedImage 
+                      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
+                      alt="" 
+                      className={`w-3.5 h-3.5 rounded-sm flex-shrink-0`}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                      }}
+                    />
+                  )}
+                  {article.type === 'podcast' ? (
+                    <Headphones className="w-3 h-3 text-[var(--theme-color)]" />
+                  ) : (
+                    <FileText className="w-3 h-3 text-gray-500" />
+                  )}
+                  <span 
+                    className={`text-[10px] font-bold uppercase tracking-wider truncate ${readableFeedThemeColor ? '' : 'text-blue-500'}`}
+                    style={{ color: readableFeedThemeColor || undefined }}
+                  >
+                    {feedName}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 ml-2">
+                  <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">
+                    {article.type === 'podcast' 
+                      ? format(article.pubDate, 'dd/MM/yy')
+                      : (isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM'))}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 ml-2">
-                {article.isFavorite && (
-                  article.type === 'podcast' ? <ListPlus className="w-3.5 h-3.5 text-[var(--theme-color)]" /> : <Bookmark className="w-3.5 h-3.5 text-[var(--theme-color)] fill-[var(--theme-color)]" />
-                )}
-                {article.isQueued && (
-                  <ListPlus className="w-3.5 h-3.5 text-[var(--theme-color)]" />
-                )}
-                <span className="text-xs text-gray-400 whitespace-nowrap">
-                  {article.type === 'podcast' 
-                    ? format(article.pubDate, 'dd/MM/yy')
-                    : (isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'HH:mm dd/MM/yy'))}
-                </span>
-              </div>
-            </div>
+            )}
 
             <div className="min-w-0">
               <h3 
-                className={`${getTitleSize()} font-semibold leading-tight mb-1 ${article.isRead ? 'text-gray-400' : 'text-gray-100'}`}
+                className={cn(
+                  "font-bold leading-tight transition-colors",
+                  settings.listStyle === 'magazine' ? "text-xl sm:text-2xl mb-2" : 
+                  settings.listStyle === 'bento' ? "text-lg" :
+                  settings.listStyle === 'compact' ? "text-sm" : "text-base",
+                  article.isRead ? 'text-gray-500' : 'text-gray-100',
+                  !article.isRead && "group-hover:text-[var(--theme-color)]"
+                )}
                 dangerouslySetInnerHTML={{ __html: article.title }}
               />
-              {article.type === 'article' && article.contentSnippet && (
-                <p className="text-sm text-gray-400 line-clamp-2 mb-1 leading-snug">
-                  {article.contentSnippet}...
+              
+              {settings.listStyle !== 'compact' && article.type === 'article' && article.contentSnippet && (
+                <p className={cn(
+                  "text-gray-400 line-clamp-2 leading-snug",
+                  settings.listStyle === 'magazine' ? "text-sm mb-3" : "text-xs mb-1"
+                )}>
+                  {article.contentSnippet}
                 </p>
               )}
+
+              {settings.listStyle === 'magazine' && (
+                <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                  <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {format(article.pubDate, 'dd MMM yyyy')}</span>
+                  <div className="flex-1" />
+                  <div className="flex gap-3">
+                    {article.isFavorite && (
+                      <Bookmark className="w-4 h-4 text-[var(--theme-color)] fill-current" />
+                    )}
+                    <Star className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
+
               {article.type === 'podcast' && (
                 <PodcastProgressBar article={article} isCurrentTrack={isCurrentTrack} />
               )}
