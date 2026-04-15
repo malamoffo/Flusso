@@ -1,6 +1,19 @@
 import { Capacitor } from '@capacitor/core';
 import { CapacitorHttp } from '@capacitor/core';
 
+function getHeader(headers: Record<string, string | undefined> | Headers, name: string): string | undefined {
+  if (headers instanceof Headers) {
+    return headers.get(name) || undefined;
+  }
+  const lowerName = name.toLowerCase();
+  for (const key in headers) {
+    if (key.toLowerCase() === lowerName) {
+      return headers[key];
+    }
+  }
+  return undefined;
+}
+
 export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDate?: number, signal?: AbortSignal, etag?: string, lastModified?: string): Promise<{ data: string, etag?: string, lastModified?: string }> {
   // On native platforms, we don't need proxies as there's no CORS restriction
   if (Capacitor.isNativePlatform()) {
@@ -29,14 +42,14 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
 
       if (response.status === 304) return { 
         data: '',
-        etag: response.headers['etag'],
-        lastModified: response.headers['last-modified']
+        etag: getHeader(response.headers, 'etag'),
+        lastModified: getHeader(response.headers, 'last-modified')
       };
       if (response.status >= 200 && response.status < 300) {
         return {
           data: typeof response.data === 'string' ? response.data : JSON.stringify(response.data),
-          etag: response.headers['etag'],
-          lastModified: response.headers['last-modified']
+          etag: getHeader(response.headers, 'etag'),
+          lastModified: getHeader(response.headers, 'last-modified')
         };
       }
       throw new Error(`Native fetch failed with status ${response.status}`);
@@ -82,8 +95,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     if (directResponse.status === 304) {
       return { 
         data: '',
-        etag: directResponse.headers.get('etag') || undefined,
-        lastModified: directResponse.headers.get('last-modified') || undefined
+        etag: getHeader(directResponse.headers, 'etag'),
+        lastModified: getHeader(directResponse.headers, 'last-modified')
       }; // Return empty to indicate no new content
     }
 
@@ -93,15 +106,15 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
         if (text && text.trim().length > 0 && (text.includes('<rss') || text.includes('<feed') || text.includes('<?xml') || text.includes('<rdf:RDF'))) {
           return {
             data: text,
-            etag: directResponse.headers.get('etag') || undefined,
-            lastModified: directResponse.headers.get('last-modified') || undefined
+            etag: getHeader(directResponse.headers, 'etag'),
+            lastModified: getHeader(directResponse.headers, 'last-modified')
           };
         }
       } else {
         return {
           data: text,
-          etag: directResponse.headers.get('etag') || undefined,
-          lastModified: directResponse.headers.get('last-modified') || undefined
+          etag: getHeader(directResponse.headers, 'etag'),
+          lastModified: getHeader(directResponse.headers, 'last-modified')
         };
       }
     }
@@ -127,18 +140,12 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
 
   const proxies: { name: string, url: string, type: 'text' | 'json' | 'rss2json', timeout?: number }[] = [];
   
-  if (isRss) {
-    proxies.push({ name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 15000 });
-  }
-
-  const cacheBuster = `&_cb=${Date.now()}`;
-  
   const baseProxies: { name: string, url: string, type: 'text' | 'json' | 'rss2json', timeout?: number }[] = [
     { name: 'CorsProxy.io', url: `https://corsproxy.io/?${encodeURIComponent(url)}`, type: 'text', timeout: 12000 },
-    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}${cacheBuster}`, type: 'text', timeout: 15000 },
+    { name: 'AllOrigins Raw', url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, type: 'text', timeout: 15000 },
     { name: 'CodeTabs', url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, type: 'text', timeout: 12000 },
     { name: 'CorsProxy.org', url: `https://corsproxy.org/?url=${encodeURIComponent(url)}`, type: 'text', timeout: 12000 },
-    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}${cacheBuster}`, type: 'json', timeout: 15000 },
+    { name: 'AllOrigins JSON', url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, type: 'json', timeout: 15000 },
     { name: 'YACDN', url: `https://yacdn.org/proxy/${url}`, type: 'text', timeout: 12000 },
     { name: 'Cloudflare Worker', url: `https://cors-anywhere.azm.workers.dev/${url}`, type: 'text', timeout: 12000 },
     { name: 'ThingProxy', url: `https://thingproxy.freeboard.io/fetch/${url}`, type: 'text', timeout: 15000 },
@@ -146,9 +153,14 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     { name: 'CORS-Anywhere Demo', url: `https://cors-anywhere.herokuapp.com/${url}`, type: 'text', timeout: 15000 }
   ];
 
-  // Shuffle proxies to distribute load and avoid hitting a failing one first consistently
+  // Shuffle proxies to distribute load
   const shuffledBase = [...baseProxies].sort(() => Math.random() - 0.5);
   proxies.push(...shuffledBase);
+
+  // Add RSS2JSON as a fallback at the end if it's an RSS feed
+  if (isRss) {
+    proxies.push({ name: 'RSS2JSON', url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, type: 'rss2json', timeout: 15000 });
+  }
 
   let lastError: any;
   const defaultTimeout = 12000; // Increased from 8s to 12s per proxy
@@ -182,8 +194,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
       if (response.status === 304) {
         return { 
           data: '',
-          etag: response.headers.get('etag') || undefined,
-          lastModified: response.headers.get('last-modified') || undefined
+          etag: getHeader(response.headers, 'etag'),
+          lastModified: getHeader(response.headers, 'last-modified')
         };
       }
 
@@ -210,8 +222,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
             if (trimmed.includes('<rss') || trimmed.includes('<feed') || trimmed.includes('<?xml') || trimmed.includes('<rdf:RDF') || trimmed.startsWith('{')) {
               return {
                 data: text,
-                etag: response.headers.get('etag') || undefined,
-                lastModified: response.headers.get('last-modified') || undefined
+                etag: getHeader(response.headers, 'etag'),
+                lastModified: getHeader(response.headers, 'last-modified')
               };
             } else {
               lastError = new Error(`Proxy ${proxy.name} returned invalid content (not XML/RSS)`);
@@ -226,8 +238,8 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
             }
             return {
               data: text,
-              etag: response.headers.get('etag') || undefined,
-              lastModified: response.headers.get('last-modified') || undefined
+              etag: getHeader(response.headers, 'etag'),
+              lastModified: getHeader(response.headers, 'last-modified')
             };
           }
         } else {

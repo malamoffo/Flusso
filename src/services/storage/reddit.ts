@@ -6,6 +6,15 @@ import he from 'he';
 export const redditStorage = {
   async fetchJsonWithProxy(url: string, signal?: AbortSignal, etag?: string, lastModified?: string): Promise<{ data: any, etag?: string, lastModified?: string } | null> {
     const response = await fetchWithProxy(url, false, undefined, signal, etag, lastModified);
+    
+    if (response.data === '') {
+      return {
+        data: null,
+        etag: response.etag || etag,
+        lastModified: response.lastModified || lastModified
+      };
+    }
+
     if (!response.data || response.data.trim() === '') return null;
     
     let trimmed = response.data.trim();
@@ -173,18 +182,23 @@ export const redditStorage = {
       const subreddits = await this.getSubreddits();
       const subreddit = subreddits.find(s => s.name === subredditName);
       const url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
-      const data = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
+      const result = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
       
-      if (!data || !data.data.data || !data.data.data.children) return [];
+      if (!result) return [];
 
-      // Update etag and lastModified for the subreddit
+      // Update etag, lastModified and lastFetched for the subreddit
       if (subreddit) {
-        subreddit.etag = data.etag;
-        subreddit.lastModified = data.lastModified;
+        subreddit.etag = result.etag;
+        subreddit.lastModified = result.lastModified;
+        subreddit.lastFetched = Date.now();
         await this.saveSubreddits(subreddits);
       }
 
-      return data.data.data.children.map((child: any) => {
+      if (result.data === null) return []; // 304 Not Modified
+
+      if (!result.data.data || !result.data.data.children) return [];
+
+      return result.data.data.children.map((child: any) => {
         const post = child.data;
         let imageUrl = undefined;
         

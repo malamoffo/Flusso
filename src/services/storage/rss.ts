@@ -107,9 +107,12 @@ export const rssStorage = {
       const feeds = await this.getFeeds();
       const feed = feeds.find(f => f.feedUrl === feedUrl);
       
-      let response = await fetchWithProxy(feedUrl, true, sinceDate, signal, feed?.etag, feed?.lastModified);
-      
-      if (!response.data && !signal?.aborted) {
+      let response;
+      try {
+        response = await fetchWithProxy(feedUrl, true, sinceDate, signal, feed?.etag, feed?.lastModified);
+      } catch (e) {
+        if (signal?.aborted) throw e;
+        // If first attempt failed, try alternative URL (with/without trailing slash)
         const alternativeUrl = feedUrl.endsWith('/') ? feedUrl.slice(0, -1) : feedUrl + '/';
         response = await fetchWithProxy(alternativeUrl, true, sinceDate, signal, feed?.etag, feed?.lastModified);
       }

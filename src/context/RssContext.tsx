@@ -201,7 +201,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         throw new Error('Worker not initialized');
       }
 
-      const { finalArticles } = await rssService.refreshFeeds(
+      const { finalArticles, finalFeeds } = await rssService.refreshFeeds(
         fToRefresh,
         cArticles,
         worker.current,
@@ -217,7 +217,7 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Fetch latest feeds from storage to avoid overwriting newly added ones
       const currentFeedsInStorage = await storage.getFeeds();
       const updatedFeeds = currentFeedsInStorage.map(f => {
-        const refreshed = feedsRef.current.find(r => r.id === f.id);
+        const refreshed = finalFeeds.find(r => r.id === f.id);
         if (refreshed) {
           return refreshed;
         }

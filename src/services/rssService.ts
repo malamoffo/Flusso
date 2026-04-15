@@ -59,7 +59,7 @@ export const rssService = {
             try {
               const data = await storage.fetchFeedData(feed.feedUrl, sinceDate, controller.signal);
               if (data) {
-                if (data.bytesDownloaded) {
+                if (data.bytesDownloaded !== undefined) {
                   totalBytesDownloaded += data.bytesDownloaded;
                   onProgress({ current: completed, total: feedsToRefresh.length, bytesDownloaded: totalBytesDownloaded });
                 }
