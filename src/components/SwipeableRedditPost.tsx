@@ -198,7 +198,12 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           {/* Title and Stats at the bottom */}
           <div className="flex-1 min-w-0">
             <h3 
-              className="text-base font-semibold leading-tight mb-1 text-gray-100"
+              className={cn(
+                "font-semibold leading-tight mb-1 text-gray-100",
+                settings.fontSize === 'small' ? 'text-sm' : 
+                settings.fontSize === 'large' ? 'text-lg' : 
+                settings.fontSize === 'xlarge' ? 'text-xl' : 'text-base'
+              )}
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.title, { FORBID_ATTR: ['id', 'name'] }) }}
             />
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 font-medium">

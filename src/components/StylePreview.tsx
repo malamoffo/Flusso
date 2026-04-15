@@ -102,10 +102,10 @@ export const StylePreview: React.FC<StylePreviewProps> = ({ onClose }) => {
                 <div className="text-xs text-gray-500">Active Style: {activeListStyle}</div>
               </div>
               
-              {activeListStyle === 'minimal' && <MinimalList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} />}
-              {activeListStyle === 'bento' && <BentoList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} />}
-              {activeListStyle === 'magazine' && <MagazineList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} />}
-              {activeListStyle === 'compact' && <CompactList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} />}
+              {activeListStyle === 'minimal' && <MinimalList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} fontSize={settings.fontSize} />}
+              {activeListStyle === 'bento' && <BentoList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} fontSize={settings.fontSize} />}
+              {activeListStyle === 'magazine' && <MagazineList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} fontSize={settings.fontSize} />}
+              {activeListStyle === 'compact' && <CompactList items={SAMPLE_LIST} imageDisplay={settings.imageDisplay} fontSize={settings.fontSize} />}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -277,165 +277,218 @@ const ZenLayout = ({ article }: { article: any }) => (
 
 /* List Style Components */
 
-const MinimalList = ({ items, imageDisplay }: { items: any[], imageDisplay: string }) => (
-  <div className="divide-y divide-gray-800">
-    {items.map(item => (
-      <div key={item.id} className={cn(
-        "py-4 flex gap-4 group cursor-pointer",
-        imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
-      )}>
-        {imageDisplay !== 'none' && (
-          <img 
-            src={item.image} 
-            className={cn(
-              "rounded-lg object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all flex-shrink-0",
-              imageDisplay === 'large' ? "w-full h-auto" : "w-20 h-20"
-            )} 
-            alt="" 
-            referrerPolicy="no-referrer" 
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">{item.source}</span>
-            <span className="text-[10px] text-gray-600">{item.date}</span>
-          </div>
-          <h3 className={cn("text-base font-medium leading-snug group-hover:text-blue-400 transition-colors", item.isRead ? "text-gray-500" : "text-white")}>
-            {item.title}
-          </h3>
-        </div>
-      </div>
-    ))}
-  </div>
-);
+const MinimalList = ({ items, imageDisplay, fontSize }: { items: any[], imageDisplay: string, fontSize: string }) => {
+  const getTitleSize = () => {
+    switch (fontSize) {
+      case 'small': return 'text-sm';
+      case 'large': return 'text-lg';
+      case 'xlarge': return 'text-xl';
+      default: return 'text-base';
+    }
+  };
 
-const BentoList = ({ items, imageDisplay }: { items: any[], imageDisplay: string }) => (
-  <div className="space-y-3">
-    {items.map(item => (
-      <div key={item.id} className={cn(
-        "bg-gray-900/40 border border-gray-800 p-4 rounded-2xl flex gap-4 hover:bg-gray-800/60 transition-all group cursor-pointer",
-        imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
-      )}>
-        {imageDisplay !== 'none' && (
-          <img 
-            src={item.image} 
-            className={cn(
-              "rounded-xl object-cover flex-shrink-0",
-              imageDisplay === 'large' ? "w-full h-auto" : "w-24 h-24"
-            )} 
-            alt="" 
-            referrerPolicy="no-referrer" 
-          />
-        )}
-        <div className="flex-1 flex flex-col justify-center">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            </div>
-            <span className="text-xs font-semibold text-gray-400">{item.source}</span>
-          </div>
-          <h3 className={cn("text-lg font-bold leading-tight", item.isRead ? "text-gray-500" : "text-white")}>
-            {item.title}
-          </h3>
-          <span className="text-[10px] text-gray-600 mt-2 font-mono uppercase">{item.date}</span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-const MagazineList = ({ items, imageDisplay }: { items: any[], imageDisplay: string }) => (
-  <div className="space-y-8">
-    {items.map((item, idx) => (
-      <div key={item.id} className={cn(
-        "group cursor-pointer flex gap-4",
-        imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
-      )}>
-        {imageDisplay !== 'none' && (
-          <div className={cn(
-            "relative overflow-hidden flex-shrink-0",
-            imageDisplay === 'large' ? "w-full h-auto rounded-3xl mb-4" : "w-20 h-20 rounded-lg"
-          )}>
+  return (
+    <div className="divide-y divide-gray-800">
+      {items.map(item => (
+        <div key={item.id} className={cn(
+          "py-4 flex gap-4 group cursor-pointer",
+          imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
+        )}>
+          {imageDisplay !== 'none' && (
             <img 
               src={item.image} 
               className={cn(
-                "w-full h-full object-cover group-hover:scale-105 transition-transform duration-700",
-                imageDisplay === 'large' && "h-auto"
+                "rounded-lg object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all flex-shrink-0",
+                imageDisplay === 'large' ? "w-full h-auto" : "w-20 h-20"
               )} 
               alt="" 
               referrerPolicy="no-referrer" 
             />
-            {imageDisplay === 'large' && (
-              <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5">
-                <img 
-                  src={`https://www.google.com/s2/favicons?domain=${item.source.toLowerCase().replace(' ', '')}.com&sz=32`} 
-                  className="w-3 h-3 rounded-sm" 
-                  alt="" 
-                />
-                {item.source}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          {imageDisplay !== 'large' && (
+          )}
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">{item.source}</span>
               <span className="text-[10px] text-gray-600">{item.date}</span>
             </div>
+            <h3 className={cn(getTitleSize(), "font-medium leading-snug group-hover:text-blue-400 transition-colors", item.isRead ? "text-gray-500" : "text-white")}>
+              {item.title}
+            </h3>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const BentoList = ({ items, imageDisplay, fontSize }: { items: any[], imageDisplay: string, fontSize: string }) => {
+  const getTitleSize = () => {
+    switch (fontSize) {
+      case 'small': return 'text-base';
+      case 'large': return 'text-xl';
+      case 'xlarge': return 'text-2xl';
+      default: return 'text-lg';
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {items.map(item => (
+        <div key={item.id} className={cn(
+          "bg-gray-900/40 border border-gray-800 p-4 rounded-2xl flex gap-4 hover:bg-gray-800/60 transition-all group cursor-pointer",
+          imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
+        )}>
+          {imageDisplay !== 'none' && (
+            <img 
+              src={item.image} 
+              className={cn(
+                "rounded-xl object-cover flex-shrink-0",
+                imageDisplay === 'large' ? "w-full h-auto" : "w-24 h-24"
+              )} 
+              alt="" 
+              referrerPolicy="no-referrer" 
+            />
           )}
-          <h3 className={cn(
-            "font-bold leading-tight mb-2", 
-            imageDisplay === 'large' ? "text-2xl" : "text-base",
-            item.isRead ? "text-gray-500" : "text-white"
-          )}>
-            {item.title}
-          </h3>
-          {imageDisplay === 'large' && (
-            <p className="text-sm text-gray-400 line-clamp-2 mb-3 leading-snug">
-              Questa è un'anteprima del contenuto dell'articolo per mostrare come appare lo snippet nel layout Magazine...
-            </p>
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              </div>
+              <span className="text-xs font-semibold text-gray-400">{item.source}</span>
+            </div>
+            <h3 className={cn(getTitleSize(), "font-bold leading-tight", item.isRead ? "text-gray-500" : "text-white")}>
+              {item.title}
+            </h3>
+            <span className="text-[10px] text-gray-600 mt-2 font-mono uppercase">{item.date}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const MagazineList = ({ items, imageDisplay, fontSize }: { items: any[], imageDisplay: string, fontSize: string }) => {
+  const getTitleSize = () => {
+    switch (fontSize) {
+      case 'small': return 'text-lg';
+      case 'large': return 'text-2xl';
+      case 'xlarge': return 'text-3xl';
+      default: return 'text-xl';
+    }
+  };
+
+  const getSnippetSize = () => {
+    switch (fontSize) {
+      case 'small': return 'text-xs';
+      case 'large': return 'text-base';
+      case 'xlarge': return 'text-lg';
+      default: return 'text-sm';
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {items.map((item, idx) => (
+        <div key={item.id} className={cn(
+          "group cursor-pointer flex gap-4",
+          imageDisplay === 'large' ? "flex-col" : "flex-row items-center"
+        )}>
+          {imageDisplay !== 'none' && (
+            <div className={cn(
+              "relative overflow-hidden flex-shrink-0",
+              imageDisplay === 'large' ? "w-full h-auto rounded-3xl mb-4" : "w-20 h-20 rounded-lg"
+            )}>
+              <img 
+                src={item.image} 
+                className={cn(
+                  "w-full h-full object-cover group-hover:scale-105 transition-transform duration-700",
+                  imageDisplay === 'large' && "h-auto"
+                )} 
+                alt="" 
+                referrerPolicy="no-referrer" 
+              />
+              {imageDisplay === 'large' && (
+                <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5">
+                  <img 
+                    src={`https://www.google.com/s2/favicons?domain=${item.source.toLowerCase().replace(' ', '')}.com&sz=32`} 
+                    className="w-3 h-3 rounded-sm" 
+                    alt="" 
+                  />
+                  {item.source}
+                </div>
+              )}
+            </div>
           )}
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {item.date}</span>
-            <div className="flex-1" />
-            <div className="flex gap-2">
-              <Star className="w-4 h-4" />
-              <Share2 className="w-4 h-4" />
+          <div className="flex-1 min-w-0">
+            {imageDisplay !== 'large' && (
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">{item.source}</span>
+                <span className="text-[10px] text-gray-600">{item.date}</span>
+              </div>
+            )}
+            <h3 className={cn(
+              "font-bold leading-tight mb-2", 
+              getTitleSize(),
+              item.isRead ? "text-gray-500" : "text-white"
+            )}>
+              {item.title}
+            </h3>
+            {imageDisplay === 'large' && (
+              <p className={cn(getSnippetSize(), "text-gray-400 line-clamp-2 mb-3 leading-snug")}>
+                Questa è un'anteprima del contenuto dell'articolo per mostrare come appare lo snippet nel layout Magazine...
+              </p>
+            )}
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {item.date}</span>
+              <div className="flex-1" />
+              <div className="flex gap-2">
+                <Star className="w-4 h-4" />
+                <Share2 className="w-4 h-4" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
-const CompactList = ({ items, imageDisplay }: { items: any[], imageDisplay: string }) => (
-  <div className="bg-gray-900/20 rounded-2xl border border-gray-800 overflow-hidden">
-    {items.map((item, idx) => (
-      <div key={item.id} className={cn(
-        "p-3 flex items-center gap-3 hover:bg-gray-800/40 transition-colors cursor-pointer",
-        idx !== items.length - 1 && "border-b border-gray-800/50",
-        imageDisplay === 'large' && "flex-col items-start"
-      )}>
-        <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", item.isRead ? "bg-transparent" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]")} />
-        {imageDisplay === 'large' && (
-          <img src={item.image} className="w-full h-auto rounded-xl object-cover mb-2" alt="" referrerPolicy="no-referrer" />
-        )}
-        <div className="flex-1 min-w-0">
-          <h3 className={cn("text-sm font-medium truncate", item.isRead ? "text-gray-500" : "text-gray-200")}>
-            {item.title}
-          </h3>
-          <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5">
-            <span className="font-bold text-gray-500">{item.source}</span>
-            <span>•</span>
-            <span>{item.date}</span>
+const CompactList = ({ items, imageDisplay, fontSize }: { items: any[], imageDisplay: string, fontSize: string }) => {
+  const getTitleSize = () => {
+    switch (fontSize) {
+      case 'small': return 'text-xs';
+      case 'large': return 'text-base';
+      case 'xlarge': return 'text-lg';
+      default: return 'text-sm';
+    }
+  };
+
+  return (
+    <div className="bg-gray-900/20 rounded-2xl border border-gray-800 overflow-hidden">
+      {items.map((item, idx) => (
+        <div key={item.id} className={cn(
+          "p-3 flex items-center gap-3 hover:bg-gray-800/40 transition-colors cursor-pointer",
+          idx !== items.length - 1 && "border-b border-gray-800/50",
+          imageDisplay === 'large' && "flex-col items-start"
+        )}>
+          <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", item.isRead ? "bg-transparent" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]")} />
+          {imageDisplay === 'large' && (
+            <img src={item.image} className="w-full h-auto rounded-xl object-cover mb-2" alt="" referrerPolicy="no-referrer" />
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className={cn(getTitleSize(), "font-medium truncate", item.isRead ? "text-gray-500" : "text-gray-200")}>
+              {item.title}
+            </h3>
+            <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5">
+              <span className="font-bold text-gray-500">{item.source}</span>
+              <span>•</span>
+              <span>{item.date}</span>
+            </div>
           </div>
+          {imageDisplay === 'small' && (
+            <img src={item.image} className="w-10 h-10 rounded-md object-cover opacity-60" alt="" referrerPolicy="no-referrer" />
+          )}
         </div>
-        {imageDisplay === 'small' && (
-          <img src={item.image} className="w-10 h-10 rounded-md object-cover opacity-60" alt="" referrerPolicy="no-referrer" />
-        )}
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};

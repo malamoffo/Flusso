@@ -223,6 +223,16 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     }
   };
 
+  const getSnippetSize = () => {
+    switch (settings.fontSize) {
+      case 'small': return 'text-[10px]';
+      case 'large': return 'text-sm';
+      case 'xlarge': return 'text-base';
+      case 'medium':
+      default: return 'text-xs';
+    }
+  };
+
   const getDomain = (url: string) => {
     try {
       return new URL(url).hostname;
@@ -370,7 +380,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
             "flex-1 min-w-0 flex flex-col",
             settings.listStyle === 'compact' ? "gap-0.5" : "gap-1.5"
           )}>
-            {settings.listStyle !== 'magazine' && (
+            {(settings.listStyle !== 'magazine' || article.type === 'podcast' || settings.imageDisplay !== 'large') && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {domain && article.type !== 'podcast' && (
@@ -398,9 +408,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 </div>
                 <div className="flex items-center gap-1.5 ml-2">
                   <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">
-                    {article.type === 'podcast' 
-                      ? format(article.pubDate, 'dd/MM/yy')
-                      : (isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM'))}
+                    {isToday(article.pubDate) 
+                      ? format(article.pubDate, 'HH:mm') 
+                      : (article.type === 'podcast' ? format(article.pubDate, 'dd/MM/yy') : format(article.pubDate, 'dd MMM'))}
                   </span>
                 </div>
               </div>
@@ -410,9 +420,10 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               <h3 
                 className={cn(
                   "font-bold leading-tight transition-colors",
-                  settings.listStyle === 'magazine' ? "text-xl sm:text-2xl mb-2" : 
-                  settings.listStyle === 'bento' ? "text-lg" :
-                  settings.listStyle === 'compact' ? "text-sm" : "text-base",
+                  settings.listStyle === 'magazine' ? (settings.fontSize === 'small' ? 'text-lg' : settings.fontSize === 'large' ? 'text-2xl' : settings.fontSize === 'xlarge' ? 'text-3xl' : 'text-xl') : 
+                  settings.listStyle === 'bento' ? (settings.fontSize === 'small' ? 'text-base' : settings.fontSize === 'large' ? 'text-xl' : settings.fontSize === 'xlarge' ? 'text-2xl' : 'text-lg') :
+                  settings.listStyle === 'compact' ? (settings.fontSize === 'small' ? 'text-xs' : settings.fontSize === 'large' ? 'text-base' : settings.fontSize === 'xlarge' ? 'text-lg' : 'text-sm') : 
+                  getTitleSize(),
                   article.isRead ? 'text-gray-500' : 'text-gray-100',
                   !article.isRead && "group-hover:text-[var(--theme-color)]"
                 )}
@@ -422,7 +433,8 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               {settings.listStyle !== 'compact' && article.type === 'article' && article.contentSnippet && (
                 <p className={cn(
                   "text-gray-400 line-clamp-2 leading-snug",
-                  settings.listStyle === 'magazine' ? "text-sm mb-3" : "text-xs mb-1"
+                  settings.listStyle === 'magazine' ? (settings.fontSize === 'small' ? 'text-xs' : settings.fontSize === 'large' ? 'text-base' : settings.fontSize === 'xlarge' ? 'text-lg' : 'text-sm') : getSnippetSize(),
+                  settings.listStyle === 'magazine' ? "mb-3" : "mb-1"
                 )}>
                   {article.contentSnippet}
                 </p>
@@ -430,7 +442,10 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
 
               {settings.listStyle === 'magazine' && (
                 <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                  <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {format(article.pubDate, 'dd MMM yyyy')}</span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> 
+                    {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM yyyy')}
+                  </span>
                   <div className="flex-1" />
                   <div className="flex gap-3">
                     {article.isFavorite && (

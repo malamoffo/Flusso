@@ -676,7 +676,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             ) : sanitizedContent ? (
               <div 
                 onClick={handleContentClick}
-                className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden text-lg leading-relaxed text-gray-300
+                className={`prose ${getProseSize()} prose-invert max-w-full overflow-hidden leading-relaxed text-gray-300
                   prose-img:rounded-xl prose-img:w-full prose-img:object-cover prose-img:max-w-full
                   prose-video:w-full prose-video:rounded-xl
                   [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:border-0
