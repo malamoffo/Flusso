@@ -394,6 +394,10 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
       
       // Ensure videos are responsive
       videos.forEach(v => {
+        if (article.type === 'podcast') {
+          v.parentNode?.removeChild(v);
+          return;
+        }
         v.setAttribute('width', '100%');
         if (v.tagName === 'VIDEO') {
           v.setAttribute('height', 'auto');

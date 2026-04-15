@@ -213,7 +213,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     }
   };
 
-  const hasImage = (article.imageUrl || (article.type === 'podcast' && feedImageUrl)) && (article.type === 'podcast' || settings.imageDisplay !== 'none');
+  const hasImage = (article.imageUrl || (article.type === 'podcast' && feedImageUrl));
 
   const getTitleSize = () => {
     const isPodcast = article.type === 'podcast';
@@ -341,19 +341,19 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         onClick={handleArticleClick}
         exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
         className={cn(
-          "relative z-20 w-full p-2 cursor-pointer shadow-sm transition-all bg-black select-none",
-          "mx-auto max-w-full"
+          "relative z-20 w-full p-4 cursor-pointer transition-all bg-black select-none",
+          "mx-auto max-w-full border-b border-gray-800"
         )}
       >
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+
         <div className={cn(
           "flex gap-3", 
-          (settings.imageDisplay === 'large' && article.type !== 'podcast' && hasImage) ? "flex-col" : "flex-row items-center"
+          (article.type !== 'podcast' && hasImage) ? "flex-col" : "flex-row items-center"
         )}>
           {hasImage ? (
             <div className={cn(
               "relative overflow-hidden flex-shrink-0",
-              (settings.imageDisplay === 'large' && article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-20 h-20 rounded-lg"
+              (article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-16 h-16 rounded-lg"
             )}>
               <CachedImage 
                 key={`${article.id}-${article.imageUrl}`}
@@ -361,11 +361,11 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 alt="" 
                 className={cn(
                   "w-full h-full object-cover bg-gray-800 transition-opacity",
-                  settings.imageDisplay === 'large' && article.type !== 'podcast' && "h-auto"
+                  article.type !== 'podcast' && "h-auto"
                 )}
                 referrerPolicy="no-referrer"
               />
-              {settings.imageDisplay === 'large' && article.type !== 'podcast' && (
+              {article.type !== 'podcast' && (
                 <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5">
                   {domain && (
                     <CachedImage 
@@ -382,10 +382,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
           ) : null}
 
           <div className={cn(
-            "flex-1 min-w-0 flex flex-col",
-            settings.listStyle === 'compact' ? "gap-0.5" : "gap-1.5"
+            "flex-1 min-w-0 flex flex-col gap-1.5"
           )}>
-            {(settings.listStyle !== 'magazine' || article.type === 'podcast' || !hasImage) && (
+            {(article.type === 'podcast' || !hasImage) && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {domain && (
@@ -412,14 +411,6 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-2">
-                  {(article.isFavorite || article.isQueued) && (
-                    <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                  )}
-                  <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">
-                    {isToday(article.pubDate) 
-                      ? `Oggi ${format(article.pubDate, 'HH:mm')}` 
-                      : (article.type === 'podcast' ? format(article.pubDate, 'dd/MM/yy') : format(article.pubDate, 'dd MMM'))}
-                  </span>
                 </div>
               </div>
             )}
@@ -428,21 +419,6 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
               <h3 
                 className={cn(
                   "font-bold leading-tight transition-colors",
-                  settings.listStyle === 'magazine' ? (
-                    article.type === 'podcast' 
-                      ? (settings.fontSize === 'large' ? 'text-xl' : 'text-lg')
-                      : (settings.fontSize === 'large' ? 'text-2xl' : 'text-xl')
-                  ) : 
-                  settings.listStyle === 'bento' ? (
-                    article.type === 'podcast'
-                      ? (settings.fontSize === 'large' ? 'text-lg' : 'text-base')
-                      : (settings.fontSize === 'large' ? 'text-xl' : 'text-lg')
-                  ) :
-                  settings.listStyle === 'compact' ? (
-                    article.type === 'podcast'
-                      ? (settings.fontSize === 'large' ? 'text-sm' : 'text-xs')
-                      : (settings.fontSize === 'large' ? 'text-base' : 'text-sm')
-                  ) : 
                   getTitleSize(),
                   article.isRead ? 'text-gray-500' : 'text-gray-100',
                   !article.isRead && "group-hover:text-[var(--theme-color)]"
@@ -450,25 +426,25 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 dangerouslySetInnerHTML={{ __html: article.title }}
               />
               
-              {settings.listStyle !== 'compact' && article.type === 'article' && article.contentSnippet && (
+              {article.type === 'article' && article.contentSnippet && (
                 <p className={cn(
-                  "text-gray-400 line-clamp-2 leading-snug",
-                  settings.listStyle === 'magazine' ? (settings.fontSize === 'large' ? 'text-base' : 'text-sm') : getSnippetSize(),
-                  settings.listStyle === 'magazine' ? "mb-3" : "mb-1"
+                  "text-gray-400 line-clamp-2 leading-snug mb-1",
+                  getSnippetSize()
                 )}>
                   {article.contentSnippet}
                 </p>
               )}
 
-              {settings.listStyle === 'magazine' && (
-                <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" /> 
-                    {isToday(article.pubDate) ? `Oggi ${format(article.pubDate, 'HH:mm')}` : format(article.pubDate, 'dd MMM yyyy')}
-                  </span>
-                  <div className="flex-1" />
-                </div>
-              )}
+              <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" /> 
+                  {isToday(article.pubDate) ? `Oggi ${format(article.pubDate, 'HH:mm')}` : format(article.pubDate, 'dd MMM yyyy')}
+                </span>
+                {(article.isFavorite || article.isQueued) && (
+                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
+                )}
+                <div className="flex-1" />
+              </div>
 
               {article.type === 'podcast' && (
                 <PodcastProgressBar article={article} isCurrentTrack={isCurrentTrack} />

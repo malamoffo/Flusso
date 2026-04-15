@@ -4,9 +4,7 @@ import { Settings } from '../../types';
 export const defaultSettings: Settings = {
   swipeLeftAction: 'toggleFavorite',
   swipeRightAction: 'none',
-  imageDisplay: 'small',
-  listStyle: 'magazine',
-  fontSize: 'medium',
+  fontSize: 'large',
   refreshInterval: 60,
   themeColor: '#4f46e5',
   autoCheckUpdates: true,

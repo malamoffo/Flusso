@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
 import { useTelegram } from '../context/TelegramContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
-import { SwipeAction, Theme, ImageDisplay, FontSize } from '../types';
+import { SwipeAction, Theme, FontSize } from '../types';
 import { AddFeedModal } from './AddFeedModal';
 import { PodcastSearchModal } from './PodcastSearchModal';
 import { PodcastDetailsModal } from './PodcastDetailsModal';
@@ -19,12 +19,10 @@ import { Share } from '@capacitor/share';
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
   onClose,
-  onOpenPreview,
   initialTab
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onOpenPreview?: () => void;
   initialTab?: 'main' | 'general' | 'subscriptions' | 'about';
 }) {
   const { feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
@@ -76,7 +74,6 @@ export const SettingsModal = React.memo(function SettingsModal({
   }, [selectedFeedId]);
 
   const handleThemeChange = (theme: Theme) => updateSettings({ theme });
-  const handleImageDisplayChange = (imageDisplay: ImageDisplay) => updateSettings({ imageDisplay });
   const handleFontSizeChange = (fontSize: FontSize) => updateSettings({ fontSize });
   const handleSwipeLeftChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeLeftAction: e.target.value as SwipeAction });
   const handleSwipeRightChange = (e: React.ChangeEvent<HTMLSelectElement>) => updateSettings({ swipeRightAction: e.target.value as SwipeAction });
@@ -300,55 +297,6 @@ export const SettingsModal = React.memo(function SettingsModal({
               </div>
             ) : activeTab === 'general' ? (
               <div className="space-y-8">
-                {/* Font Size Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Font Size</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleFontSizeChange('medium')}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-colors ${settings.fontSize === 'medium' ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-                    >
-                      <Type className="w-5 h-5 mb-1" />
-                      <span className="text-xs font-medium">Medium</span>
-                    </button>
-                    <button
-                      onClick={() => handleFontSizeChange('large')}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-colors ${settings.fontSize === 'large' ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-                    >
-                      <Type className="w-6 h-6 mb-1" />
-                      <span className="text-xs font-medium">Large</span>
-                    </button>
-                  </div>
-                </section>
-
-                {/* Image Display Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Article Images</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      onClick={() => handleImageDisplayChange('none')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${settings.imageDisplay === 'none' ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-                    >
-                      <LayoutList className="w-6 h-6 mb-2" />
-                      <span className="text-xs font-medium">None</span>
-                    </button>
-                    <button
-                      onClick={() => handleImageDisplayChange('small')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${settings.imageDisplay === 'small' ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-                    >
-                      <ImageIcon className="w-6 h-6 mb-2" />
-                      <span className="text-xs font-medium">Small</span>
-                    </button>
-                    <button
-                      onClick={() => handleImageDisplayChange('large')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-colors ${settings.imageDisplay === 'large' ? 'border-indigo-600 bg-indigo-900/20 text-indigo-400' : 'border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-                    >
-                      <Maximize className="w-6 h-6 mb-2" />
-                      <span className="text-xs font-medium">Large</span>
-                    </button>
-                  </div>
-                </section>
-
                 {/* Gestures Settings */}
                 <section>
                   <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Gestures</h3>

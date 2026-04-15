@@ -21,7 +21,6 @@ import { TelegramThreadView } from './components/TelegramThreadView';
 import { TelegramChannel, TelegramMessage } from './types';
 import { ImageViewer } from './components/ImageViewer';
 import { ErrorNotification } from './components/ErrorNotification';
-import { StylePreview } from './components/StylePreview';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare, ChevronDown, Clock, Flame } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
@@ -101,7 +100,6 @@ export default function App() {
   const [selectedTelegramChannel, setSelectedTelegramChannel] = useState<TelegramChannel | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'main' | 'subscriptions' | 'about' | 'general' | undefined>(undefined);
   const [isMarkAllReadOpen, setIsMarkAllReadOpen] = useState(false);
   
@@ -990,19 +988,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isPreviewOpen && (
-          <StylePreview onClose={() => setIsPreviewOpen(false)} />
-        )}
-      </AnimatePresence>
+
 
       <SettingsModal 
         isOpen={isSettingsOpen} 
         initialTab={settingsTab}
-        onOpenPreview={() => {
-          setIsSettingsOpen(false);
-          setIsPreviewOpen(true);
-        }}
         onClose={() => {
           setIsSettingsOpen(false);
           setSettingsTab(undefined);
