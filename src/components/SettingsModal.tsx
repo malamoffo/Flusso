@@ -990,6 +990,8 @@ export const SettingsModal = React.memo(function SettingsModal({
                     <p className="text-sm text-gray-400 leading-relaxed">
                       Flusso is a minimalist, mobile-first RSS reader designed for speed and focus. 
                       It features full article extraction, swipe gestures, and OPML support.
+                      <br />
+                      <span className="font-mono text-xs opacity-75 mt-2 block">Version {packageJson.version}</span>
                     </p>
                   </div>
 
