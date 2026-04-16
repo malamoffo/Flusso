@@ -95,9 +95,28 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (worker.current) {
         const handler = (e: MessageEvent) => {
           if (e.data.type === 'mergedRedditPosts') {
-            const merged = e.data.merged;
-            setRedditPosts(merged);
-            storage.saveRedditPosts(merged);
+            const merged: RedditPost[] = e.data.merged;
+            
+            // Apply retention logic: within retention period AND at least one comment
+            const retentionMs = (settings.redditRetentionDays || 1) * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            
+            let filtered = merged.filter(p => {
+              if (p.isFavorite) return true;
+              const isWithinRetention = (now - p.createdUtc) < retentionMs;
+              const hasComments = p.numComments > 0;
+              return isWithinRetention && hasComments;
+            });
+
+            // If filtering results in too few posts, keep at least the 5 most recent ones
+            // to allow the user to have a starting point.
+            if (filtered.length < 5 && merged.length > 0) {
+              const sorted = [...merged].sort((a, b) => b.createdUtc - a.createdUtc);
+              filtered = sorted.slice(0, 5);
+            }
+
+            setRedditPosts(filtered);
+            storage.saveRedditPosts(filtered);
             worker.current!.removeEventListener('message', handler);
           }
         };

@@ -67,11 +67,23 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [hasMoreArticles, setHasMoreArticles] = useState<boolean>(true);
   
-  const unreadCount = useMemo(() => articles.filter(a => !a.isRead).length, [articles]);
-  const savedCount = useMemo(() => {
-    const articleSaved = articles.filter(a => a.isFavorite || a.isQueued).length;
-    const redditSaved = redditPosts.filter(p => p.isFavorite).length;
-    return articleSaved + redditSaved;
+  // ⚡ Bolt: Consolidate multiple O(N) passes into a single pass to calculate counts.
+  const { unreadCount, savedCount } = useMemo(() => {
+    let unread = 0;
+    let saved = 0;
+
+    for (let i = 0; i < articles.length; i++) {
+      const a = articles[i];
+      if (!a.isRead) unread++;
+      if (a.isFavorite || a.isQueued) saved++;
+    }
+
+    for (let i = 0; i < redditPosts.length; i++) {
+      const p = redditPosts[i];
+      if (p.isFavorite) saved++;
+    }
+
+    return { unreadCount: unread, savedCount: saved };
   }, [articles, redditPosts]);
 
   const articleOffset = useRef<number>(0);

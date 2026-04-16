@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, Clock, Calendar, User, ExternalLink, RefreshCw, Bookmark, List } from 'lucide-react';
+import { ArrowLeft, FileText, AlignLeft, X, Share2, Star, EyeOff, ListPlus, Play, Pause, SkipBack, SkipForward, RotateCcw, RotateCw, ChevronUp, ChevronDown, Calendar, User, ExternalLink, RefreshCw, Bookmark, List } from 'lucide-react';
 import { Article, FullArticleContent, PodcastChapter } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRss } from '../context/RssContext';
@@ -566,7 +566,7 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
               </h1>
               
               <div className="flex items-center justify-center gap-4 text-gray-400 text-sm">
-                <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> {readTime}m read</span>
+                <span className="flex items-center gap-2">{readTime}m read</span>
                 <span className="w-1 h-1 bg-gray-600 rounded-full" />
                 <span>{formattedDate}</span>
               </div>

@@ -108,7 +108,18 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
   const cleanupTelegramMessages = useCallback((channel: TelegramChannel, messages: TelegramMessage[]) => {
     const retentionMs = (settings.telegramRetentionDays || 1) * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    return messages.filter(m => now - m.date < retentionMs);
+    
+    // Filter by retention, but ALWAYS keep at least the 5 most recent messages
+    // to ensure the user can see something and trigger "load more" if needed.
+    const filtered = messages.filter(m => now - m.date < retentionMs);
+    
+    if (filtered.length < 5 && messages.length > 0) {
+      // Sort to get the most recent ones
+      const sorted = [...messages].sort((a, b) => b.date - a.date);
+      return sorted.slice(0, 5).sort((a, b) => a.date - b.date);
+    }
+    
+    return filtered;
   }, [settings.telegramRetentionDays]);
 
   const refreshTelegramChannels = useCallback(async (channelsToRefresh?: TelegramChannel[]) => {
@@ -163,12 +174,23 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
               });
               
               const cleaned = cleanupTelegramMessages(channel, merged);
+              
               setTelegramMessages(prev => {
                 const next = { ...prev, [channel.id]: cleaned };
                 telegramMessagesRef.current = next;
                 return next;
               });
-              await storage.saveTelegramMessages(channel.id, cleaned);
+              
+              // Save ALL merged messages to storage first to ensure we have a history,
+              // then the cleanup logic in loadData will handle long-term retention.
+              // This ensures that even if 'cleaned' is small, the database has the messages.
+              await storage.saveTelegramMessages(channel.id, merged);
+              
+              // Also update the channel's last message date
+              if (merged.length > 0) {
+                const lastDate = Math.max(...merged.map(m => m.date));
+                await storage.updateTelegramChannel(channel.id, { lastMessageDate: lastDate });
+              }
             }));
           }
         } catch (e) {
@@ -214,9 +236,12 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
           const existingIds = new Set(existing.map(m => m.id));
           const newMessages = olderMessages.filter(m => !existingIds.has(m.id));
           
-          const next = { ...prev, [channelId]: [...newMessages, ...existing] };
+          const combined = [...newMessages, ...existing];
+          const next = { ...prev, [channelId]: combined };
           telegramMessagesRef.current = next;
-          storage.saveTelegramMessages(channelId, next[channelId]);
+          
+          // Save the combined set to storage
+          storage.saveTelegramMessages(channelId, combined);
           return next;
         });
       }

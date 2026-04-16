@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Article } from '../types';
+import { Article, Feed } from '../types';
 import { useRss } from './RssContext';
 import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { fetchWithProxy } from '../utils/proxy';
@@ -40,22 +40,42 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const lastSavedProgressRef = useRef<number>(0);
   const currentTrackRef = useRef<Article | null>(null);
 
-  // Get the current queue: queued and favorited podcasts
-  const queue = useMemo(() => articles.filter(a => (a.isQueued || a.isFavorite) && a.type === 'podcast'), [articles]);
-  const recentPodcasts = useMemo(() => articles
-    .filter(a => a.type === 'podcast')
-    .sort((a, b) => b.pubDate - a.pubDate)
-    .slice(0, 20), [articles]);
-  const favoritePodcasts = useMemo(() => articles.filter(a => (!!a.isFavorite) && a.type === 'podcast' && !!a.mediaUrl), [articles]);
+  // ⚡ Bolt: Consolidate three separate O(N) filters and a sort into a single O(N) pass.
+  // Articles are already sorted by pubDate descending from the storage/worker layer.
+  const { queue, recentPodcasts, favoritePodcasts } = useMemo(() => {
+    const q: Article[] = [];
+    const r: Article[] = [];
+    const f: Article[] = [];
+
+    for (let i = 0; i < articles.length; i++) {
+      const a = articles[i];
+      if (a.type !== 'podcast') continue;
+
+      if (a.isQueued || a.isFavorite) q.push(a);
+      if (r.length < 20) r.push(a);
+      if (a.isFavorite && a.mediaUrl) f.push(a);
+    }
+
+    return { queue: q, recentPodcasts: r, favoritePodcasts: f };
+  }, [articles]);
   
   const queueRef = useRef<Article[]>([]);
   const { feeds } = useRss();
   
+  // ⚡ Bolt: Replace O(F) find() with O(1) Map lookup for native bridge sync.
+  const feedMap = useMemo(() => new Map(feeds.map(f => [f.id, f])), [feeds]);
+
   useEffect(() => {
     queueRef.current = queue;
     if (Capacitor.isNativePlatform()) {
+      // ⚡ Bolt: Replace O(N) find with O(1) Map lookup for native bridge synchronization.
+      const feedsMap = new Map<string, Feed>();
+      for (let i = 0; i < feeds.length; i++) {
+        feedsMap.set(feeds[i].id, feeds[i]);
+      }
+
       const mapTrack = (a: Article) => {
-        const feed = feeds.find(f => f.id === a.feedId);
+        const feed = feedsMap.get(a.feedId);
         return {
           id: a.id,
           title: a.title || 'Untitled',
@@ -73,7 +93,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         favorites: favoritePodcasts.map(mapTrack)
       }).catch(err => console.error('Error setting queue for Android Auto:', err));
     }
-  }, [currentTrack, queue, recentPodcasts, favoritePodcasts, feeds]);
+  }, [currentTrack, queue, recentPodcasts, favoritePodcasts, feedMap]);
 
   const playNextRef = useRef<() => void>(() => {});
 
@@ -382,7 +402,12 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Media Session API for background controls
   useEffect(() => {
     if (currentTrack && Capacitor.isNativePlatform()) {
-      const feed = feeds.find(f => f.id === currentTrack.feedId);
+      // ⚡ Bolt: Optimized O(N) find to O(1) lookup using Map for background sync.
+      const feedsMap = new Map<string, Feed>();
+      for (let i = 0; i < feeds.length; i++) {
+        feedsMap.set(feeds[i].id, feeds[i]);
+      }
+      const feed = feedsMap.get(currentTrack.feedId);
       
       // Sync with Android Auto proxy session (Fallback for reflection)
       QueuePlugin.updateMediaSession({

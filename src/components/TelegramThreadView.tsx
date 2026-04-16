@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TelegramChannel, TelegramMessage } from '../types';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TelegramThreadViewProps {
@@ -106,14 +106,20 @@ export const TelegramThreadView = memo(({ channel, messages, onClose, onRefresh,
             <p className="text-sm font-medium">Caricamento messaggi...</p>
           </div>
         ) : isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
-            <p className="text-sm font-medium">Nessun messaggio trovato</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4 p-6 text-center">
+            <MessageSquare className="w-12 h-12 opacity-20" />
+            <div>
+              <p className="text-sm font-medium text-white">Nessun messaggio recente</p>
+              <p className="text-xs mt-1">I messaggi fuori dal periodo di retention sono stati nascosti.</p>
+            </div>
             <button 
-              onClick={onRefresh}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center gap-2"
+              onClick={() => {
+                if (onRefresh) onRefresh();
+              }}
+              className="px-6 py-2.5 bg-green-600 text-white rounded-full text-sm font-bold hover:bg-green-700 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] flex items-center gap-2 active:scale-95"
             >
               <RefreshCw className="w-4 h-4" />
-              Riprova
+              Aggiorna Canale
             </button>
           </div>
         ) : (

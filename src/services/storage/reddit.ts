@@ -253,12 +253,30 @@ export const redditStorage = {
   async cleanupOldRedditPosts(retentionDays: number = 1): Promise<void> {
     const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const oldPosts = await db.redditPosts
+    
+    const posts = await this.getRedditPosts();
+    if (posts.length <= 5) return;
+
+    const oldPosts = posts
       .filter(p => !p.isFavorite && (now - p.createdUtc) > retentionMs)
-      .primaryKeys();
+      .sort((a, b) => b.createdUtc - a.createdUtc); // Newest first
     
     if (oldPosts.length > 0) {
-      await db.redditPosts.bulkDelete(oldPosts);
+      const postsToKeep = 5;
+      const postsAfterCleanup = posts.length - oldPosts.length;
+      
+      let idsToDelete;
+      if (postsAfterCleanup < postsToKeep) {
+        const numberToRemove = oldPosts.length - (postsToKeep - postsAfterCleanup);
+        if (numberToRemove <= 0) return;
+        idsToDelete = oldPosts.slice(oldPosts.length - numberToRemove).map(p => p.id);
+      } else {
+        idsToDelete = oldPosts.map(p => p.id);
+      }
+
+      if (idsToDelete.length > 0) {
+        await db.redditPosts.bulkDelete(idsToDelete);
+      }
     }
   }
 };

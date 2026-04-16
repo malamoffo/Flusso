@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion } from 'framer-motion';
 import { format, isToday } from 'date-fns';
-import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star, Clock } from 'lucide-react';
+import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star } from 'lucide-react';
 import { Article, Settings } from '../types';
 import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -242,15 +242,11 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
 
   const domain = getDomain(article.link);
 
-  useEffect(() => {
-    if (domain) {
-      console.log(`[SwipeableArticleItem] Article: ${article.title.substring(0, 20)}... | Domain: ${domain} | Link: ${article.link}`);
-    }
-  }, [domain, article.id]);
-
   const { currentTrack } = useAudioState();
   const shouldReduceMotion = useReducedMotion();
   const isCurrentTrack = currentTrack?.id === article.id;
+
+  const isInboxOrSaved = filter === 'inbox' || filter === 'saved' || isSavedSection;
 
   return (
     <motion.div 
@@ -276,7 +272,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
       }} 
       className={cn(
         "relative w-full overflow-hidden will-change-transform",
-        (filter === 'inbox' || filter === 'saved') && "px-3 py-1"
+        isInboxOrSaved && "px-1.5 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -287,7 +283,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     >
       <div className={cn(
         "relative w-full overflow-hidden",
-        (filter === 'inbox' || filter === 'saved') ? "rounded-2xl border border-blue-500/20 shadow-sm" : ""
+        isInboxOrSaved ? "rounded-2xl border border-blue-500/30 shadow-sm" : ""
       )}>
         <motion.div 
           className="absolute inset-0 z-0"
@@ -346,14 +342,14 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
           onClick={handleArticleClick}
           exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
           className={cn(
-            "relative z-20 w-full p-4 cursor-pointer transition-all bg-black select-none",
-            (filter !== 'inbox' && filter !== 'saved') && "border-b border-gray-800"
+            "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
+            !isInboxOrSaved && "border-b border-gray-800"
           )}
         >
 
         <div className={cn(
-          "flex gap-3", 
-          (article.type !== 'podcast' && hasImage) ? "flex-col" : "flex-row items-center"
+          "flex gap-2", 
+          (article.type === 'podcast') ? "flex-row items-center" : "flex-col"
         )}>
           {hasImage ? (
             <div className={cn(
@@ -370,43 +366,36 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 )}
                 referrerPolicy="no-referrer"
               />
-              {article.type !== 'podcast' && (
-                <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5">
-                  {domain && (
-                    <CachedImage 
-                      src={`https://icons.duckduckgo.com/ip3/${domain}.ico`} 
-                      alt="" 
-                      className="w-3 h-3 rounded-sm"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  {feedName}
-                </div>
-              )}
             </div>
           ) : null}
 
           <div className={cn(
             "flex-1 min-w-0 flex flex-col gap-1.5"
           )}>
-            {(article.type === 'podcast' || !hasImage) && (
-              <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-0.5 w-full">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {domain && (
-                    <CachedImage 
-                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
-                      alt="" 
-                      className={`w-3.5 h-3.5 rounded-sm flex-shrink-0`}
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-                      }}
-                    />
+                    <div className="flex-shrink-0">
+                      <CachedImage 
+                        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
+                        alt="" 
+                        className="w-3.5 h-3.5 rounded-sm"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+                        }}
+                      />
+                    </div>
+                  )}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {(article.isFavorite || article.isQueued) && (
+                    <Star className="w-3 h-3 text-yellow-500 fill-current flex-shrink-0" />
                   )}
                   {article.type === 'podcast' ? (
-                    <Headphones className="w-3 h-3 text-[var(--theme-color)]" />
+                    <Headphones className="w-3 h-3 text-[var(--theme-color)] flex-shrink-0" />
                   ) : (
-                    <FileText className="w-3 h-3 text-gray-500" />
+                    <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   )}
                   <span 
                     className={`text-[10px] font-bold uppercase tracking-wider truncate ${readableFeedThemeColor ? '' : 'text-blue-500'}`}
@@ -415,10 +404,12 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                     {feedName}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 ml-2">
                 </div>
               </div>
-            )}
+              <span className="text-[10px] text-gray-500 whitespace-nowrap flex-shrink-0 ml-2">
+                {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM yyyy')}
+              </span>
+            </div>
 
             <div className="min-w-0">
               <h3 
@@ -440,14 +431,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                 </p>
               )}
 
-              <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" /> 
-                  {isToday(article.pubDate) ? `Oggi ${format(article.pubDate, 'HH:mm')}` : format(article.pubDate, 'dd MMM yyyy')}
-                </span>
-                {(article.isFavorite || article.isQueued) && (
-                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
-                )}
+              <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
                 <div className="flex-1" />
               </div>
 

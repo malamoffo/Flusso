@@ -166,7 +166,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           onClick={handlePostClick}
           exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
           className={cn(
-            "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
+            "relative z-20 w-full p-2.5 cursor-pointer transition-all bg-black select-none",
             (filter !== 'saved') && "opacity-100"
           )}
         >
@@ -191,11 +191,10 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
               <span className="text-xs font-medium truncate text-purple-400 shadow-[0_0_5px_rgba(168,85,247,0.3)]">
                 r/{post.subredditName}
               </span>
-              <span className="text-xs text-gray-500">•</span>
               <span className="text-xs text-gray-400 truncate">u/{post.author}</span>
             </div>
             <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
-              {isToday(post.createdUtc) ? `Oggi ${format(post.createdUtc, 'HH:mm')}` : format(post.createdUtc, 'HH:mm dd/MM/yy')}
+              {isToday(post.createdUtc) ? format(post.createdUtc, 'HH:mm') : format(post.createdUtc, 'dd MMM yyyy')}
             </span>
           </div>
 

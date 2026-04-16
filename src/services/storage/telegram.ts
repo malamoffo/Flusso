@@ -50,12 +50,35 @@ export const telegramStorage = {
   async cleanupOldTelegramMessages(retentionDays: number = 1): Promise<void> {
     const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const oldMessages = await db.telegramMessages
-      .filter(m => (now - m.date) > retentionMs)
-      .primaryKeys();
     
-    if (oldMessages.length > 0) {
-      await db.telegramMessages.bulkDelete(oldMessages);
+    const channels = await this.getTelegramChannels();
+    for (const channel of channels) {
+      const messages = await this.getTelegramMessages(channel.id);
+      if (messages.length <= 5) continue;
+
+      const oldMessages = messages
+        .filter(m => (now - m.date) > retentionMs)
+        .sort((a, b) => b.date - a.date); // Newest first
+      
+      if (oldMessages.length > 0) {
+        // If after filtering we have less than 5 messages, keep the most recent ones to reach 5
+        const messagesToKeep = 5;
+        const messagesAfterCleanup = messages.length - oldMessages.length;
+        
+        let idsToDelete;
+        if (messagesAfterCleanup < messagesToKeep) {
+          const numberToRemove = oldMessages.length - (messagesToKeep - messagesAfterCleanup);
+          if (numberToRemove <= 0) continue;
+          // Delete the oldest ones among the "old" messages
+          idsToDelete = oldMessages.slice(oldMessages.length - numberToRemove).map(m => m.id);
+        } else {
+          idsToDelete = oldMessages.map(m => m.id);
+        }
+
+        if (idsToDelete.length > 0) {
+          await db.telegramMessages.bulkDelete(idsToDelete);
+        }
+      }
     }
   }
 };
