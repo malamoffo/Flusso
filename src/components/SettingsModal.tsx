@@ -927,21 +927,6 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                   <h3 className="text-2xl font-bold text-white">Flusso</h3>
                   <p className="text-gray-400 mt-1 uppercase tracking-widest text-[10px] font-bold">Version {APP_VERSION}</p>
-                  
-                  <div className="mt-4 flex flex-col gap-2 w-full max-w-xs">
-                    <button
-                      onClick={() => updateSW(true)}
-                      className="flex items-center justify-center gap-2 p-3 bg-indigo-600/20 text-indigo-400 rounded-xl font-bold text-xs hover:bg-indigo-600/30 transition-colors border border-indigo-500/20"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      Force Web Update
-                    </button>
-                    {!updateInfo?.hasUpdate && (
-                      <p className="text-[9px] text-gray-500 italic">
-                        Use this if updates don't reflect correctly.
-                      </p>
-                    )}
-                  </div>
                 </div>
 
                 <div className="space-y-4">

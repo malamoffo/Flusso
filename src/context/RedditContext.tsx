@@ -18,6 +18,8 @@ interface RedditContextType {
   updateRedditPost: (id: string, updates: Partial<RedditPost>) => void;
   removeSubreddit: (id: string) => void;
   markAllRedditAsRead: () => void;
+  prefetchRedditComments: (permalink: string) => Promise<void>;
+  getCachedComments: (permalink: string) => any[] | null;
   redditUnreadCount: number;
 }
 
@@ -34,7 +36,10 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   
   const subredditsRef = useRef<Subreddit[]>([]);
   const redditPostsRef = useRef<RedditPost[]>([]);
+  const paginationCursors = useRef<Record<string, string>>({}); // Track 'after' cursors
   const worker = useRef<Worker | undefined>(undefined);
+  const commentCache = useRef<Map<string, any[]>>(new Map());
+  const prefetchQueue = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setRedditUnreadCount(redditPosts.filter(p => !p.isRead).length);
@@ -61,21 +66,43 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     loadData();
   }, [settings.redditRetentionDays]);
 
+  const prefetchRedditComments = useCallback(async (permalink: string) => {
+    if (commentCache.current.has(permalink) || prefetchQueue.current.has(permalink)) {
+      return;
+    }
+
+    prefetchQueue.current.add(permalink);
+    try {
+      // Small delay to avoid overwhelming the proxy during rapid scrolling
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const comments = await storage.fetchRedditComments(permalink);
+      if (comments && comments.length > 0) {
+        commentCache.current.set(permalink, comments);
+        
+        // Keep cache size manageable
+        if (commentCache.current.size > 50) {
+          const firstKey = commentCache.current.keys().next().value;
+          if (firstKey) commentCache.current.delete(firstKey);
+        }
+      }
+    } catch (e) {
+      console.warn(`[Prefetch] Failed to prefetch comments for ${permalink}`);
+    } finally {
+      prefetchQueue.current.delete(permalink);
+    }
+  }, []);
+
+  const getCachedComments = useCallback((permalink: string) => {
+    return commentCache.current.get(permalink) || null;
+  }, []);
+
   const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
     const targetSubs = subsToRefresh || subredditsRef.current;
     const targetSort = sort || redditSort;
     
-    // Update local subreddits state if new ones are provided
-    if (subsToRefresh) {
-      setSubreddits(prev => {
-        const next = [...prev];
-        subsToRefresh.forEach(newSub => {
-          if (!next.find(s => s.id === newSub.id)) {
-            next.push(newSub);
-          }
-        });
-        return next;
-      });
+    // Reset cursors on refresh
+    if (!subsToRefresh) {
+        paginationCursors.current = {};
     }
 
     if (targetSubs.length === 0) return;
@@ -84,7 +111,11 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
      const fetchPromises = targetSubs.map(async (sub) => {
         try {
-          return await storage.fetchRedditPosts(sub.name, targetSort);
+          const result = await storage.fetchRedditPosts(sub.name, targetSort);
+          if (result.after) {
+            paginationCursors.current[sub.name] = result.after;
+          }
+          return result.posts;
         } catch (e) {
           console.error(`Failed to refresh r/${sub.name}`, e);
           return [];
@@ -99,7 +130,7 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           if (e.data.type === 'mergedRedditPosts') {
             const merged: RedditPost[] = e.data.merged;
             
-            // Apply retention logic: within retention period AND at least one comment
+            // Apply retention logic...
             const retentionMs = (settings.redditRetentionDays || 1) * 24 * 60 * 60 * 1000;
             const now = Date.now();
             
@@ -110,8 +141,6 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
               return isWithinRetention && hasComments;
             });
 
-            // If filtering results in too few posts, keep at least the 5 most recent ones
-            // to allow the user to have a starting point.
             if (filtered.length < 5 && merged.length > 0) {
               const sorted = [...merged].sort((a, b) => b.createdUtc - a.createdUtc);
               filtered = sorted.slice(0, 5);
@@ -128,12 +157,40 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setIsLoading(false);
     }
-  }, [redditSort]);
+  }, [redditSort, settings.redditRetentionDays]);
 
   const loadMoreReddit = useCallback(async () => {
-    // Simplified load more for now
-    await refreshReddit();
-  }, [refreshReddit]);
+    const targetSubs = subredditsRef.current;
+    if (targetSubs.length === 0) return;
+
+    setIsLoading(true);
+    try {
+        const fetchPromises = targetSubs.map(async (sub) => {
+           const cursor = paginationCursors.current[sub.name];
+           const result = await storage.fetchRedditPosts(sub.name, redditSort, cursor);
+           if (result.after) {
+             paginationCursors.current[sub.name] = result.after;
+           }
+           return result.posts;
+        });
+        const results = await Promise.all(fetchPromises);
+        const newPosts: RedditPost[] = results.flat();
+        
+        // Merge new posts with existing ones
+        setRedditPosts(prev => {
+            const combined = [...prev, ...newPosts];
+            // Remove duplicates
+            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+            // Sort by createdUtc
+            unique.sort((a, b) => b.createdUtc - a.createdUtc);                
+            storage.saveRedditPosts(unique);
+            return unique;
+        });
+
+    } finally {
+        setIsLoading(false);
+    }
+  }, [redditSort]);
 
   const handleRedditSortChange = useCallback(async (sort: 'new' | 'hot' | 'top') => {
     setRedditSort(sort);
@@ -201,7 +258,7 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       subreddits, redditPosts, redditSort, isLoading,
       refreshReddit, loadMoreReddit, handleRedditSortChange,
       toggleRedditRead, markRedditAsRead, toggleRedditFavorite, updateRedditPost,
-      removeSubreddit, markAllRedditAsRead, redditUnreadCount
+      removeSubreddit, markAllRedditAsRead, prefetchRedditComments, getCachedComments, redditUnreadCount
     }}>
       {children}
     </RedditContext.Provider>

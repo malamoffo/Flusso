@@ -177,14 +177,20 @@ export const redditStorage = {
     }
   },
 
-  async fetchRedditPosts(subredditName: string, sort: 'new' | 'hot' | 'top' = 'new'): Promise<RedditPost[]> {
+  async fetchRedditPosts(subredditName: string, sort: 'new' | 'hot' | 'top' = 'new', after?: string): Promise<{posts: RedditPost[], after?: string}> {
     try {
       const subreddits = await this.getSubreddits();
       const subreddit = subreddits.find(s => s.name === subredditName);
-      const url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
+      let url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
+      if (after) {
+        // If 'after' already contains 't3_', use it as is, otherwise prefix it.
+        const cursor = after.startsWith('t3_') ? after : `t3_${after}`;
+        url += `&after=${cursor}`;
+      }
+
       const result = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
       
-      if (!result) return [];
+      if (!result || result.data === null) return { posts: [] }; // 304 Not Modified
 
       // Update etag, lastModified and lastFetched for the subreddit
       if (subreddit) {
@@ -194,11 +200,9 @@ export const redditStorage = {
         await this.saveSubreddits(subreddits);
       }
 
-      if (result.data === null) return []; // 304 Not Modified
+      if (!result.data.data || !result.data.data.children) return { posts: [] };
 
-      if (!result.data.data || !result.data.data.children) return [];
-
-      return result.data.data.children.map((child: any) => {
+      const posts = result.data.data.children.map((child: any) => {
         const post = child.data;
         let imageUrl = undefined;
         
@@ -213,6 +217,7 @@ export const redditStorage = {
 
         return {
           id: `${post.subreddit}/${post.id}`,
+          originalId: post.id,                // Need this for cursor tracking
           title: he.decode(post.title),
           author: post.author,
           subredditId: post.subreddit_id,
@@ -227,6 +232,8 @@ export const redditStorage = {
           isFavorite: false
         };
       });
+
+      return { posts, after: result.data.data.after };
     } catch (e) {
       console.error(`Failed to fetch posts for r/${subredditName}:`, e);
       throw e;

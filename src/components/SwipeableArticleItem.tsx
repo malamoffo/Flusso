@@ -283,7 +283,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     >
       <div className={cn(
         "relative w-full overflow-hidden",
-        isInboxOrSaved ? "rounded-2xl border border-white/10 shadow-sm" : ""
+        isInboxOrSaved ? "rounded-2xl border-2 border-blue-500/80 shadow-md" : ""
       )}>
         <motion.div 
           className="absolute inset-0 z-0"

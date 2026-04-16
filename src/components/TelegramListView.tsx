@@ -41,12 +41,12 @@ export const TelegramListView = memo(({ isActive, channels, onChannelClick, filt
           </p>
         </div>
       ) : (
-        <div className="flex-1 max-w-3xl mx-auto px-1 py-1">
+        <div className="flex-1 max-w-3xl mx-auto px-2 py-2 space-y-2">
           {filteredChannels.map(channel => (
             <div 
               key={channel.id}
               onClick={() => onChannelClick(channel)}
-              className="p-4 border-b border-gray-800 flex items-center gap-4 cursor-pointer hover:bg-gray-900"
+              className="p-4 rounded-2xl border-2 border-green-500/80 shadow-md flex items-center gap-4 cursor-pointer hover:bg-gray-900 bg-black transition-all active:scale-[0.98]"
             >
               {channel.imageUrl ? (
                 <img 

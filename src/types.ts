@@ -98,6 +98,7 @@ export interface Subreddit {
 
 export interface RedditPost {
   id: string; // Reddit's post ID
+  originalId?: string;
   subredditId: string;
   subredditName: string;
   title: string;

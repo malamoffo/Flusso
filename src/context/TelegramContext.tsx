@@ -225,9 +225,11 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
     const oldestMessage = currentMessages[0];
     const idParts = oldestMessage.id.split('/');
     const beforeId = idParts.length > 1 ? idParts[1] : oldestMessage.id;
+    console.log(`[Telegram] Loading older messages before: ${beforeId} (Original: ${oldestMessage.id})`);
 
     try {
       const olderMessages = await fetchTelegramMessages(channel.username, undefined, beforeId, channel.id);
+      console.log(`[Telegram] Found ${olderMessages.length} older messages`);
       
       if (olderMessages.length > 0) {
         setTelegramMessages(prev => {

@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RedditPost, RedditComment } from '../types';
-import { ArrowLeft, ExternalLink, MessageSquare, ChevronUp, ChevronDown, Share2 } from 'lucide-react';
-import { storage } from '../services/storage';
-import { Share } from '@capacitor/share';
-import { Capacitor } from '@capacitor/core';
+import { ArrowLeft, MessageSquare, ChevronUp, ChevronDown } from 'lucide-react';
+import { useReddit } from '../context/RedditContext';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import { getSafeUrl } from '../lib/utils';
@@ -55,13 +53,30 @@ const CommentNode: React.FC<{ comment: RedditComment }> = ({ comment }) => {
 export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPrev }: RedditPostReaderProps) => {
   const [comments, setComments] = useState<RedditComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { getCachedComments } = useReddit();
 
   useEffect(() => {
     const loadComments = async () => {
       setIsLoading(true);
+      setError(null);
       try {
-        const rawComments = await storage.fetchRedditComments(post.permalink);
+        // Try getting from cache first
+        let rawComments = getCachedComments(post.permalink);
         
+        // If not in cache, fetch it
+        if (!rawComments) {
+          const { storage } = await import('../services/storage');
+          rawComments = await storage.fetchRedditComments(post.permalink);
+        }
+
+        if (!rawComments || rawComments.length === 0) {
+           if (post.numComments > 0) {
+             setError("Could not load comments. The Reddit proxy might be temporarily rate-limited.");
+           }
+           setComments([]);
+           return;
+        }
         const parseComments = (children: any[], depth: number): RedditComment[] => {
           if (!Array.isArray(children)) return [];
           return children.map(child => {
@@ -89,6 +104,7 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
         setComments(parseComments(rawComments, 0));
       } catch (e) {
         console.error("Failed to load comments", e);
+        setError("Error connecting to Reddit. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -124,42 +140,6 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
           >
             <ChevronDown className="w-6 h-6" />
           </button>
-          <button
-            onClick={async () => {
-              const shareData = {
-                title: post.title,
-                text: post.title,
-                url: `https://reddit.com${post.permalink}`,
-              };
-
-              try {
-                if (Capacitor.isNativePlatform()) {
-                  await Share.share({
-                    ...shareData,
-                    dialogTitle: 'Condividi post'
-                  });
-                } else if (navigator.share) {
-                  await navigator.share(shareData);
-                } else {
-                  await navigator.clipboard.writeText(`${post.title}\n${shareData.url}`);
-                }
-              } catch (err) {
-                console.error('Error sharing:', err);
-              }
-            }}
-            className="p-2 rounded-full hover:bg-gray-800 text-gray-300 transition-colors"
-            title="Share post"
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
-          <a
-            href={`https://reddit.com${post.permalink}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 rounded-full hover:bg-gray-800 text-gray-300 transition-colors"
-          >
-            <ExternalLink className="w-5 h-5" />
-          </a>
         </div>
       </header>
 
@@ -196,6 +176,19 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
           {isLoading ? (
             <div className="flex justify-center py-8">
               <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin shadow-[0_0_10px_rgba(168,85,247,0.4)]" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 px-4">
+              <p className="text-red-400 mb-2 font-medium">{error}</p>
+              <button 
+                onClick={() => {
+                   // Force a reload by clearing the cache entry if it failed
+                   window.location.reload(); // Simple way to retry for now
+                }}
+                className="text-xs text-purple-400 underline"
+              >
+                Retry
+              </button>
             </div>
           ) : comments.length > 0 ? (
             comments.map(comment => (

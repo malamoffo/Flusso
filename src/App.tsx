@@ -728,7 +728,7 @@ export default function App() {
             filter === 'saved' ? "z-10 opacity-100 pointer-events-auto" : "z-0 opacity-0 pointer-events-none"
           )}
         >
-          <div className="flex-1 max-w-3xl mx-auto px-1 py-1">
+          <div className="flex-1 max-w-3xl mx-auto px-2 py-2 space-y-2">
             <AnimatePresence initial={false}>
               {savedArticles
                 .map(a => ({ ...a, itemType: 'article' as const }))

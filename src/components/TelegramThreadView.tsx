@@ -124,7 +124,7 @@ export const TelegramThreadView = memo(({ channel, messages, onClose, onRefresh,
           </div>
         ) : (
           messages?.map(message => (
-            <div key={`${message.channelId}-${message.id}`} className="mb-4 p-3 bg-gray-900 rounded-lg">
+            <div key={`${message.channelId}-${message.id}`} className="mb-4 p-4 bg-black rounded-2xl border-2 border-green-500/80 shadow-md">
               <div 
                 className="text-gray-300 whitespace-pre-wrap break-words telegram-message-text"
                 dangerouslySetInnerHTML={{ __html: message.text }}

@@ -9,7 +9,7 @@ import { CachedImage } from './CachedImage';
 import DOMPurify from 'dompurify';
 import he from 'he';
 
-import { storage } from '../services/storage';
+import { useReddit } from '../context/RedditContext';
 
 interface SwipeableRedditPostProps {
   post: RedditPost;
@@ -39,6 +39,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   disableGestures = false
 }: SwipeableRedditPostProps) {
   const x = useMotionValue(0);
+  const { prefetchRedditComments } = useReddit();
   
   const { ref, inView, entry } = useInView({
     threshold: 0,
@@ -46,8 +47,10 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   });
 
   React.useEffect(() => {
-    // Reddit posts are now always shown as unread, so we don't need to mark them as read on scroll
-  }, []);
+    if (inView && post.permalink) {
+      prefetchRedditComments(post.permalink);
+    }
+  }, [inView, post.permalink, prefetchRedditComments]);
 
   const handlePostClick = () => {
     onClick(post);
@@ -118,7 +121,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
       ref={ref}
       className={cn(
         "relative w-full overflow-hidden will-change-transform",
-        filter === 'saved' && "px-1.25 py-1"
+        (filter === 'saved' || filter === 'reddit') && "px-1.25 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -128,7 +131,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
     >
       <div className={cn(
         "relative w-full overflow-hidden",
-        filter === 'saved' ? "rounded-2xl border border-white/10 shadow-sm" : ""
+        (filter === 'saved' || filter === 'reddit') ? "rounded-2xl border-2 border-purple-500/80 shadow-md" : ""
       )}>
         <motion.div 
           className="absolute inset-0 z-0"
