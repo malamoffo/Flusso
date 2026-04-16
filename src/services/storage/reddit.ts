@@ -244,40 +244,61 @@ export const redditStorage = {
   },
 
   async fetchRedditComments(permalink: string): Promise<any[]> {
+    console.log(`[Reddit Comments] Starting fetch for: ${permalink}`);
     try {
       const cleanPermalink = permalink.replace(/\/$/, '');
       const url = `https://www.reddit.com${cleanPermalink}.json`;
       
       try {
+        console.log(`[Reddit Comments] 1. Trying JSON API method...`);
         const result = await this.fetchJsonWithProxy(url);
         if (result && result.data && Array.isArray(result.data) && result.data.length >= 2 && result.data[1].data && result.data[1].data.children) {
+          console.log(`[Reddit Comments] JSON API success.`);
           return result.data[1].data.children;
         }
       } catch (e) {
-        console.warn(`JSON API failed for ${permalink}, trying scraping fallback.`);
+        console.warn(`[Reddit Comments] JSON API failed. Attempting scraping fallback...`, e);
       }
 
       // Scraping fallback: fetch HTML and parse
+      console.log(`[Reddit Comments] 2. Trying Scraping Fallback method...`);
       const htmlUrl = `https://www.reddit.com${cleanPermalink}`;
       const response = await fetchWithProxy(htmlUrl, false);
-      if (!response.data) return [];
+      if (!response.data) {
+        console.warn(`[Reddit Comments] Scraping failed, no data returned.`);
+        return [];
+      }
       
       const parser = new DOMParser();
       const doc = parser.parseFromString(response.data, 'text/html');
       
-      // Simple scraping logic to extract comment text from Reddit's HTML
+      // ... (rest of parsing logic)
       const comments: any[] = [];
-      const commentElements = doc.querySelectorAll('.comment');
+      const commentSelectors = ['.comment', 'div[data-testid="comment"]', 'shreddit-comment'];
+      
+      let commentElements: Element[] = [];
+      for (const selector of commentSelectors) {
+         const elements = doc.querySelectorAll(selector);
+         if (elements.length > 0) {
+            commentElements = Array.from(elements);
+            break;
+         }
+      }
       
       commentElements.forEach(el => {
-         const author = el.querySelector('.author')?.textContent || 'unknown';
-         const body = el.querySelector('.md')?.textContent || '';
+         const author = el.querySelector('.author')?.textContent 
+                     || el.getAttribute('author') 
+                     || 'unknown';
+         const body = el.querySelector('.md')?.textContent 
+                    || (el as HTMLElement).innerText
+                    || '';
          comments.push({ data: { author, body } });
       });
 
+      console.log(`[Reddit Comments] Scraping successful. Found: ${comments.length} comments.`);
       return comments;
     } catch (e: any) {
-      console.warn(`Could not fetch comments for ${permalink}: ${e.message}`);
+      console.error(`[Reddit Comments] All methods failed for: ${permalink}`, e);
       return [];
     }
   },

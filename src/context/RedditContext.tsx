@@ -17,6 +17,7 @@ interface RedditContextType {
   toggleRedditFavorite: (id: string) => void;
   updateRedditPost: (id: string, updates: Partial<RedditPost>) => void;
   removeSubreddit: (id: string) => void;
+  addSubreddit: (url: string) => void;
   markAllRedditAsRead: () => void;
   prefetchRedditComments: (permalink: string) => Promise<void>;
   getCachedComments: (permalink: string) => any[] | null;
@@ -255,6 +256,14 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   }, [subreddits]);
 
+  const addSubreddit = useCallback(async (url: string) => {
+    const result = await storage.addSubreddit(url);
+    if (result) {
+      setSubreddits(prev => [...prev, result]);
+      await refreshReddit([result]);
+    }
+  }, [refreshReddit]);
+
   const markAllRedditAsRead = useCallback(() => {
     setRedditPosts(prev => {
       const next = prev.map(p => ({ ...p, isRead: true }));
@@ -268,7 +277,7 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       subreddits, redditPosts, redditSort, isLoading,
       refreshReddit, loadMoreReddit, handleRedditSortChange,
       toggleRedditRead, markRedditAsRead, toggleRedditFavorite, updateRedditPost,
-      removeSubreddit, markAllRedditAsRead, prefetchRedditComments, getCachedComments, redditUnreadCount
+      removeSubreddit, addSubreddit, markAllRedditAsRead, prefetchRedditComments, getCachedComments, redditUnreadCount
     }}>
       {children}
     </RedditContext.Provider>
