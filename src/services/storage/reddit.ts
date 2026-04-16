@@ -249,9 +249,9 @@ export const redditStorage = {
       const url = `https://www.reddit.com${cleanPermalink}.json`;
       
       try {
-        const data = await this.fetchJsonWithProxy(url);
-        if (data && Array.isArray(data) && data.length >= 2 && data[1].data && data[1].data.children) {
-          return data[1].data.children;
+        const result = await this.fetchJsonWithProxy(url);
+        if (result && result.data && Array.isArray(result.data) && result.data.length >= 2 && result.data[1].data && result.data[1].data.children) {
+          return result.data[1].data.children;
         }
       } catch (e) {
         console.warn(`JSON API failed for ${permalink}, trying scraping fallback.`);
