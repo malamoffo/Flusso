@@ -71,9 +71,7 @@ export const RedditPostReader = ({ post, onClose, onNext, onPrev, hasNext, hasPr
         }
 
         if (!rawComments || rawComments.length === 0) {
-           if (post.numComments > 0) {
-             setError("Could not load comments. The Reddit proxy might be temporarily rate-limited.");
-           }
+           setError(null);
            setComments([]);
            return;
         }
