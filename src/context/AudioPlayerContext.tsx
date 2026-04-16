@@ -4,6 +4,7 @@ import { useRss } from './RssContext';
 import { parseDurationToSeconds, getSafeUrl } from '../lib/utils';
 import { fetchWithProxy } from '../utils/proxy';
 import { MediaSession } from '@capgo/capacitor-media-session';
+import { imagePersistence } from '../utils/imagePersistence';
 import QueuePlugin from '../plugins/QueuePlugin';
 import { Capacitor } from '@capacitor/core';
 
@@ -76,12 +77,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       const mapTrack = (a: Article) => {
         const feed = feedsMap.get(a.feedId);
+        const artworkUrl = a.imageUrl || feed?.imageUrl || '';
+        let artworkFilename = '';
+        if (artworkUrl) {
+          artworkFilename = imagePersistence.getFilename(artworkUrl);
+        }
         return {
           id: a.id,
           title: a.title || 'Untitled',
           artist: feed?.title || 'Podcast',
           album: 'Flusso',
-          artwork: a.imageUrl || feed?.imageUrl || '',
+          artwork: artworkUrl,
+          artworkFilename: artworkFilename,
           uri: a.mediaUrl || '',
           duration: a.duration ? parseDurationToSeconds(a.duration) : 0
         };
@@ -409,12 +416,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       }
       const feed = feedsMap.get(currentTrack.feedId);
       
+      const artworkUrl = currentTrack.imageUrl || feed?.imageUrl || '';
       // Sync with Android Auto proxy session (Fallback for reflection)
       QueuePlugin.updateMediaSession({
         title: currentTrack.title,
         artist: feed?.title || 'Podcast',
         album: 'Flusso',
-        artwork: currentTrack.imageUrl || feed?.imageUrl,
+        artwork: artworkUrl,
+        artworkFilename: artworkUrl ? imagePersistence.getFilename(artworkUrl) : '',
         duration: duration,
         position: progress,
         isPlaying: isPlaying
@@ -424,7 +433,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         title: currentTrack.title,
         artist: feed?.title || 'Podcast', // Use feed title if found, else generic 'Podcast'
         album: 'Flusso',
-        artwork: (currentTrack.imageUrl || feed?.imageUrl) ? [{ src: currentTrack.imageUrl || feed!.imageUrl! }] : []
+        artwork: artworkUrl ? [{ src: artworkUrl }] : []
       }).catch(console.error);
 
       MediaSession.setActionHandler({ action: 'play' }, () => {

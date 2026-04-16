@@ -16,6 +16,33 @@ public class QueuePlugin extends Plugin {
     private static JSArray favoritesQueue = new JSArray();
     private static String pendingMediaId = null;
 
+    private static void saveToFile(android.content.Context context, String filename, String content) {
+        if (context == null) return;
+        try {
+            java.io.FileOutputStream fos = context.openFileOutput(filename, android.content.Context.MODE_PRIVATE);
+            fos.write(content.getBytes());
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String readFromFile(android.content.Context context, String filename) {
+        if (context == null) return "[]";
+        try {
+            java.io.File file = new java.io.File(context.getFilesDir(), filename);
+            if (!file.exists()) return "[]";
+            java.io.FileInputStream fis = context.openFileInput(filename);
+            byte[] bytes = new byte[(int) file.length()];
+            fis.read(bytes);
+            fis.close();
+            return new String(bytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "[]";
+        }
+    }
+
     public static void setPendingMediaId(String mediaId) {
         pendingMediaId = mediaId;
     }
@@ -48,24 +75,19 @@ public class QueuePlugin extends Plugin {
         JSArray queue = call.getArray("queue");
         JSArray recent = call.getArray("recent");
         JSArray favorites = call.getArray("favorites");
-        
-        android.content.SharedPreferences prefs = getContext().getSharedPreferences("QueuePrefs", android.content.Context.MODE_PRIVATE);
-        android.content.SharedPreferences.Editor editor = prefs.edit();
-
         if (queue != null) {
             currentQueue = queue;
-            editor.putString("queue", queue.toString());
+            saveToFile(getContext(), "queue.json", queue.toString());
         }
         if (recent != null) {
             recentQueue = recent;
-            editor.putString("recent", recent.toString());
+            saveToFile(getContext(), "recent.json", recent.toString());
         }
         if (favorites != null) {
             favoritesQueue = favorites;
-            editor.putString("favorites", favorites.toString());
+            saveToFile(getContext(), "favorites.json", favorites.toString());
         }
         
-        editor.apply();
         AndroidAutoService.notifyQueueChanged();
         call.resolve();
     }
@@ -73,7 +95,7 @@ public class QueuePlugin extends Plugin {
     public static JSArray getStaticQueue(android.content.Context context) {
         if (currentQueue.length() == 0 && context != null) {
             try {
-                String json = context.getSharedPreferences("QueuePrefs", android.content.Context.MODE_PRIVATE).getString("queue", "[]");
+                String json = readFromFile(context, "queue.json");
                 currentQueue = new JSArray(json);
             } catch (Exception e) {}
         }
@@ -83,7 +105,7 @@ public class QueuePlugin extends Plugin {
     public static JSArray getStaticRecent(android.content.Context context) {
         if (recentQueue.length() == 0 && context != null) {
             try {
-                String json = context.getSharedPreferences("QueuePrefs", android.content.Context.MODE_PRIVATE).getString("recent", "[]");
+                String json = readFromFile(context, "recent.json");
                 recentQueue = new JSArray(json);
             } catch (Exception e) {}
         }
@@ -93,7 +115,7 @@ public class QueuePlugin extends Plugin {
     public static JSArray getStaticFavorites(android.content.Context context) {
         if (favoritesQueue.length() == 0 && context != null) {
             try {
-                String json = context.getSharedPreferences("QueuePrefs", android.content.Context.MODE_PRIVATE).getString("favorites", "[]");
+                String json = readFromFile(context, "favorites.json");
                 favoritesQueue = new JSArray(json);
             } catch (Exception e) {}
         }
@@ -106,13 +128,14 @@ public class QueuePlugin extends Plugin {
         String artist = call.getString("artist");
         String album = call.getString("album");
         String artwork = call.getString("artwork");
+        String artworkFilename = call.getString("artworkFilename");
         Double duration = call.getDouble("duration");
         Double position = call.getDouble("position");
         Boolean isPlaying = call.getBoolean("isPlaying");
         
         AndroidAutoService service = AndroidAutoService.getInstance();
         if (service != null) {
-            service.updateSessionState(title, artist, album, artwork, duration, position, isPlaying);
+            service.updateSessionState(title, artist, album, artwork, artworkFilename, duration, position, isPlaying);
         }
         call.resolve();
     }

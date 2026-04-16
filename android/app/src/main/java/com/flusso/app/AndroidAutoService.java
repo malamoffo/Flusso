@@ -50,7 +50,7 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
         }
     }
 
-    public void updateSessionState(String title, String artist, String album, String artwork, Double duration, Double position, Boolean isPlaying) {
+    public void updateSessionState(String title, String artist, String album, String artwork, String artworkFilename, Double duration, Double position, Boolean isPlaying) {
         if (proxySession == null) return;
 
         MediaMetadataCompat.Builder metaBuilder = new MediaMetadataCompat.Builder()
@@ -58,7 +58,20 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
                 .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album);
 
-        if (artwork != null && !artwork.isEmpty()) {
+        boolean iconSet = false;
+        if (artworkFilename != null && !artworkFilename.isEmpty()) {
+            java.io.File imageFile = new java.io.File(this.getFilesDir(), "image_cache/" + artworkFilename);
+            if (imageFile.exists()) {
+                Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                        this, 
+                        this.getPackageName() + ".fileprovider", 
+                        imageFile);
+                metaBuilder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, contentUri.toString());
+                iconSet = true;
+            }
+        }
+        
+        if (!iconSet && artwork != null && !artwork.isEmpty()) {
             metaBuilder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, artwork);
         }
 
@@ -291,7 +304,22 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, track.optString("album"));
         
         String artwork = track.optString("artwork");
-        if (artwork != null && !artwork.isEmpty()) {
+        String artworkFilename = track.optString("artworkFilename");
+        
+        boolean iconSet = false;
+        if (artworkFilename != null && !artworkFilename.isEmpty()) {
+            java.io.File imageFile = new java.io.File(this.getFilesDir(), "image_cache/" + artworkFilename);
+            if (imageFile.exists()) {
+                Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                        this, 
+                        this.getPackageName() + ".fileprovider", 
+                        imageFile);
+                builder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, contentUri.toString());
+                iconSet = true;
+            }
+        }
+        
+        if (!iconSet && artwork != null && !artwork.isEmpty()) {
             builder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, artwork);
         }
         
@@ -496,13 +524,27 @@ public class AndroidAutoService extends MediaBrowserServiceCompat {
                                 }
                                 String subtitle = item.optString("artist"); // Use artist for subtitle
                                 String imageUrl = item.optString("artwork"); // Use artwork for icon
+                                String artworkFilename = item.optString("artworkFilename");
 
                                 MediaDescriptionCompat.Builder descriptionBuilder = new MediaDescriptionCompat.Builder()
                                         .setMediaId(id)
                                         .setTitle(title)
                                         .setSubtitle(subtitle);
 
-                                if (imageUrl != null && !imageUrl.isEmpty()) {
+                                boolean iconSet = false;
+                                if (artworkFilename != null && !artworkFilename.isEmpty()) {
+                                    java.io.File imageFile = new java.io.File(AndroidAutoService.this.getFilesDir(), "image_cache/" + artworkFilename);
+                                    if (imageFile.exists()) {
+                                        Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                                                AndroidAutoService.this, 
+                                                AndroidAutoService.this.getPackageName() + ".fileprovider", 
+                                                imageFile);
+                                        descriptionBuilder.setIconUri(contentUri);
+                                        iconSet = true;
+                                    }
+                                }
+                                
+                                if (!iconSet && imageUrl != null && !imageUrl.isEmpty()) {
                                     descriptionBuilder.setIconUri(Uri.parse(imageUrl));
                                 }
                                 
