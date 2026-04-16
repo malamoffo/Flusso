@@ -10,9 +10,10 @@ import { AudioPlayerProvider } from './context/AudioPlayerContext.tsx';
 import { imagePersistence } from './utils/imagePersistence';
 import { registerSW } from 'virtual:pwa-register';
 
-// Register Service Worker
-export const APP_VERSION = '1.0.7';
-console.log(`[Flusso] Version ${APP_VERSION} starting...`);
+// Version and Build information from environment (GitHub Actions) or fallback to package.json
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.7';
+export const APP_BUILD = import.meta.env.VITE_APP_BUILD || 'dev';
+console.log(`[Flusso] Version ${APP_VERSION} (Build ${APP_BUILD}) starting...`);
 
 export const updateSW = registerSW({
   onNeedRefresh() {

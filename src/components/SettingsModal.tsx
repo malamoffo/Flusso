@@ -16,7 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-import { APP_VERSION, updateSW } from '../main';
+import { APP_VERSION, APP_BUILD, updateSW } from '../main';
 
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
@@ -991,7 +991,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                       Flusso is a minimalist, mobile-first RSS reader designed for speed and focus. 
                       It features full article extraction, swipe gestures, and OPML support.
                       <br />
-                      <span className="font-mono text-xs opacity-75 mt-2 block">Version {packageJson.version}</span>
+                      <span className="font-mono text-xs opacity-75 mt-2 block">Version {APP_VERSION} ({APP_BUILD})</span>
                     </p>
                   </div>
 

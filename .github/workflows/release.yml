@@ -37,7 +37,10 @@ jobs:
           npm version $VERSION --no-git-tag-version
 
       - name: Build Web App
-        run: npm run build
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          VERSION=${VERSION#v}
+          VITE_APP_VERSION=$VERSION VITE_APP_BUILD=${{ github.run_number }} npm run build
 
       - name: Setup Java
         uses: actions/setup-java@v5
