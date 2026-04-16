@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Rss, RefreshCw } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useTelegram } from '../context/TelegramContext';
+import { useReddit } from '../context/RedditContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, onFeedAdded }: { isOpen: boolean; onClose: () => void; onFeedAdded?: (type: string) => void }) {
@@ -9,6 +10,7 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addFeedOrSubreddit, error, setError, progress } = useRss();
   const { addTelegramChannel } = useTelegram();
+  const { addSubreddit } = useReddit();
 
   React.useEffect(() => {
     if (isOpen) {
@@ -22,7 +24,16 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, 
     
     setIsSubmitting(true);
     try {
-      const type = await addFeedOrSubreddit(url);
+      let type;
+      const cleanUrl = url.trim();
+      const lowerUrl = cleanUrl.toLowerCase();
+
+      if (lowerUrl.startsWith('r/') || lowerUrl.includes('reddit.com/r/')) {
+        await addSubreddit(cleanUrl);
+        type = 'subreddit';
+      } else {
+        type = await addFeedOrSubreddit(url);
+      }
       
       // If it's a telegram channel, we need to call the telegram context
       if (type === 'telegram') {
@@ -40,8 +51,8 @@ export const AddFeedModal = React.memo(function AddFeedModal({ isOpen, onClose, 
         onFeedAdded(type);
       }
       onClose();
-    } catch (err) {
-      // Error is handled in context and displayed via the error state
+    } catch (err: any) {
+      setError(err.message || "Errore durante l'aggiunta. Riprova.");
     } finally {
       setIsSubmitting(false);
     }
