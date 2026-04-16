@@ -172,7 +172,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
   const [exitX, setExitX] = React.useState<number | string>(0);
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const threshold = 80;
+    const threshold = 100;
     const velocityThreshold = 500;
     
     let isRight = info.offset.x > threshold || info.velocity.x > velocityThreshold;
@@ -275,7 +275,8 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         prefetchRef(node);
       }} 
       className={cn(
-        "relative w-full overflow-hidden will-change-transform"
+        "relative w-full overflow-hidden will-change-transform",
+        (filter === 'inbox' || filter === 'saved') && "px-3 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -284,67 +285,71 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         ...style
       } as React.CSSProperties}
     >
-      <motion.div 
-        className="absolute inset-0 z-0"
-        style={{ 
-          backgroundColor: backgroundTransform
-        }}
-      />
+      <div className={cn(
+        "relative w-full overflow-hidden",
+        (filter === 'inbox' || filter === 'saved') ? "rounded-2xl border border-blue-500/20 shadow-sm" : ""
+      )}>
+        <motion.div 
+          className="absolute inset-0 z-0"
+          style={{ 
+            backgroundColor: backgroundTransform
+          }}
+        />
 
-      <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-        <div className="flex items-center font-medium">
-          {isSavedSection || (settings.swipeRightAction === 'remove' && article.type === 'podcast') ? (
-            <Trash2 className="w-6 h-6 text-white" />
-          ) : (
-            <>
-              {settings.swipeRightAction === 'toggleFavorite' && (
-                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-              )}
-            </>
-          )}
+        <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
+          <div className="flex items-center font-medium">
+            {isSavedSection || (settings.swipeRightAction === 'remove' && article.type === 'podcast') ? (
+              <Trash2 className="w-6 h-6 text-white" />
+            ) : (
+              <>
+                {settings.swipeRightAction === 'toggleFavorite' && (
+                  <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex items-center font-medium">
+            {isSavedSection || (settings.swipeLeftAction === 'remove' && article.type === 'podcast') ? (
+              <Trash2 className="w-6 h-6 text-white" />
+            ) : (
+              <>
+                {settings.swipeLeftAction === 'toggleFavorite' && (
+                  <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                )}
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center font-medium">
-          {isSavedSection || (settings.swipeLeftAction === 'remove' && article.type === 'podcast') ? (
-            <Trash2 className="w-6 h-6 text-white" />
-          ) : (
-            <>
-              {settings.swipeLeftAction === 'toggleFavorite' && (
-                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-              )}
-            </>
-          )}
-        </div>
-      </div>
 
-      <motion.div
-        style={{ 
-          x, 
-          willChange: 'transform',
-          touchAction: 'pan-y', // Prevent scroll/swipe conflicts
-        }}
-        drag={
-          !disableGestures && (
-            isSavedSection || 
-            (article.type === 'podcast' && (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ||
-            (article.type === 'article' && (settings.swipeLeftAction === 'toggleFavorite' || settings.swipeRightAction === 'toggleFavorite'))
-          ) ? "x" : false
-        }
-        dragDirectionLock={true} // Lock direction to prevent diagonal dragging
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={!disableGestures ? { 
-          left: (isSavedSection || (article.type === 'podcast' && settings.swipeLeftAction !== 'none') || (article.type === 'article' && settings.swipeLeftAction === 'toggleFavorite')) ? 0.5 : 0, 
-          right: (isSavedSection || (article.type === 'podcast' && settings.swipeRightAction !== 'none') || (article.type === 'article' && settings.swipeRightAction === 'toggleFavorite')) ? 0.5 : 0 
-        } : 0}
-        dragPropagation={false}
-        dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
-        onDragEnd={handleDragEnd}
-        onClick={handleArticleClick}
-        exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
-        className={cn(
-          "relative z-20 w-full p-4 cursor-pointer transition-all bg-black select-none",
-          "mx-auto max-w-full border-b border-gray-800"
-        )}
-      >
+        <motion.div
+          style={{ 
+            x, 
+            willChange: 'transform',
+            touchAction: 'pan-y', // Prevent scroll/swipe conflicts
+          }}
+          drag={
+            !disableGestures && (
+              isSavedSection || 
+              (article.type === 'podcast' && (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ||
+              (article.type === 'article' && (settings.swipeLeftAction === 'toggleFavorite' || settings.swipeRightAction === 'toggleFavorite'))
+            ) ? "x" : false
+          }
+          dragDirectionLock={true} // Lock direction to prevent diagonal dragging
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={!disableGestures ? { 
+            left: (isSavedSection || (article.type === 'podcast' && settings.swipeLeftAction !== 'none') || (article.type === 'article' && settings.swipeLeftAction === 'toggleFavorite')) ? 0.7 : 0, 
+            right: (isSavedSection || (article.type === 'podcast' && settings.swipeRightAction !== 'none') || (article.type === 'article' && settings.swipeRightAction === 'toggleFavorite')) ? 0.7 : 0 
+          } : 0}
+          dragPropagation={false}
+          dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
+          onDragEnd={handleDragEnd}
+          onClick={handleArticleClick}
+          exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
+          className={cn(
+            "relative z-20 w-full p-4 cursor-pointer transition-all bg-black select-none",
+            (filter !== 'inbox' && filter !== 'saved') && "border-b border-gray-800"
+          )}
+        >
 
         <div className={cn(
           "flex gap-3", 
@@ -453,6 +458,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
           </div>
         </div>
       </motion.div>
+      </div>
     </motion.div>
   );
 });

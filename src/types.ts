@@ -14,6 +14,8 @@ export interface Settings {
   imageRetentionDays: number;
   redditRetentionDays: number;
   telegramRetentionDays: number;
+  articleRetentionDays: number;
+  podcastRetentionDays: number;
 }
 
 export interface Feed {

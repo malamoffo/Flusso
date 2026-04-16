@@ -140,6 +140,10 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(true);
       
       const loadedFeeds = await storage.getFeeds();
+      
+      // Cleanup old articles based on retention settings
+      await storage.cleanUpOldArticles(settings.articleRetentionDays, settings.podcastRetentionDays);
+
       const [loadedArticles, unread, saved, favorites] = await Promise.all([
         storage.getArticles(0, PAGE_SIZE),
         storage.getUnreadCount(),

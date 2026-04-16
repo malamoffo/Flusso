@@ -67,7 +67,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   const [exitX, setExitX] = useState<number | string>(0);
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const threshold = 40;
+    const threshold = 100;
     const isRight = info.offset.x > threshold;
     const isLeft = info.offset.x < -threshold;
 
@@ -117,7 +117,8 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
       }}
       ref={ref}
       className={cn(
-        "relative w-full overflow-hidden will-change-transform"
+        "relative w-full overflow-hidden will-change-transform",
+        filter === 'saved' && "px-3 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -125,48 +126,51 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
         transform: 'translateZ(0)'
       } as React.CSSProperties}
     >
-      <motion.div 
-        className="absolute inset-0 z-0"
-        style={{ backgroundColor: backgroundTransform }}
-      />
+      <div className={cn(
+        "relative w-full overflow-hidden",
+        filter === 'saved' ? "rounded-2xl border border-blue-500/20 shadow-sm" : ""
+      )}>
+        <motion.div 
+          className="absolute inset-0 z-0"
+          style={{ backgroundColor: backgroundTransform }}
+        />
 
-      <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
-        <div className="flex items-center text-white font-medium">
-          {isSavedSection ? (
-            <Trash2 className="w-6 h-6" />
-          ) : (
-            null
-          )}
+        <div className="absolute inset-0 flex items-center justify-between px-6 z-10">
+          <div className="flex items-center text-white font-medium">
+            {isSavedSection ? (
+              <Trash2 className="w-6 h-6" />
+            ) : (
+              null
+            )}
+          </div>
+          <div className="flex items-center text-white font-medium">
+            {isSavedSection ? (
+              <Trash2 className="w-6 h-6" />
+            ) : (
+              null
+            )}
+          </div>
         </div>
-        <div className="flex items-center text-white font-medium">
-          {isSavedSection ? (
-            <Trash2 className="w-6 h-6" />
-          ) : (
-            null
-          )}
-        </div>
-      </div>
 
-      <motion.div
-        style={{ x, willChange: 'transform' }}
-        drag={!disableGestures && (isSavedSection || (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ? "x" : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={!disableGestures ? { 
-          left: (isSavedSection || settings.swipeLeftAction !== 'none') ? 0.5 : 0, 
-          right: (isSavedSection || settings.swipeRightAction !== 'none') ? 0.5 : 0 
-        } : 0}
-        dragPropagation={false}
-        dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
-        onDragEnd={handleDragEnd}
-        onClick={handlePostClick}
-        exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
-        className={cn(
-          "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
-          "mx-auto max-w-full",
-          "opacity-100"
-        )}
-      >
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+        <motion.div
+          style={{ x, willChange: 'transform' }}
+          drag={!disableGestures && (isSavedSection || (settings.swipeLeftAction !== 'none' || settings.swipeRightAction !== 'none')) ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={!disableGestures ? { 
+            left: (isSavedSection || settings.swipeLeftAction !== 'none') ? 0.7 : 0, 
+            right: (isSavedSection || settings.swipeRightAction !== 'none') ? 0.7 : 0 
+          } : 0}
+          dragPropagation={false}
+          dragTransition={{ bounceStiffness: 400, bounceDamping: 25 }}
+          onDragEnd={handleDragEnd}
+          onClick={handlePostClick}
+          exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
+          className={cn(
+            "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
+            (filter !== 'saved') && "opacity-100"
+          )}
+        >
+        {filter !== 'saved' && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[1.5px] bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-60 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />}
         <div className="flex flex-col gap-2">
           {/* Image at the top */}
           {decodedImageUrl && (
@@ -211,6 +215,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           </div>
         </div>
       </motion.div>
+      </div>
     </motion.div>
   );
 });

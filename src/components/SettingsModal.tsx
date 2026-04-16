@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical, Clock } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
@@ -23,7 +23,7 @@ export const SettingsModal = React.memo(function SettingsModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'main' | 'general' | 'subscriptions' | 'about';
+  initialTab?: 'main' | 'general' | 'subscriptions' | 'retention' | 'about';
 }) {
   const { feeds, removeFeed, updateFeed, progress, updateInfo, checkUpdates, exportFeeds, importOpml, errorLogs, clearErrorLogs } = useRss();
   const { telegramChannels, removeTelegramChannel } = useTelegram();
@@ -33,7 +33,7 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [isPodcastSearchOpen, setIsPodcastSearchOpen] = useState(false);
   const [selectedPodcastForDetails, setSelectedPodcastForDetails] = useState<string | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'general' | 'subscriptions' | 'about'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'general' | 'subscriptions' | 'retention' | 'about'>('main');
   const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editUrl, setEditUrl] = useState('');
@@ -168,6 +168,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     {selectedFeed ? 'Feed Details' : 
                      activeTab === 'main' ? 'Settings' :
                      activeTab === 'general' ? 'General' : 
+                     activeTab === 'retention' ? 'Retention' :
                      activeTab === 'subscriptions' ? 'Subscriptions' : 'About Flusso'}
                   </h2>
                 </div>
@@ -285,6 +286,17 @@ export const SettingsModal = React.memo(function SettingsModal({
                 </button>
 
                 <button
+                  onClick={() => setActiveTab('retention')}
+                  className="w-full flex items-center justify-between p-5 rounded-2xl bg-gray-800 text-white hover:bg-gray-700 transition-colors font-semibold text-lg"
+                >
+                  <div className="flex items-center gap-4">
+                    <Clock className="w-6 h-6 text-indigo-400" />
+                    <span>Retention Settings</span>
+                  </div>
+                  <span className="text-gray-500">→</span>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('about')}
                   className="w-full flex items-center justify-between p-5 rounded-2xl bg-gray-800 text-white hover:bg-gray-700 transition-colors font-semibold text-lg"
                 >
@@ -380,6 +392,28 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                 </section>
 
+                {/* Maintenance Settings */}
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Maintenance</h3>
+                  <div className="space-y-4">
+                    <button
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to clear the image cache? All images will be re-downloaded when needed.')) {
+                          const { imagePersistence } = await import('../utils/imagePersistence');
+                          await imagePersistence.clearCache();
+                          alert('Image cache cleared successfully.');
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-red-900/20 text-red-400 border border-red-900/50 rounded-lg text-sm font-medium hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Clear Image Cache
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : activeTab === 'retention' ? (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 {/* Image Cache Settings */}
                 <section>
                   <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Image Cache</h3>
@@ -401,7 +435,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <option value={999}>Infinite</option>
                       </select>
                       <p className="mt-1 text-[10px] text-gray-500">
-                        * Images older than this will be removed to save space. They will be re-downloaded if you view the article again.
+                        * Images older than this will be removed to save space.
                       </p>
                     </div>
                   </div>
@@ -411,6 +445,40 @@ export const SettingsModal = React.memo(function SettingsModal({
                 <section>
                   <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Data Retention</h3>
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Articles Retention
+                      </label>
+                      <select
+                        value={settings.articleRetentionDays}
+                        onChange={(e) => updateSettings({ articleRetentionDays: parseInt(e.target.value) })}
+                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-800 text-white"
+                      >
+                        <option value={7}>7 Days</option>
+                        <option value={14}>14 Days</option>
+                        <option value={30}>30 Days</option>
+                        <option value={60}>60 Days</option>
+                        <option value={90}>90 Days</option>
+                        <option value={999}>Infinite</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Podcasts Retention
+                      </label>
+                      <select
+                        value={settings.podcastRetentionDays}
+                        onChange={(e) => updateSettings({ podcastRetentionDays: parseInt(e.target.value) })}
+                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-800 text-white"
+                      >
+                        <option value={7}>7 Days</option>
+                        <option value={14}>14 Days</option>
+                        <option value={30}>30 Days</option>
+                        <option value={60}>60 Days</option>
+                        <option value={90}>90 Days</option>
+                        <option value={999}>Infinite</option>
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">
                         Reddit Retention
@@ -445,26 +513,6 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <option value={999}>Infinite</option>
                       </select>
                     </div>
-                  </div>
-                </section>
-
-                {/* Maintenance Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Maintenance</h3>
-                  <div className="space-y-4">
-                    <button
-                      onClick={async () => {
-                        if (confirm('Are you sure you want to clear the image cache? All images will be re-downloaded when needed.')) {
-                          const { imagePersistence } = await import('../utils/imagePersistence');
-                          await imagePersistence.clearCache();
-                          alert('Image cache cleared successfully.');
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-red-900/20 text-red-400 border border-red-900/50 rounded-lg text-sm font-medium hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Clear Image Cache
-                    </button>
                   </div>
                 </section>
               </div>

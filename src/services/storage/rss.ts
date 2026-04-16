@@ -38,15 +38,15 @@ export const rssStorage = {
     return await db.articles.filter(a => !!a.isFavorite || !!a.isQueued).toArray();
   },
 
-  async cleanUpOldArticles(): Promise<void> {
-    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  async cleanUpOldArticles(articleRetentionDays: number, podcastRetentionDays: number): Promise<void> {
+    const ARTICLE_LIMIT = articleRetentionDays * 24 * 60 * 60 * 1000;
+    const PODCAST_LIMIT = podcastRetentionDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
     const oldArticles = await db.articles
       .filter(a => {
-        if (a.type === 'podcast' && (a.isFavorite || a.isQueued)) return false;
-        const limitTime = a.type === 'podcast' ? SEVEN_DAYS : TWO_DAYS;
+        if (a.isFavorite || a.isQueued) return false;
+        const limitTime = a.type === 'podcast' ? PODCAST_LIMIT : ARTICLE_LIMIT;
         const referenceTime = (a.isRead && a.readAt) ? a.readAt : a.pubDate;
         return (now - referenceTime) > limitTime;
       })

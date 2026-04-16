@@ -13,6 +13,8 @@ export const defaultSettings: Settings = {
   imageRetentionDays: 1,
   redditRetentionDays: 1,
   telegramRetentionDays: 1,
+  articleRetentionDays: 30,
+  podcastRetentionDays: 30,
 };
 
 export const settingsStorage = {
