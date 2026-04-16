@@ -147,7 +147,8 @@ function parseTime(timeStr: string | null): number {
 // Helper to get text content from a list of possible tags, including namespaced ones
 function getTagText(element: Element, tags: string[]): string {
   for (const tag of tags) {
-    const localName = tag.includes(':') ? tag.split(':')[1] : tag;
+    const colonIndex = tag.indexOf(':');
+    const localName = colonIndex !== -1 ? tag.substring(colonIndex + 1) : tag;
     const elements = getElementsByLocalName(element, localName);
     
     for (const el of elements) {

@@ -22,7 +22,7 @@ import { TelegramChannel, TelegramMessage } from './types';
 import { ImageViewer } from './components/ImageViewer';
 import { ErrorNotification } from './components/ErrorNotification';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare, ChevronDown, Clock, Flame } from 'lucide-react';
+import { Loader2, Search, X, Check, Rss, Settings, Star, CheckCircle2, RefreshCw, Layers, Headphones, FileText, Inbox, MessageSquare, ChevronDown, Flame } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
 import { cn } from './lib/utils';
 import { Article } from './types';
@@ -552,7 +552,7 @@ export default function App() {
                 redditSort === 'new' ? "bg-purple-600 text-white shadow-sm" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               )}
             >
-              <Clock className="w-3.5 h-3.5" /> New
+              New
             </button>
             <button
               onClick={() => handleRedditSortChange('hot')}

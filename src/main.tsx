@@ -11,17 +11,34 @@ import { imagePersistence } from './utils/imagePersistence';
 import { registerSW } from 'virtual:pwa-register';
 
 // Register Service Worker
-const APP_VERSION = '1.0.6';
+export const APP_VERSION = '1.0.7';
 console.log(`[Flusso] Version ${APP_VERSION} starting...`);
 
-const updateSW = registerSW({
+export const updateSW = registerSW({
   onNeedRefresh() {
-    // Force update if needed
+    console.log('[Flusso] New version available, reloading...');
     updateSW(true);
   },
   onOfflineReady() {
+    console.log('[Flusso] App ready for offline use');
   },
 });
+
+// Use Capacitor App plugin to detect resume and check for updates
+import { App as CapacitorApp } from '@capacitor/app';
+
+if (typeof window !== 'undefined' && 'Capacitor' in window) {
+  CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+    if (isActive) {
+      console.log('[Flusso] App resumed, checking for updates and clearing stale sessions...');
+      updateSW();
+      
+      // Also potentially trigger a feed refresh if we haven't in a while
+      // This is handled by RssContext internally usually, but we can signal it.
+      window.dispatchEvent(new CustomEvent('app-resume'));
+    }
+  });
+}
 
 // Check for updates every hour
 setInterval(() => {

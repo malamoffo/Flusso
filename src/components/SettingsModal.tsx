@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical, Clock } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
@@ -15,6 +15,8 @@ import { CachedImage } from './CachedImage';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+
+import { APP_VERSION, updateSW } from '../main';
 
 export const SettingsModal = React.memo(function SettingsModal({
   isOpen,
@@ -290,7 +292,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                   className="w-full flex items-center justify-between p-5 rounded-2xl bg-gray-800 text-white hover:bg-gray-700 transition-colors font-semibold text-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <Clock className="w-6 h-6 text-indigo-400" />
+                    <RefreshCw className="w-6 h-6 text-indigo-400" />
                     <span>Retention Settings</span>
                   </div>
                   <span className="text-gray-500">→</span>
@@ -391,56 +393,9 @@ export const SettingsModal = React.memo(function SettingsModal({
                     </div>
                   </div>
                 </section>
-
-                {/* Maintenance Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Maintenance</h3>
-                  <div className="space-y-4">
-                    <button
-                      onClick={async () => {
-                        if (confirm('Are you sure you want to clear the image cache? All images will be re-downloaded when needed.')) {
-                          const { imagePersistence } = await import('../utils/imagePersistence');
-                          await imagePersistence.clearCache();
-                          alert('Image cache cleared successfully.');
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-red-900/20 text-red-400 border border-red-900/50 rounded-lg text-sm font-medium hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Clear Image Cache
-                    </button>
-                  </div>
-                </section>
               </div>
             ) : activeTab === 'retention' ? (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                {/* Image Cache Settings */}
-                <section>
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Image Cache</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
-                        Image Retention
-                      </label>
-                      <select
-                        value={settings.imageRetentionDays}
-                        onChange={(e) => updateSettings({ imageRetentionDays: parseInt(e.target.value) })}
-                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-800 text-white"
-                      >
-                        <option value={1}>1 Day</option>
-                        <option value={3}>3 Days</option>
-                        <option value={7}>7 Days</option>
-                        <option value={14}>14 Days</option>
-                        <option value={30}>30 Days</option>
-                        <option value={999}>Infinite</option>
-                      </select>
-                      <p className="mt-1 text-[10px] text-gray-500">
-                        * Images older than this will be removed to save space.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
                 {/* Data Retention Settings */}
                 <section>
                   <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Data Retention</h3>
@@ -971,18 +926,22 @@ export const SettingsModal = React.memo(function SettingsModal({
                     <RefreshCw className="w-10 h-10 text-white" />
                   </div>
                   <h3 className="text-2xl font-bold text-white">Flusso</h3>
-                  <p className="text-gray-400 mt-1">Version {packageJson.version}</p>
+                  <p className="text-gray-400 mt-1 uppercase tracking-widest text-[10px] font-bold">Version {APP_VERSION}</p>
                   
-                  {updateInfo?.hasUpdate && (
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="mt-4 px-4 py-2 bg-indigo-900/30 text-indigo-300 rounded-full text-sm font-medium flex items-center gap-2"
+                  <div className="mt-4 flex flex-col gap-2 w-full max-w-xs">
+                    <button
+                      onClick={() => updateSW(true)}
+                      className="flex items-center justify-center gap-2 p-3 bg-indigo-600/20 text-indigo-400 rounded-xl font-bold text-xs hover:bg-indigo-600/30 transition-colors border border-indigo-500/20"
                     >
-                      <AlertCircle className="w-4 h-4" />
-                      New version {updateInfo.latestRelease?.version} available!
-                    </motion.div>
-                  )}
+                      <RefreshCw className="w-4 h-4" />
+                      Force Web Update
+                    </button>
+                    {!updateInfo?.hasUpdate && (
+                      <p className="text-[9px] text-gray-500 italic">
+                        Use this if updates don't reflect correctly.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-4">

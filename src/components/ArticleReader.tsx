@@ -395,8 +395,35 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
           const width = parseInt(node.getAttribute('width') || '0', 10);
           const height = parseInt(node.getAttribute('height') || '0', 10);
           
+          // Improved deduplication check
+          const isDuplicateOfCover = (() => {
+            if (!article.imageUrl) return false;
+            
+            // Direct comparison
+            if (src === article.imageUrl) return true;
+            
+            // Comparison ignoring protocol
+            const normalize = (url: string) => url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+            if (normalize(src) === normalize(article.imageUrl)) return true;
+            
+            // Comparison based on filename/path (ignoring query params)
+            const getPath = (url: string) => {
+              try {
+                const u = new URL(url.startsWith('//') ? `https:${url}` : url.startsWith('/') ? `https://base.com${url}` : url);
+                return u.pathname;
+              } catch (e) {
+                return url;
+              }
+            };
+            const pathA = getPath(src);
+            const pathB = getPath(article.imageUrl);
+            if (pathA === pathB && pathA.length > 5 && (pathA.includes('.') || pathA.includes('/'))) return true;
+
+            return false;
+          })();
+
           if (
-            src === article.imageUrl ||
+            isDuplicateOfCover ||
             lowerSrc.includes('1x1') ||
             lowerSrc.includes('pixel') ||
             lowerSrc.includes('tracker') ||
@@ -532,43 +559,46 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
 
           <div className="p-4 sm:p-8">
             <header className="mb-8 text-center">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                {article.link && (
-                  <CachedImage 
-                    src={`https://icons.duckduckgo.com/ip3/${(() => {
-                      try { return new URL(article.link).hostname; }
-                      catch { return ''; }
-                    })()}.ico`} 
-                    alt="" 
-                    className="w-4 h-4 rounded-sm"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${(() => {
-                        try { return new URL(article.link).hostname; }
-                        catch { return ''; }
-                      })()}&sz=32`;
-                    }}
+              <div className="flex flex-col items-center gap-3 mb-4">
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    {article.link && (
+                      <CachedImage 
+                        src={`https://icons.duckduckgo.com/ip3/${(() => {
+                          try { return new URL(article.link).hostname; }
+                          catch { return ''; }
+                        })()}.ico`} 
+                        alt="" 
+                        className="w-4 h-4 rounded-sm"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${(() => {
+                            try { return new URL(article.link).hostname; }
+                            catch { return ''; }
+                          })()}&sz=32`;
+                        }}
+                      />
+                    )}
+                    <span className="text-blue-400 text-sm font-semibold tracking-wide block uppercase">
+                      {feed?.title || 'Unknown Source'}
+                    </span>
+                  </div>
+                  <span className="text-gray-400 text-sm">{formattedDate}</span>
+                </div>
+                
+                <h1 className={`${getTitleSize()} font-bold text-white leading-tight`}>
+                  <a 
+                    href={getSafeUrl(article.link)}
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="hover:underline"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
                   />
-                )}
-                <span className="text-blue-400 text-sm font-semibold tracking-wide block uppercase">
-                  {feed?.title || 'Unknown Source'}
-                </span>
-              </div>
-              
-              <h1 className={`${getTitleSize()} font-bold text-white mb-4 leading-tight`}>
-                <a 
-                  href={getSafeUrl(article.link)}
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="hover:underline"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.title, { FORBID_ATTR: ['id', 'name'] }) }}
-                />
-              </h1>
-              
-              <div className="flex items-center justify-center gap-4 text-gray-400 text-sm">
-                <span className="flex items-center gap-2">{readTime}m read</span>
-                <span className="w-1 h-1 bg-gray-600 rounded-full" />
-                <span>{formattedDate}</span>
+                </h1>
+
+                <div className="text-gray-500 text-xs uppercase tracking-widest font-bold">
+                  {readTime}m read
+                </div>
               </div>
 
               <div className="flex items-center justify-center gap-6 mt-6 text-gray-400">

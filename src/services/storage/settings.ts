@@ -10,7 +10,6 @@ export const defaultSettings: Settings = {
   autoCheckUpdates: true,
   theme: 'dark',
   pureBlack: true,
-  imageRetentionDays: 1,
   redditRetentionDays: 1,
   telegramRetentionDays: 1,
   articleRetentionDays: 30,

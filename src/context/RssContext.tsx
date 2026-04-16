@@ -296,6 +296,31 @@ export const RssProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => clearInterval(interval);
   }, [settings.autoCheckUpdates, settings.refreshInterval, refreshFeeds, refreshReddit]);
 
+  // Listen for app-resume to trigger refresh if needed
+  useEffect(() => {
+    const handleResume = () => {
+      console.log('[Flusso] App resumed - checking if refresh is needed');
+      const now = Date.now();
+      const elapsedMinutes = (now - lastRefresh.current) / (1000 * 60);
+      
+      // Force refresh if more than half of the interval has passed on resume
+      // or if we just want to be reactive.
+      if (settings.autoCheckUpdates && settings.refreshInterval > 0) {
+        if (elapsedMinutes >= settings.refreshInterval) {
+          console.log(`[Flusso] Resume refresh triggered (Last: ${Math.round(elapsedMinutes)}m ago)`);
+          refreshFeeds();
+          refreshReddit();
+        }
+      }
+      
+      // Also check for app updates every time we resume
+      checkUpdates();
+    };
+
+    window.addEventListener('app-resume', handleResume);
+    return () => window.removeEventListener('app-resume', handleResume);
+  }, [settings.autoCheckUpdates, settings.refreshInterval, refreshFeeds, refreshReddit, checkUpdates]);
+
   const addFeedOrSubreddit = useCallback(async (url: string): Promise<'article' | 'podcast' | 'reddit' | 'subreddit' | 'telegram' | void> => {
     try {
       setIsLoading(true);

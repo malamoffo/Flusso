@@ -11,7 +11,6 @@ export interface Settings {
   autoCheckUpdates: boolean;
   theme: Theme;
   pureBlack: boolean;
-  imageRetentionDays: number;
   redditRetentionDays: number;
   telegramRetentionDays: number;
   articleRetentionDays: number;

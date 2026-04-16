@@ -82,15 +82,17 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     setIsLoading(true);
     try {
-      const posts: RedditPost[] = [];
-      for (const sub of targetSubs) {
+     const fetchPromises = targetSubs.map(async (sub) => {
         try {
-          const incomingPosts = await storage.fetchRedditPosts(sub.name, targetSort);
-          posts.push(...incomingPosts);
+          return await storage.fetchRedditPosts(sub.name, targetSort);
         } catch (e) {
           console.error(`Failed to refresh r/${sub.name}`, e);
+          return [];
         }
-      }
+      });
+      
+      const results = await Promise.all(fetchPromises);
+      const posts: RedditPost[] = results.flat();
 
       if (worker.current) {
         const handler = (e: MessageEvent) => {

@@ -118,7 +118,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
       ref={ref}
       className={cn(
         "relative w-full overflow-hidden will-change-transform",
-        filter === 'saved' && "px-3 py-1"
+        filter === 'saved' && "px-1.25 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -128,7 +128,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
     >
       <div className={cn(
         "relative w-full overflow-hidden",
-        filter === 'saved' ? "rounded-2xl border border-blue-500/20 shadow-sm" : ""
+        filter === 'saved' ? "rounded-2xl border border-white/10 shadow-sm" : ""
       )}>
         <motion.div 
           className="absolute inset-0 z-0"
@@ -166,7 +166,7 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           onClick={handlePostClick}
           exit={{ x: exitX, opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
           className={cn(
-            "relative z-20 w-full p-2.5 cursor-pointer transition-all bg-black select-none",
+            "relative z-20 w-full p-3 cursor-pointer transition-all bg-black select-none",
             (filter !== 'saved') && "opacity-100"
           )}
         >
@@ -188,12 +188,12 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
           {/* Source and Time (below image, above title) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs font-medium truncate text-purple-400 shadow-[0_0_5px_rgba(168,85,247,0.3)]">
+              <span className="text-[10px] font-bold uppercase tracking-wider truncate text-purple-400">
                 r/{post.subredditName}
               </span>
-              <span className="text-xs text-gray-400 truncate">u/{post.author}</span>
+              <span className="text-[10px] text-gray-400 truncate tracking-wide">u/{post.author}</span>
             </div>
-            <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
+            <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">
               {isToday(post.createdUtc) ? format(post.createdUtc, 'HH:mm') : format(post.createdUtc, 'dd MMM yyyy')}
             </span>
           </div>

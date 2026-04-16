@@ -272,7 +272,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
       }} 
       className={cn(
         "relative w-full overflow-hidden will-change-transform",
-        isInboxOrSaved && "px-1.5 py-1"
+        isInboxOrSaved && "px-1.25 py-1"
       )}
       style={{
         contentVisibility: 'auto',
@@ -283,7 +283,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     >
       <div className={cn(
         "relative w-full overflow-hidden",
-        isInboxOrSaved ? "rounded-2xl border border-blue-500/30 shadow-sm" : ""
+        isInboxOrSaved ? "rounded-2xl border border-white/10 shadow-sm" : ""
       )}>
         <motion.div 
           className="absolute inset-0 z-0"
@@ -346,16 +346,15 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
             !isInboxOrSaved && "border-b border-gray-800"
           )}
         >
-
-        <div className={cn(
-          "flex gap-2", 
-          (article.type === 'podcast') ? "flex-row items-center" : "flex-col"
-        )}>
-          {hasImage ? (
-            <div className={cn(
-              "relative overflow-hidden flex-shrink-0",
-              (article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-16 h-16 rounded-lg"
-            )}>
+          <div className={cn(
+            "flex gap-2", 
+            (article.type === 'podcast') ? "flex-row items-center" : "flex-col"
+          )}>
+            {hasImage ? (
+              <div className={cn(
+                "relative overflow-hidden flex-shrink-0",
+                (article.type !== 'podcast') ? "w-full h-auto rounded-2xl" : "w-16 h-16 rounded-lg"
+              )}>
               <CachedImage 
                 key={`${article.id}-${article.imageUrl}`}
                 src={getSafeUrl(article.imageUrl || (article.type === 'podcast' ? feedImageUrl! : ''))}
@@ -374,24 +373,20 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
           )}>
             <div className="flex items-center justify-between mb-0.5 w-full">
               <div className="flex items-center gap-2 min-w-0 flex-1">
+                {domain && (
+                  <div className="flex-shrink-0">
+                    <CachedImage 
+                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
+                      alt="" 
+                      className="w-3.5 h-3.5 rounded-sm"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {domain && (
-                    <div className="flex-shrink-0">
-                      <CachedImage 
-                        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
-                        alt="" 
-                        className="w-3.5 h-3.5 rounded-sm"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-                        }}
-                      />
-                    </div>
-                  )}
-                <div className="flex items-center gap-1.5 min-w-0">
-                  {(article.isFavorite || article.isQueued) && (
-                    <Star className="w-3 h-3 text-yellow-500 fill-current flex-shrink-0" />
-                  )}
                   {article.type === 'podcast' ? (
                     <Headphones className="w-3 h-3 text-[var(--theme-color)] flex-shrink-0" />
                   ) : (
@@ -404,11 +399,15 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                     {feedName}
                   </span>
                 </div>
-                </div>
               </div>
-              <span className="text-[10px] text-gray-500 whitespace-nowrap flex-shrink-0 ml-2">
-                {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM yyyy')}
-              </span>
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                {(article.isFavorite || article.isQueued) && (
+                  <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                )}
+                <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                  {isToday(article.pubDate) ? format(article.pubDate, 'HH:mm') : format(article.pubDate, 'dd MMM yyyy')}
+                </span>
+              </div>
             </div>
 
             <div className="min-w-0">
