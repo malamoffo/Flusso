@@ -1,5 +1,4 @@
 import { Feed, Article, PodcastChapter } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 import DOMPurify from 'dompurify';
 import he from 'he';
 import { getSafeUrl, resolveUrl } from '../lib/utils';
@@ -197,7 +196,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
     try {
       const data = JSON.parse(xmlString);
       if (data.status === 'ok' && data.feed && data.items) {
-        const feedId = uuidv4();
+        const feedId = crypto.randomUUID();
         const articles: Article[] = data.items.map((item: any) => {
           let imageUrl = item.thumbnail || null;
           let mediaUrl = null;
@@ -226,7 +225,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
           if (sinceDate && pubDate <= sinceDate) return null;
 
           return {
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             feedId,
             title: decodeHtmlEntities(item.title || 'Untitled'),
             link: getSafeUrl(item.link),
@@ -280,7 +279,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
   }
 
   const isAtom = xmlDoc.getElementsByTagName('feed').length > 0;
-  const feedId = uuidv4();
+  const feedId = crypto.randomUUID();
   
   if (isAtom) {
     const feedNode = xmlDoc.getElementsByTagName('feed')[0];
@@ -475,7 +474,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       }
 
       articles.push({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         feedId,
         title: decodeHtmlEntities(entryTitle),
         link: resolveUrl(entryLink, feedUrl),
@@ -799,7 +798,7 @@ export function parseRssXml(xmlString: string, feedUrl: string, sinceDate?: numb
       }
 
       articles.push({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         feedId,
         title: decodeHtmlEntities(itemTitle),
         link: resolveUrl(itemLink, feedUrl),

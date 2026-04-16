@@ -3,7 +3,6 @@ import { Feed, Article, RefreshLog } from '../../types';
 import { CapacitorHttp } from '@capacitor/core';
 import { fetchWithProxy } from '../../utils/proxy';
 import { parseRssXml, escapeXml } from '../rssParser';
-import { v4 as uuidv4 } from 'uuid';
 
 export const rssStorage = {
   async getFeeds(): Promise<Feed[]> {
@@ -379,8 +378,12 @@ export const rssStorage = {
     return opml;
   },
 
-  async getRefreshLogs(): Promise<RefreshLog[]> {
-    return await db.refreshLogs.orderBy('timestamp').reverse().toArray();
+  async getRefreshLogs(offset = 0, limit = 0): Promise<RefreshLog[]> {
+    let query = db.refreshLogs.orderBy('timestamp').reverse();
+    if (limit > 0) {
+      return await query.offset(offset).limit(limit).toArray();
+    }
+    return await query.toArray();
   },
 
   async markAllArticlesAsRead(): Promise<void> {
@@ -397,6 +400,6 @@ export const rssStorage = {
   },
 
   async saveRefreshLogs(logs: RefreshLog[]): Promise<void> {
-    await db.refreshLogs.bulkPut(logs.map(log => ({ ...log, id: log.id || uuidv4() })));
+    await db.refreshLogs.bulkPut(logs.map(log => ({ ...log, id: log.id || crypto.randomUUID() })));
   },
 };

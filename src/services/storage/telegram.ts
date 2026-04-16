@@ -21,19 +21,14 @@ export const telegramStorage = {
     await db.telegramChannels.update(id, updates);
   },
 
-  async getTelegramMessages(channelId: string, username?: string): Promise<TelegramMessage[]> {
-    let messages = await db.telegramMessages.where('channelId').equals(channelId).sortBy('date');
+  async getTelegramMessages(channelId: string, offset = 0, limit = 0): Promise<TelegramMessage[]> {
+    let query = db.telegramMessages.where('channelId').equals(channelId).orderBy('date').reverse();
     
-    if (messages.length === 0 && username) {
-      const legacyMessages = await db.telegramMessages.where('channelId').equals(username).sortBy('date');
-      if (legacyMessages.length > 0) {
-        const fixedMessages = legacyMessages.map(m => ({ ...m, channelId }));
-        db.telegramMessages.bulkPut(fixedMessages).catch(e => console.error('Failed to fix legacy telegram messages:', e));
-        return fixedMessages;
-      }
+    if (limit > 0) {
+      return await query.offset(offset).limit(limit).toArray();
     }
     
-    return messages;
+    return await query.toArray();
   },
 
   async saveTelegramMessages(channelId: string, messages: TelegramMessage[]): Promise<void> {

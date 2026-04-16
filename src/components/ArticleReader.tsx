@@ -16,7 +16,6 @@ import { Readability } from '@mozilla/readability';
 import { fetchWithProxy } from '../utils/proxy';
 import { contentFetcher } from '../utils/contentFetcher';
 import { extractBestImage } from '../services/rssParser';
-import { getColorSync } from 'colorthief';
 
 interface ArticleReaderProps {
   key?: React.Key;
@@ -136,36 +135,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
     setIsQueued(article.isQueued);
     setReaderImageUrl(article.imageUrl || null);
   }, [article.id, article.isFavorite, article.isQueued, article.imageUrl]);
-
-  useEffect(() => {
-    const displayImage = readerImageUrl || (article.type === 'podcast' ? feed?.imageUrl : null);
-    if (displayImage) {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      // Use proxy to bypass CORS for image color extraction
-      img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(displayImage)}`;
-      img.onload = () => {
-        try {
-          const color = getColorSync(img);
-          if (color) {
-            setArticleThemeColor(color.hex());
-          }
-        } catch (e) {
-          console.error("Failed to extract color:", e);
-        }
-      };
-      img.onerror = () => {
-        // Fallback to direct URL if proxy fails (might work if CORS is allowed)
-        if (img.src !== displayImage) {
-          img.src = displayImage;
-        } else {
-          setArticleThemeColor(null);
-        }
-      };
-    } else {
-      setArticleThemeColor(null);
-    }
-  }, [readerImageUrl, article.type, feed?.imageUrl]);
 
   const readTime = fullContent?.textContent ? Math.max(1, Math.ceil(fullContent.textContent.split(/\s+/).length / 200)) : 1;
   const formattedDate = new Date(article.pubDate).toLocaleString('it-IT', {

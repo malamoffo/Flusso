@@ -1,6 +1,5 @@
 import { Feed, Article } from '../types';
 import { storage } from './storage';
-import { v4 as uuidv4 } from 'uuid';
 
 export const rssService = {
   async refreshFeeds(
@@ -72,7 +71,7 @@ export const rssService = {
                 if (articlesWithCorrectId.length > 0) {
                   await (mergeChain = mergeChain.then(async () => {
                     const { merged, hasNew } = await new Promise<{ merged: Article[], hasNew: boolean }>((resolve, reject) => {
-                      const requestId = uuidv4();
+                      const requestId = crypto.randomUUID();
                       const timeout = setTimeout(() => {
                         worker.removeEventListener('message', handler);
                         reject(new Error('Worker timeout'));

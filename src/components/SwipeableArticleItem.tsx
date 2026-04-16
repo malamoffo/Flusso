@@ -8,10 +8,6 @@ import { contentFetcher } from '../utils/contentFetcher';
 import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
-import { getColorSync } from 'colorthief';
-
-// Global cache for feed colors to avoid repeated fetches and re-renders
-const feedColorCache = new Map<string, string>();
 
 // VERY IMPORTANT: Persist swipe state outside component
 const swipeState: Record<string, number> = {};
@@ -69,47 +65,9 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     }
   }, [article.id, x]);
 
-  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(() => {
-    return feedImageUrl ? feedColorCache.get(feedImageUrl) || null : null;
-  });
+  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!feedImageUrl || feedColorCache.has(feedImageUrl)) return;
-
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedImageUrl)}`;
-    img.onload = () => {
-      try {
-        const color = getColorSync(img);
-        if (color) {
-          const hex = color.hex();
-          feedColorCache.set(feedImageUrl, hex);
-          setFeedThemeColor(hex);
-        }
-      } catch (e) {
-        feedColorCache.set(feedImageUrl, ''); 
-      }
-    };
-    img.onerror = () => {
-      feedColorCache.set(feedImageUrl, '');
-    };
-  }, [feedImageUrl]);
-  
-  const getReadableColor = (color: string) => {
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    
-    if (brightness < 100) {
-      return null;
-    }
-    return color;
-  };
-
-  const readableFeedThemeColor = feedThemeColor ? getReadableColor(feedThemeColor) : null;
+  const readableFeedThemeColor = null;
   
   const { ref, inView, entry } = useInView({
     threshold: 0,
@@ -271,12 +229,10 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
         prefetchRef(node);
       }} 
       className={cn(
-        "relative w-full overflow-hidden will-change-transform",
+        "relative w-full overflow-hidden will-change-transform content-visibility-auto",
         isInboxOrSaved && "px-1.25 py-1"
       )}
       style={{
-        contentVisibility: 'auto',
-        containIntrinsicSize: '0 120px',
         transform: 'translateZ(0)',
         ...style
       } as React.CSSProperties}
