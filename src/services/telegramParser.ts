@@ -1,6 +1,6 @@
 import { CapacitorHttp, Capacitor } from '@capacitor/core';
 import { TelegramMessage } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+
 import { fetchWithProxy } from '../utils/proxy';
 
 export const fetchTelegramChannelInfo = async (channelUsername: string): Promise<{ name: string; imageUrl?: string }> => {
@@ -74,7 +74,7 @@ export const fetchTelegramMessages = async (channelUsername: string, sinceDate?:
 
       const id = el.querySelector('.tgme_widget_message')?.getAttribute('data-post') || 
                  el.getAttribute('data-post') || 
-                 uuidv4();
+                 crypto.randomUUID();
                  
       const textEl = el.querySelector('.tgme_widget_message_text, .js-message_text');
       const text = textEl ? textEl.innerHTML : ''; 

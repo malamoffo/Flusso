@@ -58,7 +58,7 @@ export const redditStorage = {
   },
 
   async getRedditPosts(): Promise<RedditPost[]> {
-    return await db.redditPosts.orderBy('createdUtc').reverse().toArray();
+    return await db.redditPosts.orderBy('createdUtc').reverse().limit(150).toArray();
   },
 
   async saveRedditPosts(posts: RedditPost[]): Promise<void> {

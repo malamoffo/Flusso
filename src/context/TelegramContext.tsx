@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { TelegramChannel, TelegramMessage } from '../types';
 import { storage } from '../services/storage';
 import DataWorker from '../workers/dataProcessor.worker.ts?worker';
-import { v4 as uuidv4 } from 'uuid';
+
 import { fetchTelegramMessages, fetchTelegramChannelInfo } from '../services/telegramParser';
 import { useSettings } from './SettingsContext';
 
@@ -64,7 +64,7 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
       const existing = telegramChannels.find(c => c.username.toLowerCase() === cleanUsername.toLowerCase());
       if (existing) throw new Error("Sei già iscritto a questo canale Telegram.");
       
-      const channelId = uuidv4();
+      const channelId = crypto.randomUUID();
       const [messages, info] = await Promise.all([
         fetchTelegramMessages(cleanUsername, undefined, undefined, channelId),
         fetchTelegramChannelInfo(cleanUsername)
@@ -148,7 +148,7 @@ export const TelegramProvider: React.FC<{ children: ReactNode }> = ({ children }
           if (messages.length > 0) {
             await (mergeChain = mergeChain.then(async () => {
               const { merged } = await new Promise<{ merged: TelegramMessage[] }>((resolve, reject) => {
-                const requestId = uuidv4();
+                const requestId = crypto.randomUUID();
                 const timeout = setTimeout(() => {
                   worker.current!.removeEventListener('message', handler);
                   reject(new Error('Worker timeout'));

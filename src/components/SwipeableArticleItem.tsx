@@ -8,10 +8,7 @@ import { contentFetcher } from '../utils/contentFetcher';
 import { CachedImage } from './CachedImage';
 import { cn, getSafeUrl, formatTime, parseDurationToSeconds } from '../lib/utils';
 import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
-import { getColorSync } from 'colorthief';
-
-// Global cache for feed colors to avoid repeated fetches and re-renders
-const feedColorCache = new Map<string, string>();
+import { useAudioState, useAudioProgress } from '../context/AudioPlayerContext.tsx';
 
 // VERY IMPORTANT: Persist swipe state outside component
 const swipeState: Record<string, number> = {};
@@ -69,33 +66,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
     }
   }, [article.id, x]);
 
-  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(() => {
-    return feedImageUrl ? feedColorCache.get(feedImageUrl) || null : null;
-  });
-
-  useEffect(() => {
-    if (!feedImageUrl || feedColorCache.has(feedImageUrl)) return;
-
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedImageUrl)}`;
-    img.onload = () => {
-      try {
-        const color = getColorSync(img);
-        if (color) {
-          const hex = color.hex();
-          feedColorCache.set(feedImageUrl, hex);
-          setFeedThemeColor(hex);
-        }
-      } catch (e) {
-        feedColorCache.set(feedImageUrl, ''); 
-      }
-    };
-    img.onerror = () => {
-      feedColorCache.set(feedImageUrl, '');
-    };
-  }, [feedImageUrl]);
-  
+  const [feedThemeColor, setFeedThemeColor] = useState<string | null>(null);
   const getReadableColor = (color: string) => {
     const hex = color.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
