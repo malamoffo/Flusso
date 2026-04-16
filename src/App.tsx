@@ -115,7 +115,7 @@ export default function App() {
 
   const filteredRedditPosts = useMemo(() => {
     const query = deferredSearchQuery.toLowerCase();
-    return redditPosts.filter(post => {
+    const filtered = redditPosts.filter(post => {
       if (query) {
         const matchesQuery = post.title.toLowerCase().includes(query) || 
                             (post.subredditName?.toLowerCase().includes(query) ?? false) ||
@@ -124,7 +124,15 @@ export default function App() {
       }
       return true;
     });
-  }, [redditPosts, deferredSearchQuery]);
+
+    return [...filtered].sort((a, b) => {
+      if (redditSort === 'new') return b.createdUtc - a.createdUtc;
+      // Hot and Top are both score based in this simple implementation, 
+      // but Reddit API handles trending/hot specifically.
+      if (redditSort === 'hot' || redditSort === 'top') return b.score - a.score;
+      return b.createdUtc - a.createdUtc;
+    });
+  }, [redditPosts, deferredSearchQuery, redditSort]);
 
   const sortedTelegramChannels = useMemo(() => {
     const query = deferredSearchQuery.toLowerCase();

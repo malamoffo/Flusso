@@ -179,8 +179,10 @@ export const redditStorage = {
 
   async fetchRedditPosts(subredditName: string, sort: 'new' | 'hot' | 'top' = 'new', after?: string): Promise<{posts: RedditPost[], after?: string}> {
     try {
+      // Don't strictly require subreddit object to perform fetch
       const subreddits = await this.getSubreddits();
       const subreddit = subreddits.find(s => s.name === subredditName);
+      
       let url = `https://www.reddit.com/r/${subredditName}/${sort}.json?limit=25`;
       if (after) {
         // If 'after' already contains 't3_', use it as is, otherwise prefix it.
@@ -188,11 +190,12 @@ export const redditStorage = {
         url += `&after=${cursor}`;
       }
 
+      // Use etag from subreddit if available
       const result = await this.fetchJsonWithProxy(url, undefined, subreddit?.etag, subreddit?.lastModified);
       
       if (!result || result.data === null) return { posts: [] }; // 304 Not Modified
 
-      // Update etag, lastModified and lastFetched for the subreddit
+      // Update etag, lastModified and lastFetched for the subreddit IF it exists
       if (subreddit) {
         subreddit.etag = result.etag;
         subreddit.lastModified = result.lastModified;
@@ -244,14 +247,36 @@ export const redditStorage = {
     try {
       const cleanPermalink = permalink.replace(/\/$/, '');
       const url = `https://www.reddit.com${cleanPermalink}.json`;
-      const data = await this.fetchJsonWithProxy(url);
+      
+      try {
+        const data = await this.fetchJsonWithProxy(url);
+        if (data && Array.isArray(data) && data.length >= 2 && data[1].data && data[1].data.children) {
+          return data[1].data.children;
+        }
+      } catch (e) {
+        console.warn(`JSON API failed for ${permalink}, trying scraping fallback.`);
+      }
 
-      if (!data || !Array.isArray(data) || data.length < 2 || !data[1].data || !data[1].data.children) return [];
+      // Scraping fallback: fetch HTML and parse
+      const htmlUrl = `https://www.reddit.com${cleanPermalink}`;
+      const response = await fetchWithProxy(htmlUrl, false);
+      if (!response.data) return [];
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(response.data, 'text/html');
+      
+      // Simple scraping logic to extract comment text from Reddit's HTML
+      const comments: any[] = [];
+      const commentElements = doc.querySelectorAll('.comment');
+      
+      commentElements.forEach(el => {
+         const author = el.querySelector('.author')?.textContent || 'unknown';
+         const body = el.querySelector('.md')?.textContent || '';
+         comments.push({ data: { author, body } });
+      });
 
-      return data[1].data.children;
+      return comments;
     } catch (e: any) {
-      // Log as warning instead of error to avoid spamming the console, 
-      // as proxy failures are expected occasionally due to rate limits.
       console.warn(`Could not fetch comments for ${permalink}: ${e.message}`);
       return [];
     }

@@ -19,7 +19,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
   if (Capacitor.isNativePlatform()) {
     try {
       const headers: Record<string, string> = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.40 Mobile Safari/537.36',
         ...(isRss ? { 'Accept': 'application/rss+xml, application/xml, text/xml, */*' } : {})
       };
 

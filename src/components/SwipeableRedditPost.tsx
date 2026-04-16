@@ -9,8 +9,6 @@ import { CachedImage } from './CachedImage';
 import DOMPurify from 'dompurify';
 import he from 'he';
 
-import { useReddit } from '../context/RedditContext';
-
 interface SwipeableRedditPostProps {
   post: RedditPost;
   settings: Settings;
@@ -39,18 +37,11 @@ export const SwipeableRedditPost = React.memo(function SwipeableRedditPost({
   disableGestures = false
 }: SwipeableRedditPostProps) {
   const x = useMotionValue(0);
-  const { prefetchRedditComments } = useReddit();
   
   const { ref, inView, entry } = useInView({
     threshold: 0,
     rootMargin: '200px 0px',
   });
-
-  React.useEffect(() => {
-    if (inView && post.permalink) {
-      prefetchRedditComments(post.permalink);
-    }
-  }, [inView, post.permalink, prefetchRedditComments]);
 
   const handlePostClick = () => {
     onClick(post);

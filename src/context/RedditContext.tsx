@@ -73,8 +73,8 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     prefetchQueue.current.add(permalink);
     try {
-      // Small delay to avoid overwhelming the proxy during rapid scrolling
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Increased delay to 1.5s to be less aggressive and reduce proxy/API load
+      await new Promise(resolve => setTimeout(resolve, 1500));
       const comments = await storage.fetchRedditComments(permalink);
       if (comments && comments.length > 0) {
         commentCache.current.set(permalink, comments);
@@ -99,18 +99,23 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const refreshReddit = useCallback(async (subsToRefresh?: Subreddit[], currentPosts?: RedditPost[], sort?: 'new' | 'hot' | 'top') => {
     const targetSubs = subsToRefresh || subredditsRef.current;
     const targetSort = sort || redditSort;
+    console.log(`[Reddit] Refreshing. TargetSort: ${targetSort}, RawSortParam: ${sort}, StateSort: ${redditSort}`);
     
     // Reset cursors on refresh
     if (!subsToRefresh) {
         paginationCursors.current = {};
     }
 
-    if (targetSubs.length === 0) return;
+    if (targetSubs.length === 0) {
+      console.log(`[Reddit] No target subreddits.`);
+      return;
+    }
 
     setIsLoading(true);
     try {
      const fetchPromises = targetSubs.map(async (sub) => {
         try {
+          console.log(`[Reddit] Fetching r/${sub.name} with sort ${targetSort}`);
           const result = await storage.fetchRedditPosts(sub.name, targetSort);
           if (result.after) {
             paginationCursors.current[sub.name] = result.after;
@@ -124,13 +129,15 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       const results = await Promise.all(fetchPromises);
       const posts: RedditPost[] = results.flat();
+      console.log(`[Reddit] Finished fetch. Total posts: ${posts.length}`);
 
       if (worker.current) {
         const handler = (e: MessageEvent) => {
           if (e.data.type === 'mergedRedditPosts') {
+            console.log(`[Reddit] Worker returned ${e.data.merged.length} posts`);
             const merged: RedditPost[] = e.data.merged;
             
-            // Apply retention logic...
+            // ... (rest of the logic)
             const retentionMs = (settings.redditRetentionDays || 1) * 24 * 60 * 60 * 1000;
             const now = Date.now();
             
@@ -157,9 +164,10 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setIsLoading(false);
     }
-  }, [redditSort, settings.redditRetentionDays]);
+  }, [settings.redditRetentionDays, redditSort]);
 
   const loadMoreReddit = useCallback(async () => {
+    // ... (rest)
     const targetSubs = subredditsRef.current;
     if (targetSubs.length === 0) return;
 
@@ -167,6 +175,7 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
         const fetchPromises = targetSubs.map(async (sub) => {
            const cursor = paginationCursors.current[sub.name];
+           console.log(`[Reddit] Loading more r/${sub.name} sort ${redditSort} cursor ${cursor}`);
            const result = await storage.fetchRedditPosts(sub.name, redditSort, cursor);
            if (result.after) {
              paginationCursors.current[sub.name] = result.after;
@@ -175,13 +184,12 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         });
         const results = await Promise.all(fetchPromises);
         const newPosts: RedditPost[] = results.flat();
+        console.log(`[Reddit] Load more finished. New posts: ${newPosts.length}`);
         
-        // Merge new posts with existing ones
+        // Merge...
         setRedditPosts(prev => {
             const combined = [...prev, ...newPosts];
-            // Remove duplicates
             const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-            // Sort by createdUtc
             unique.sort((a, b) => b.createdUtc - a.createdUtc);                
             storage.saveRedditPosts(unique);
             return unique;
@@ -193,7 +201,9 @@ export const RedditProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [redditSort]);
 
   const handleRedditSortChange = useCallback(async (sort: 'new' | 'hot' | 'top') => {
+    console.log(`[Reddit] Sort change to: ${sort}`);
     setRedditSort(sort);
+    // Explicitly pass the new sort to refreshReddit
     await refreshReddit(undefined, undefined, sort);
   }, [refreshReddit]);
 
