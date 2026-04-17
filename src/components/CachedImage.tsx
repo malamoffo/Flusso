@@ -105,10 +105,14 @@ export function CachedImage({ src, className, fallback, alt, ...props }: CachedI
 
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     // If local URL failed, try falling back to original src
-    if (currentSrc !== src) {
+    const corsProxyUrl = src && src.startsWith('http') && !src.includes('corsproxy.io') 
+      ? `https://corsproxy.io/?${encodeURIComponent(src)}` 
+      : null;
+
+    if (currentSrc !== src && currentSrc !== corsProxyUrl) {
       setCurrentSrc(src);
-    } else if (src && src.startsWith('http') && !src.includes('corsproxy.io')) {
-      setCurrentSrc(`https://corsproxy.io/?${encodeURIComponent(src)}`);
+    } else if (corsProxyUrl && currentSrc !== corsProxyUrl) {
+      setCurrentSrc(corsProxyUrl);
     } else {
       console.error(`[CachedImage] Failed to load image: ${src}`);
       setError(true);

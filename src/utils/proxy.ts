@@ -169,7 +169,7 @@ export async function fetchWithProxy(url: string, isRss: boolean = true, sinceDa
     if (signal?.aborted) throw new Error('Aborted');
     
     const proxy = proxies[i];
-    const timeout = proxy.timeout ? Math.min(proxy.timeout, 10000) : defaultTimeout;
+    const timeout = proxy.timeout ? Math.min(proxy.timeout, 15000) : defaultTimeout;
     
     let id: any;
     try {
