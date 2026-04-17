@@ -31,12 +31,41 @@ interface ArticleReaderProps {
 const PodcastChapters = ({ article, isCurrentTrack }: { article: Article, isCurrentTrack: boolean }) => {
   const [chapters, setChapters] = useState<PodcastChapter[]>(article.chapters || []);
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const { seek } = useAudioState();
   const { progress } = useAudioProgress();
 
   useEffect(() => {
+    let extracted: PodcastChapter[] = [];
     if (article.chapters && article.chapters.length > 0) {
-      setChapters(article.chapters);
+      extracted = article.chapters;
+    } else if (!article.chaptersUrl) {
+      // Try parsing from text
+      const textToParse = ((article.content || '') + '\n' + (article.contentSnippet || '')).replace(/<br\s*\/?>|<\/p>|<p>/gi, '\n');
+      const regex = /(?:^|\n)\s*(?:-|\*|\(|\[)?\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:\)|\])?\s*(?:-|:)?\s*([^\n]+)/gi;
+      let match;
+      while ((match = regex.exec(textToParse)) !== null) {
+        const timeStr = match[1];
+        let title = match[2].trim().replace(/<\/?[^>]+(>|$)/g, ""); // strip html
+        if (title.length > 80) title = title.substring(0, 80) + '...';
+        
+        const parts = timeStr.split(':').map(Number);
+        let seconds = 0;
+        if (parts.length === 3) {
+          seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+          seconds = parts[0] * 60 + parts[1];
+        }
+        
+        if (title && !extracted.some(c => c.startTime === seconds)) {
+          extracted.push({ startTime: seconds, title });
+        }
+      }
+      extracted.sort((a, b) => a.startTime - b.startTime);
+    }
+
+    if (extracted.length > 0) {
+      setChapters(extracted);
       return;
     }
 
@@ -58,52 +87,71 @@ const PodcastChapters = ({ article, isCurrentTrack }: { article: Article, isCurr
         .catch(err => console.error('Failed to fetch chapters:', err))
         .finally(() => setLoading(false));
     }
-  }, [article.chapters, article.chaptersUrl]);
+  }, [article.chapters, article.chaptersUrl, article.content, article.contentSnippet]);
 
   if (!chapters || chapters.length === 0) {
     if (loading) {
-      return <div className="text-sm text-gray-500 animate-pulse mt-4">Loading chapters...</div>;
+      return <div className="text-sm text-gray-400 animate-pulse text-center w-full mb-4">Caricamento capitoli...</div>;
     }
     return null;
   }
 
   return (
-    <div className="mt-6">
-      <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-        <List className="w-5 h-5" /> Chapters
-      </h3>
-      <div className="space-y-2">
-        {chapters.map((chapter, index) => {
-          const isCurrentChapter = isCurrentTrack && progress >= chapter.startTime && (index === chapters.length - 1 || progress < chapters[index + 1].startTime);
-          return (
-            <button
-              key={index}
-              onClick={() => {
-                if (isCurrentTrack) {
-                  seek(chapter.startTime);
-                }
-              }}
-              className={cn(
-                "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3",
-                isCurrentChapter ? "bg-indigo-900/40 border border-indigo-500/30" : "bg-gray-800/40 hover:bg-gray-800",
-                !isCurrentTrack && "cursor-default"
-              )}
-            >
-              {chapter.imageUrl && (
-                <CachedImage src={chapter.imageUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className={cn("font-medium truncate", isCurrentChapter ? "text-indigo-300" : "text-gray-200")}>
-                  {chapter.title}
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {formatTime(chapter.startTime)}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+    <div className="w-full mb-4">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl font-medium text-gray-200 flex items-center justify-between transition-colors shadow-sm"
+      >
+        <span className="flex items-center gap-2"><List className="w-5 h-5 text-gray-400" /> Capitoli ({chapters.length})</span>
+        <ChevronDown className={cn("w-5 h-5 transition-transform text-gray-400", isOpen ? "rotate-180" : "")} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-1.5 mt-3 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+              {chapters.map((chapter, index) => {
+                const isCurrentChapter = isCurrentTrack && progress >= chapter.startTime && (index === chapters.length - 1 || progress < chapters[index + 1].startTime);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      if (isCurrentTrack) {
+                        seek(chapter.startTime);
+                      }
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-center gap-3 group",
+                      isCurrentChapter ? "bg-indigo-500/20 border border-indigo-500/30" : "hover:bg-white/10",
+                      !isCurrentTrack && "cursor-default opacity-70"
+                    )}
+                  >
+                    <div className={cn(
+                      "text-xs font-mono px-1.5 py-0.5 rounded flex-shrink-0 transition-colors",
+                      isCurrentChapter ? "text-indigo-300 bg-indigo-900/40" : "text-gray-400 bg-white/10 group-hover:bg-white/20"
+                    )}>
+                      {formatTime(chapter.startTime)}
+                    </div>
+                    {chapter.imageUrl && (
+                      <CachedImage src={chapter.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0 bg-black/20" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className={cn("text-sm font-medium truncate", isCurrentChapter ? "text-white" : "text-gray-300")}>
+                        {chapter.title}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -634,6 +682,9 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
             {article.type === 'podcast' && article.mediaUrl && (
               <div className="mb-8 p-6 bg-white/5 rounded-3xl border border-white/10 shadow-sm">
                 <div className="flex flex-col gap-6">
+                  
+                  <PodcastChapters article={article} isCurrentTrack={isCurrentTrack} />
+
                   <ReaderProgressBar article={article} isCurrentTrack={isCurrentTrack} />
 
                   {/* Controls */}
@@ -695,10 +746,6 @@ export const ArticleReader = React.memo(function ArticleReader({ article, onClos
                   </div>
                 </div>
               </div>
-            )}
-
-            {article.type === 'podcast' && (article.chapters || article.chaptersUrl) && (
-              <PodcastChapters article={article} isCurrentTrack={isCurrentTrack} />
             )}
 
             {isLoading ? (
