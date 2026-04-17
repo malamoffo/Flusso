@@ -106,6 +106,36 @@ export default function App() {
   const [temporarilyVisibleUnreadIds, setTemporarilyVisibleUnreadIds] = useState<Set<string>>(new Set());
   
   const [filter, setFilter] = useState<'inbox' | 'saved' | 'reddit' | 'telegram'>('inbox');
+  const scrollPositions = useRef<Record<string, number>>({});
+  const activeSectionRef = useRef<RefObject<HTMLDivElement> | null>(null);
+
+  useEffect(() => {
+    // Save current scroll position before filter changes
+    if (activeSectionRef.current?.current) {
+      scrollPositions.current[filter] = activeSectionRef.current.current.scrollTop;
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    // Restore scroll position after filter changes
+    if (activeSectionRef.current?.current) {
+      activeSectionRef.current.current.scrollTop = scrollPositions.current[filter] || 0;
+    }
+  }, [filter]);
+
+  const getActiveScrollRef = useCallback(() => {
+    switch (filter) {
+      case 'inbox': return inboxScrollRef;
+      case 'saved': return savedScrollRef;
+      case 'reddit': return redditScrollRef;
+      default: return null;
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    activeSectionRef.current = getActiveScrollRef();
+  }, [filter, getActiveScrollRef]);
+  
   const [inboxTypeFilter, setInboxTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
   const [inboxUnreadOnly, setInboxUnreadOnly] = useState(false);
   const [savedTypeFilter, setSavedTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');

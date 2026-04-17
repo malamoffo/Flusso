@@ -628,7 +628,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                                 ))}
                                 {redditFeeds
                                   .slice()
-                                  .sort((a, b) => a.title.localeCompare(b.title))
+                                  .sort((a, b) => (b.lastArticleDate || 0) - (a.lastArticleDate || 0))
                                   .map(feed => {
                                   const domain = feed.link ? new URL(feed.link).hostname : '';
                                   return (
