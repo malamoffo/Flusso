@@ -11,6 +11,7 @@ interface UseFeedFilteringProps {
   sourceFilter: string;
   timeFilter: string;
   isSearchOpen: boolean;
+  temporarilyVisibleUnreadIds?: Set<string>;
 }
 
 export const useFeedFiltering = ({
@@ -22,7 +23,8 @@ export const useFeedFiltering = ({
   deferredSearchQuery,
   sourceFilter,
   timeFilter,
-  isSearchOpen
+  isSearchOpen,
+  temporarilyVisibleUnreadIds
 }: UseFeedFilteringProps) => {
   return useMemo(() => {
     const inbox: Article[] = [];
@@ -60,7 +62,12 @@ export const useFeedFiltering = ({
 
       // Inbox specific filtering
       let matchesInbox = true;
-      if (inboxUnreadOnly && article.isRead) matchesInbox = false;
+      if (inboxUnreadOnly && article.isRead) {
+        // Only allow if it was recently marked as read in this "session"
+        if (!temporarilyVisibleUnreadIds?.has(article.id)) {
+          matchesInbox = false;
+        }
+      }
       if (inboxTypeFilter !== 'all' && article.type !== inboxTypeFilter) matchesInbox = false;
       if (matchesInbox) inbox.push(article);
 
@@ -74,5 +81,5 @@ export const useFeedFiltering = ({
     }
 
     return { inboxArticles: inbox, savedArticles: saved };
-  }, [articles, inboxTypeFilter, inboxUnreadOnly, savedTypeFilter, savedUnreadOnly, deferredSearchQuery, sourceFilter, timeFilter, isSearchOpen]);
+  }, [articles, inboxTypeFilter, inboxUnreadOnly, savedTypeFilter, savedUnreadOnly, deferredSearchQuery, sourceFilter, timeFilter, isSearchOpen, temporarilyVisibleUnreadIds]);
 };

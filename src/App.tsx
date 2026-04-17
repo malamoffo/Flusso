@@ -103,6 +103,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'main' | 'subscriptions' | 'about' | 'general' | undefined>(undefined);
   const [isMarkAllReadOpen, setIsMarkAllReadOpen] = useState(false);
+  const [temporarilyVisibleUnreadIds, setTemporarilyVisibleUnreadIds] = useState<Set<string>>(new Set());
   
   const [filter, setFilter] = useState<'inbox' | 'saved' | 'reddit' | 'telegram'>('inbox');
   const [inboxTypeFilter, setInboxTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
@@ -205,6 +206,9 @@ export default function App() {
     if (selectedArticle) {
       setSelectedArticle(null);
     }
+
+    // Reset temporary visibility when changing tabs
+    setTemporarilyVisibleUnreadIds(new Set());
   }, [filter]);
 
   const handleFilterChange = (newFilter: 'inbox' | 'saved' | 'reddit' | 'telegram') => {
@@ -217,7 +221,12 @@ export default function App() {
   const handleTypeFilterChange = (newType: 'unread' | 'article' | 'podcast') => {
     if (filter === 'inbox') {
       if (newType === 'unread') {
-        setInboxUnreadOnly(!inboxUnreadOnly);
+        const nextValue = !inboxUnreadOnly;
+        setInboxUnreadOnly(nextValue);
+        // Clear temporary visibility when explicitly disabling the unread filter
+        if (!nextValue) {
+          setTemporarilyVisibleUnreadIds(new Set());
+        }
       } else {
         const nextType = inboxTypeFilter === newType ? 'all' : newType;
         setInboxTypeFilter(nextType);
@@ -295,6 +304,28 @@ export default function App() {
     };
   }, [selectedArticle, selectedRedditPost, selectedTelegramChannel, isSettingsOpen, isSearchOpen, filter, sourceFilter, timeFilter, setSearchQuery, enforceTelegramRetention, enforceRedditRetention]);
 
+  const markAsReadWithPersistence = useCallback((id: string) => {
+    markAsRead(id);
+    if (filter === 'inbox' && inboxUnreadOnly) {
+      setTemporarilyVisibleUnreadIds(prev => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+    }
+  }, [markAsRead, filter, inboxUnreadOnly]);
+
+  const markArticlesAsReadWithPersistence = useCallback((ids: string[]) => {
+    markArticlesAsRead(ids);
+    if (filter === 'inbox' && inboxUnreadOnly) {
+      setTemporarilyVisibleUnreadIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [markArticlesAsRead, filter, inboxUnreadOnly]);
+
   const { inboxArticles, savedArticles } = useFeedFiltering({
     articles,
     inboxTypeFilter,
@@ -304,7 +335,8 @@ export default function App() {
     deferredSearchQuery,
     sourceFilter,
     timeFilter,
-    isSearchOpen
+    isSearchOpen,
+    temporarilyVisibleUnreadIds
   });
 
   const { visibleCount, loadMore: loadMoreArticles, hasMore: hasMoreArticles, reset: resetPagination } = usePagination(filter === 'inbox' ? inboxArticles.length : savedArticles.length);
@@ -355,7 +387,7 @@ export default function App() {
           inboxTimerRef.current = setTimeout(() => {
             const toMark = inboxArticlesRef.current.filter(a => !a.isRead).map(a => a.id);
             if (toMark.length > 0) {
-              markArticlesAsRead(toMark);
+              markArticlesAsReadWithPersistence(toMark);
             }
             inboxTimerRef.current = null;
           }, 5000);
@@ -463,7 +495,7 @@ export default function App() {
           timerRef.current = setTimeout(() => {
             const toMark = articlesRef.current.filter(a => !a.isRead).map(a => a.id);
             if (toMark.length > 0) {
-              markArticlesAsRead(toMark);
+              markArticlesAsReadWithPersistence(toMark);
             }
             timerRef.current = null;
           }, 5000);
@@ -476,14 +508,14 @@ export default function App() {
         }
       }
     });
-  }, [hasMoreArticles, markArticlesAsRead]);
+  }, [hasMoreArticles, markArticlesAsRead, inboxUnreadOnly]);
 
   const handleArticleClick = useCallback((article: Article) => {
     setSelectedArticle(article);
     if (!article.isRead) {
-      markAsRead(article.id);
+      markAsReadWithPersistence(article.id);
     }
-  }, [markAsRead]);
+  }, [markAsReadWithPersistence]);
 
   const handleRemoveArticle = useCallback((id: string) => {
     const article = articles.find(a => a.id === id);
@@ -1004,7 +1036,7 @@ export default function App() {
                       }).map(a => a.id);
                       
                       if (toMark.length > 0) {
-                        markArticlesAsRead(toMark);
+                        markArticlesAsReadWithPersistence(toMark);
                       }
                     } else if (filter === 'saved') {
                       const toMark = savedArticles.filter(a => !a.isRead).map(a => a.id);
@@ -1107,14 +1139,14 @@ export default function App() {
                 if (hasNext) {
                   const next = activeArticles[activeIndex + 1];
                   setSelectedArticle(next);
-                  if (!next.isRead) markAsRead(next.id);
+                  if (!next.isRead) markAsReadWithPersistence(next.id);
                 }
               }}
               onPrev={() => {
                 if (hasPrev) {
                   const prev = activeArticles[activeIndex - 1];
                   setSelectedArticle(prev);
-                  if (!prev.isRead) markAsRead(prev.id);
+                  if (!prev.isRead) markAsReadWithPersistence(prev.id);
                 }
               }}
               hasNext={hasNext}
