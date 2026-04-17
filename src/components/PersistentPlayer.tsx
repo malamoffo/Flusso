@@ -69,8 +69,6 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
             
             <SeekButton direction="forward" />
             
-            <PlaybackRateButtonMini />
-            
             <button 
               onClick={(e) => { e.stopPropagation(); stop(); }}
               className="p-1 text-gray-400 hover:text-gray-200"
@@ -83,32 +81,6 @@ export const PersistentPlayer = React.memo(function PersistentPlayer({ onNavigat
     </AnimatePresence>
   );
 });
-
-const PlaybackRateButtonMini = () => {
-  const playbackRate = useAudioStore(state => state.playbackRate);
-  const setPlaybackRate = useAudioStore(state => state.setPlaybackRate);
-
-  const rates = [1, 1.25, 1.5, 2];
-  const currentIndex = rates.indexOf(playbackRate);
-  
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    let nextIndex = currentIndex + 1;
-    if (nextIndex >= rates.length) nextIndex = 0;
-    setPlaybackRate(rates[nextIndex]);
-  };
-
-  return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={handleToggle}
-      className="p-1 rounded text-indigo-400 hover:bg-white/10 transition-colors w-7 text-center ml-1"
-      aria-label="Change playback speed"
-    >
-      <span className="text-[10px] font-bold tracking-tighter block">{playbackRate}x</span>
-    </motion.button>
-  );
-};
 
 /**
  * ⚡ Bolt: Isolated title component to show current chapter.

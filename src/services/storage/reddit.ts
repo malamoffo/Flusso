@@ -235,6 +235,7 @@ export const redditStorage = {
           createdUtc: post.created_utc * 1000,
           score: post.score,
           numComments: post.num_comments,
+          selftextHtml: post.selftext_html ? he.decode(post.selftext_html) : undefined,
           isRead: false,
           isFavorite: false
         };
