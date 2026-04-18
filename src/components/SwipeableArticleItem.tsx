@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, animate, useReducedMotion } from 'framer-motion';
 import { format, isToday } from 'date-fns';
 import { Check, Trash2, Headphones, ListPlus, FileText, Bookmark, Star } from 'lucide-react';
+import he from 'he';
 import { Article, Settings } from '../types';
 import { useInView } from 'react-intersection-observer';
 import { contentFetcher } from '../utils/contentFetcher';
@@ -396,7 +397,7 @@ export const SwipeableArticleItem = React.memo(function SwipeableArticleItem({
                   "text-gray-400 line-clamp-2 leading-snug mb-1",
                   getSnippetSize()
                 )}>
-                  {article.contentSnippet}
+                  {he.decode(article.contentSnippet)}
                 </p>
               )}
 
