@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Trash2, Headphones, ExternalLink, Plus } from 'lucide-react';
+import { X, Trash2, Headphones, ExternalLink, Plus, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Feed } from '../types';
 import { CachedImage } from './CachedImage';
 import { cn } from '../lib/utils';
+import { format } from 'date-fns';
 
 export const PodcastDetailsModal = React.memo(function PodcastDetailsModal({ 
   isOpen, 
@@ -73,6 +74,12 @@ export const PodcastDetailsModal = React.memo(function PodcastDetailsModal({
                 </div>
               )}
               <h2 className="text-xl font-bold text-white leading-tight mb-2">{podcast.title}</h2>
+              {podcast.lastArticleDate && (
+                <div className="flex items-center gap-1.5 text-xs text-indigo-400 mb-3 bg-indigo-500/10 px-3 py-1 rounded-full">
+                  <Calendar className="w-3 h-3" />
+                  <span>Last update: {format(podcast.lastArticleDate, 'dd/MM/yyyy HH:mm')}</span>
+                </div>
+              )}
               {podcast.description && (
                 <p className="text-sm text-gray-400 line-clamp-3 px-4">{podcast.description}</p>
               )}

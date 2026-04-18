@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Image as ImageIcon, LayoutList, Maximize, Type, Plus, Trash2, Edit2, AlertCircle, Save, ArrowLeft, ChevronDown, ChevronUp, Github, Info, ExternalLink, RefreshCw, ShieldCheck, Download, CheckCircle2, FileText, Headphones, Upload, MessageSquare, Settings, Search, Palette, ChevronRight, FlaskConical, Calendar } from 'lucide-react';
 import { useRss } from '../context/RssContext';
 import { useSettings } from '../context/SettingsContext';
 import { useReddit } from '../context/RedditContext';
@@ -15,6 +15,7 @@ import { CachedImage } from './CachedImage';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { format } from 'date-fns';
 
 import { APP_VERSION, APP_BUILD, updateSW } from '../main';
 
@@ -202,6 +203,15 @@ export const SettingsModal = React.memo(function SettingsModal({
 
             {selectedFeed ? (
               <div className="space-y-4">
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-white mb-1">{selectedFeed.title}</h3>
+                  {selectedFeed.lastArticleDate && (
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full inline-flex">
+                      <Calendar className="w-3 h-3" />
+                      <span>Last update: {format(selectedFeed.lastArticleDate, 'dd/MM/yyyy HH:mm')}</span>
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
                   <input 
