@@ -119,7 +119,7 @@ export default function App() {
   
   const [filter, setFilter] = useState<'inbox' | 'saved' | 'reddit' | 'telegram'>('inbox');
   const scrollPositions = useRef<Record<string, number>>({});
-  const activeSectionRef = useRef<RefObject<HTMLDivElement> | null>(null);
+  const activeSectionRef = useRef<React.RefObject<HTMLDivElement> | null>(null);
 
   useEffect(() => {
     // Save current scroll position before filter changes
@@ -145,7 +145,7 @@ export default function App() {
   }, [filter]);
 
   useEffect(() => {
-    activeSectionRef.current = getActiveScrollRef();
+    activeSectionRef.current = getActiveScrollRef() as any;
   }, [filter, getActiveScrollRef]);
   
   const [inboxTypeFilter, setInboxTypeFilter] = useState<'all' | 'article' | 'podcast'>('all');
